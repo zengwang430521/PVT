@@ -2,9 +2,6 @@
 
 set -x
 
-#EXP_DIR=exps/smpl
 PY_ARGS=${@:1}
 
-python -u main.py \
-#    --output_dir ${EXP_DIR} \
-    ${PY_ARGS}
+python -u main.py ${PY_ARGS}
