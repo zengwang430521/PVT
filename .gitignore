@@ -13,3 +13,4 @@ tmp/
 **/work_dirs/
 **/results.pkl
 .idea
+*.zip
