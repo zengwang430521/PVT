@@ -25,6 +25,7 @@ from samplers import RASampler
 import pvt
 import utils
 import collections
+from mmcv.runner import init_dist, set_random_seed
 
 
 def get_args_parser():
@@ -168,14 +169,32 @@ def get_args_parser():
     parser.add_argument('--world_size', default=1, type=int,
                         help='number of distributed processes')
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
+
+    # slurm
+    parser.add_argument(
+        '--launcher',
+        choices=['none', 'pytorch', 'slurm', 'mpi'],
+        default='none',
+        help='job launcher')
+
     return parser
 
 
 def main(args):
-    utils.init_distributed_mode(args)
+    # utils.init_distributed_mode(args)
+
+    # init distributed env first, since logger depends on the dist info.
+    if args.launcher == 'none':
+        distributed = False
+    else:
+        dist_params = dict(backend='nccl')
+        distributed = True
+        init_dist(args.launcher, **dist_params)
+
     print(args)
     # if args.distillation_type != 'none' and args.finetune and not args.eval:
     #     raise NotImplementedError("Finetuning with distillation not yet supported")
+
 
     device = torch.device(args.device)
 
