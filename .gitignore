@@ -7,10 +7,9 @@ data/
 tmp.txt
 data
 tmp/
-**/data
-**/data/
 **/pretrained/
 **/work_dirs/
 **/results.pkl
 .idea
 *.zip
+*.pyc
