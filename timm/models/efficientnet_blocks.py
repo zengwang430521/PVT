@@ -7,7 +7,8 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from .layers import create_conv2d, drop_path, get_act_layer
+from .layers import create_conv2d, drop_path
+    #get_act_layer
 from .layers.activations import sigmoid
 
 # Defaults used for Google/Tensorflow training of mobile networks /w RMSprop as per

@@ -13,20 +13,23 @@ import torch
 import torch.nn as nn
 
 from .evo_norm import EvoNormBatch2d, EvoNormSample2d
-from .norm_act import BatchNormAct2d, GroupNormAct
+# from .norm_act import BatchNormAct2d, GroupNormAct
 from .inplace_abn import InplaceAbn
 
-_NORM_ACT_TYPES = {BatchNormAct2d, GroupNormAct, EvoNormBatch2d, EvoNormSample2d, InplaceAbn}
-_NORM_ACT_REQUIRES_ARG = {BatchNormAct2d, GroupNormAct, InplaceAbn}  # requires act_layer arg to define act type
+# _NORM_ACT_TYPES = {BatchNormAct2d, GroupNormAct, EvoNormBatch2d, EvoNormSample2d, InplaceAbn}
+# _NORM_ACT_REQUIRES_ARG = {BatchNormAct2d, GroupNormAct, InplaceAbn}  # requires act_layer arg to define act type
+_NORM_ACT_TYPES = {EvoNormBatch2d, EvoNormSample2d, InplaceAbn}
+_NORM_ACT_REQUIRES_ARG = {InplaceAbn}  # requires act_layer arg to define act type
 
 
 def get_norm_act_layer(layer_class):
     layer_class = layer_class.replace('_', '').lower()
-    if layer_class.startswith("batchnorm"):
-        layer = BatchNormAct2d
-    elif layer_class.startswith("groupnorm"):
-        layer = GroupNormAct
-    elif layer_class == "evonormbatch":
+    # if layer_class.startswith("batchnorm"):
+    #     layer = BatchNormAct2d
+    # elif layer_class.startswith("groupnorm"):
+    #     layer = GroupNormAct
+    # elif layer_class == "evonormbatch":
+    if layer_class == "evonormbatch":
         layer = EvoNormBatch2d
     elif layer_class == "evonormsample":
         layer = EvoNormSample2d

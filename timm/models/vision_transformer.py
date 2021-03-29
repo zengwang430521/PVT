@@ -31,7 +31,7 @@ from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from .helpers import build_model_with_cfg, overlay_external_default_cfg
 from .layers import StdConv2dSame, DropPath, to_2tuple, trunc_normal_
 from .resnet import resnet26d, resnet50d
-from .resnetv2 import ResNetV2
+# from .resnetv2 import ResNetV2
 from .registry import register_model
 
 _logger = logging.getLogger(__name__)
@@ -640,34 +640,34 @@ def vit_huge_patch14_224_in21k(pretrained=False, **kwargs):
     return model
 
 
-@register_model
-def vit_base_resnet50_224_in21k(pretrained=False, **kwargs):
-    """ R50+ViT-B/16 hybrid model from original paper (https://arxiv.org/abs/2010.11929).
-    ImageNet-21k weights @ 224x224, source https://github.com/google-research/vision_transformer.
-    """
-    # create a ResNetV2 w/o pre-activation, that uses StdConv and GroupNorm and has 3 stages, no head
-    backbone = ResNetV2(
-        layers=(3, 4, 9), num_classes=0, global_pool='', in_chans=kwargs.get('in_chans', 3),
-        preact=False, stem_type='same', conv_layer=StdConv2dSame)
-    model_kwargs = dict(
-        embed_dim=768, depth=12, num_heads=12, hybrid_backbone=backbone,
-        representation_size=768, **kwargs)
-    model = _create_vision_transformer('vit_base_resnet50_224_in21k', pretrained=pretrained, **model_kwargs)
-    return model
+# @register_model
+# def vit_base_resnet50_224_in21k(pretrained=False, **kwargs):
+#     """ R50+ViT-B/16 hybrid model from original paper (https://arxiv.org/abs/2010.11929).
+#     ImageNet-21k weights @ 224x224, source https://github.com/google-research/vision_transformer.
+#     """
+#     # create a ResNetV2 w/o pre-activation, that uses StdConv and GroupNorm and has 3 stages, no head
+#     backbone = ResNetV2(
+#         layers=(3, 4, 9), num_classes=0, global_pool='', in_chans=kwargs.get('in_chans', 3),
+#         preact=False, stem_type='same', conv_layer=StdConv2dSame)
+#     model_kwargs = dict(
+#         embed_dim=768, depth=12, num_heads=12, hybrid_backbone=backbone,
+#         representation_size=768, **kwargs)
+#     model = _create_vision_transformer('vit_base_resnet50_224_in21k', pretrained=pretrained, **model_kwargs)
+#     return model
 
 
-@register_model
-def vit_base_resnet50_384(pretrained=False, **kwargs):
-    """ R50+ViT-B/16 hybrid from original paper (https://arxiv.org/abs/2010.11929).
-    ImageNet-1k weights fine-tuned from in21k @ 384x384, source https://github.com/google-research/vision_transformer.
-    """
-    # create a ResNetV2 w/o pre-activation, that uses StdConv and GroupNorm and has 3 stages, no head
-    backbone = ResNetV2(
-        layers=(3, 4, 9), num_classes=0, global_pool='', in_chans=kwargs.get('in_chans', 3),
-        preact=False, stem_type='same', conv_layer=StdConv2dSame)
-    model_kwargs = dict(embed_dim=768, depth=12, num_heads=12, hybrid_backbone=backbone, **kwargs)
-    model = _create_vision_transformer('vit_base_resnet50_384', pretrained=pretrained, **model_kwargs)
-    return model
+# @register_model
+# def vit_base_resnet50_384(pretrained=False, **kwargs):
+#     """ R50+ViT-B/16 hybrid from original paper (https://arxiv.org/abs/2010.11929).
+#     ImageNet-1k weights fine-tuned from in21k @ 384x384, source https://github.com/google-research/vision_transformer.
+#     """
+#     # create a ResNetV2 w/o pre-activation, that uses StdConv and GroupNorm and has 3 stages, no head
+#     backbone = ResNetV2(
+#         layers=(3, 4, 9), num_classes=0, global_pool='', in_chans=kwargs.get('in_chans', 3),
+#         preact=False, stem_type='same', conv_layer=StdConv2dSame)
+#     model_kwargs = dict(embed_dim=768, depth=12, num_heads=12, hybrid_backbone=backbone, **kwargs)
+#     model = _create_vision_transformer('vit_base_resnet50_384', pretrained=pretrained, **model_kwargs)
+#     return model
 
 
 @register_model
