@@ -181,15 +181,15 @@ def get_args_parser():
 
 
 def main(args):
-    # utils.init_distributed_mode(args)
+    utils.init_distributed_mode(args)
 
-    # init distributed env first, since logger depends on the dist info.
-    if args.launcher == 'none':
-        distributed = False
-    else:
-        dist_params = dict(backend='nccl')
-        distributed = True
-        init_dist(args.launcher, **dist_params)
+    # # init distributed env first, since logger depends on the dist info.
+    # if args.launcher == 'none':
+    #     distributed = False
+    # else:
+    #     dist_params = dict(backend='nccl')
+    #     distributed = True
+    #     init_dist(args.launcher, **dist_params)
 
     print(args)
     # if args.distillation_type != 'none' and args.finetune and not args.eval:
