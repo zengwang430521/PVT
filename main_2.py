@@ -191,7 +191,6 @@ def get_args_parser():
         nargs='+',
         help='ids of gpus to use '
         '(only applicable to non-distributed training)')
-    parser.add_argument('--seed', type=int, default=None, help='random seed')
     parser.add_argument('--local_rank', type=int, default=0)
     return parser
 
