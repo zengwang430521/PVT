@@ -15,11 +15,11 @@ srun -p $node \
 
 
 
-srun -p HA_3D --gres=gpu:8 -n1 --ntasks-per-node=1 --job-name=pvt --kill-on-bad-exit=1
+srun -p pat_earth --gres=gpu:8 -n1 --ntasks-per-node=1 --job-name=pvt --kill-on-bad-exit=1
 python main_for_debug.py --model=pvt_small --batch-size=1 --output_dir=data/models/ --data-path=/path/to/imagenet --resume=data/models/pvt_small_le1.5.pth --eval
 
 
-srun -p HA_3D --gres=gpu:8 -n1 --ntasks-per-node=1 --job-name=pvt --kill-on-bad-exit=1
+srun -p pat_earth --gres=gpu:8 -n1 --ntasks-per-node=1 --job-name=pvt --kill-on-bad-exit=1
 sh dist_train.sh pvt_small 8 logs/pvt_small --data-path /mnt/lustre/zengwang/data/imagenet
 
 
