@@ -241,7 +241,7 @@ class MyPyramidVisionTransformer(nn.Module):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
 
-    @torch.jit.ignore
+    # @torch.jit.ignore
     def no_weight_decay(self):
         # return {'pos_embed', 'cls_token'} # has pos_embed may be better
         return {'cls_token'}
