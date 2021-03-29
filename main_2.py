@@ -26,7 +26,7 @@ import pvt
 import utils
 import collections
 from mmcv.runner import init_dist, set_random_seed
-
+import os
 
 def get_args_parser():
     parser = argparse.ArgumentParser('PVT training and evaluation script', add_help=False)
@@ -170,13 +170,29 @@ def get_args_parser():
                         help='number of distributed processes')
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
 
+
+
     # slurm
     parser.add_argument(
         '--launcher',
         choices=['none', 'pytorch', 'slurm', 'mpi'],
         default='none',
         help='job launcher')
-
+    group_gpus = parser.add_mutually_exclusive_group()
+    group_gpus.add_argument(
+        '--gpus',
+        type=int,
+        default=8,
+        help='number of gpus to use '
+        '(only applicable to non-distributed training)')
+    group_gpus.add_argument(
+        '--gpu-ids',
+        type=int,
+        nargs='+',
+        help='ids of gpus to use '
+        '(only applicable to non-distributed training)')
+    parser.add_argument('--seed', type=int, default=None, help='random seed')
+    parser.add_argument('--local_rank', type=int, default=0)
     return parser
 
 
