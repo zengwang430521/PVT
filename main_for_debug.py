@@ -379,7 +379,6 @@ def main(args):
     print('finish')
 
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('DeiT training and evaluation script', parents=[get_args_parser()])
     args = parser.parse_args()

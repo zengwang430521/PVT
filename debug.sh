@@ -19,4 +19,4 @@ srun -p pat_earth --gres=gpu:8 -n1 --ntasks-per-node=1 --job-name=pvt --kill-on-
 sh dist_train.sh pvt_small 8 logs/pvt_small --data-path /mnt/lustre/zengwang/data/imagenet
 
 
-GPUS_PER_NODE=8 ./slurm_train.sh pat_earth pvt 32 --model=pvt_small --output_dir=logs/pvt_small --data-path /mnt/lustre/zengwang/data/imagenet
+GPUS_PER_NODE=8 ./slurm_train.sh pat_earth pvt 8 --model=pvt_small --output_dir=logs/pvt_small --data-path /mnt/lustre/zengwang/data/imagenet
