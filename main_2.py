@@ -190,6 +190,7 @@ def main(args):
         dist_params = dict(backend='nccl')
         distributed = True
         init_dist(args.launcher, **dist_params)
+    args.distributed = True
 
     print(args)
     # if args.distillation_type != 'none' and args.finetune and not args.eval:
