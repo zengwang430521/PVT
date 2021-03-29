@@ -250,7 +250,7 @@ class FeatureHookNet(nn.ModuleDict):
             out_indices=(0, 1, 2, 3, 4), out_map=None, out_as_dict=False, no_rewrite=False,
             feature_concat=False, flatten_sequential=False, default_hook_type='forward'):
         super(FeatureHookNet, self).__init__()
-        assert not torch.jit.is_scripting()
+        # assert not torch.jit.is_scripting()
         self.feature_info = _get_feature_info(model, out_indices)
         self.out_as_dict = out_as_dict
         layers = OrderedDict()

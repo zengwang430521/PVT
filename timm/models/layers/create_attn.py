@@ -4,8 +4,8 @@ Hacked together by / Copyright 2020 Ross Wightman
 """
 import torch
 # from .se import SEModule, EffectiveSEModule
-from .eca import EcaModule, CecaModule
-from .cbam import CbamModule, LightCbamModule
+# from .eca import EcaModule, CecaModule
+# from .cbam import CbamModule, LightCbamModule
 
 #
 # def get_attn(attn_type):

@@ -18,7 +18,8 @@ import torch.nn.functional as F
 
 from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from .helpers import build_model_with_cfg
-from .layers import ClassifierHead, ConvBnAct, DropPath, create_attn, get_norm_act_layer
+# from .layers import ClassifierHead, ConvBnAct, DropPath, create_attn, get_norm_act_layer
+from .layers import ClassifierHead, DropPath, create_attn
 from .registry import register_model
 
 
