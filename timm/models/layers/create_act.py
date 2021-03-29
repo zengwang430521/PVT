@@ -38,14 +38,14 @@ _ACT_FN_JIT = dict(
     hard_mish=hard_mish_jit
 )
 
-_ACT_FN_ME = dict(
-    silu=F.silu if _has_silu else swish_me,
-    swish=F.silu if _has_silu else swish_me,
-    mish=mish_me,
-    hard_sigmoid=hard_sigmoid_me,
-    hard_swish=hard_swish_me,
-    hard_mish=hard_mish_me,
-)
+# _ACT_FN_ME = dict(
+#     silu=F.silu if _has_silu else swish_me,
+#     swish=F.silu if _has_silu else swish_me,
+#     mish=mish_me,
+#     hard_sigmoid=hard_sigmoid_me,
+#     hard_swish=hard_swish_me,
+#     hard_mish=hard_mish_me,
+# )
 
 _ACT_LAYER_DEFAULT = dict(
     silu=nn.SiLU if _has_silu else Swish,
@@ -75,14 +75,14 @@ _ACT_LAYER_JIT = dict(
     hard_mish=HardMishJit
 )
 
-_ACT_LAYER_ME = dict(
-    silu=nn.SiLU if _has_silu else SwishMe,
-    swish=nn.SiLU if _has_silu else SwishMe,
-    mish=MishMe,
-    hard_sigmoid=HardSigmoidMe,
-    hard_swish=HardSwishMe,
-    hard_mish=HardMishMe,
-)
+# _ACT_LAYER_ME = dict(
+#     silu=nn.SiLU if _has_silu else SwishMe,
+#     swish=nn.SiLU if _has_silu else SwishMe,
+#     mish=MishMe,
+#     hard_sigmoid=HardSigmoidMe,
+#     hard_swish=HardSwishMe,
+#     hard_mish=HardMishMe,
+# )
 
 
 def get_act_fn(name='relu'):
