@@ -207,7 +207,7 @@ def main(args):
         init_dist(args.launcher, **dist_params)
     args.distributed = True
 
-    print(args)
+    # print(args)
     # if args.distillation_type != 'none' and args.finetune and not args.eval:
     #     raise NotImplementedError("Finetuning with distillation not yet supported")
 
@@ -335,7 +335,8 @@ def main(args):
 
     model_without_ddp = model
     if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        # model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[torch.cuda.current_device()])
         model_without_ddp = model.module
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print('number of params:', n_parameters)
