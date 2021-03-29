@@ -1,6 +1,7 @@
 import os
 
-from .dataset import IterableImageDataset, ImageDataset
+# from .dataset import IterableImageDataset, ImageDataset
+from .dataset import ImageDataset
 
 
 def _search_split(root, split):
