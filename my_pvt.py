@@ -239,17 +239,23 @@ class MyPyramidVisionTransformer(nn.Module):
             # print(dpr[cur + i])
 
         cur += self.depths[0]
-        for i in range(self.depths[1]):
+        self.down_layers1.block.drop_path.drop_prob = dpr[cur]
+        cur += 1
+        for i in range(self.depths[1] - 1):
             self.block2[i].drop_path.drop_prob = dpr[cur + i]
             # print(dpr[cur + i])
 
         cur += self.depths[1]
-        for i in range(self.depths[2]):
+        self.down_layers2.block.drop_path.drop_prob = dpr[cur]
+        cur += 1
+        for i in range(self.depths[2] - 1):
             self.block3[i].drop_path.drop_prob = dpr[cur + i]
             # print(dpr[cur + i])
 
         cur += self.depths[2]
-        for i in range(self.depths[3]):
+        self.down_layers3.block.drop_path.drop_prob = dpr[cur]
+        cur += 1
+        for i in range(self.depths[3] - 1):
             self.block4[i].drop_path.drop_prob = dpr[cur + i]
             # print(dpr[cur + i])
 
