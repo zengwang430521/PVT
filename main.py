@@ -23,6 +23,7 @@ from losses import DistillationLoss
 from samplers import RASampler
 # import models
 import pvt
+import my_pvt
 import utils
 import collections
 
