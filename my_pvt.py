@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from functools import partial
 
-from .pvt import ( Mlp, Attention, PatchEmbed, Block, DropPath, to_2tuple, trunc_normal_,register_model, _cfg)
+from pvt import ( Mlp, Attention, PatchEmbed, Block, DropPath, to_2tuple, trunc_normal_,register_model, _cfg)
 
 
 __all__ = [
