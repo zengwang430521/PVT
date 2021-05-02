@@ -167,7 +167,7 @@ class MyPyramidVisionTransformer(nn.Module):
         self.block1 = nn.ModuleList([Block(
             dim=embed_dims[0], num_heads=num_heads[0], mlp_ratio=mlp_ratios[0], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
-            sr_ratio=sr_ratios[0], alpha=alpha)
+            sr_ratio=sr_ratios[0])  # , alpha=alpha)
             for i in range(depths[0])])
         cur += depths[0]
 
