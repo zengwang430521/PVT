@@ -354,7 +354,7 @@ def mypvt_small(pretrained=False, **kwargs):
 def mypvt_small_2(pretrained=False, **kwargs):
     model = MyPyramidVisionTransformer(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[1, 1, 1, 1], **kwargs)
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 1, 1, 1], **kwargs)
     model.default_cfg = _cfg()
 
     return model
