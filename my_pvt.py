@@ -120,14 +120,14 @@ class DownLayer(nn.Module):
         # x = x + pos_feature
         # x = self.pos_drop(x)
 
-        x = self.norm(x)
-        conf = self.conf(x)
+        conf = self.conf(self.norm(x))
         conf = F.softmax(conf, dim=1) * N
-        x = x * conf
         _, index_down = torch.topk(conf, self.sample_num, 1)
         x_down = torch.gather(x, 1, index_down.expand([B, self.sample_num, C]))
         pos_down = torch.gather(pos, 1, index_down.squeeze(-1))
         x_down, pos_down = x_down.contiguous(), pos_down.contiguous()
+
+        x = x * conf
         x_down = self.block(x_down, x, H, W)
 
         pos_feature = torch.index_select(pos_embed, 1, pos_down.reshape(-1))
@@ -329,18 +329,6 @@ class MyPyramidVisionTransformer(nn.Module):
 
 
 @register_model
-def mypvt_tiny(pretrained=False, **kwargs):
-    model = MyPyramidVisionTransformer(
-        patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[2, 2, 2, 2], sr_ratios=[8, 4, 2, 1],
-        # drop_rate=0.0, drop_path_rate=0.1)
-        **kwargs)
-    model.default_cfg = _cfg()
-
-    return model
-
-
-@register_model
 def mypvt_small(pretrained=False, **kwargs):
     model = MyPyramidVisionTransformer(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
@@ -360,28 +348,6 @@ def mypvt_small_2(pretrained=False, **kwargs):
     return model
 
 
-@register_model
-def mypvt_medium(pretrained=False, **kwargs):
-    model = MyPyramidVisionTransformer(
-        patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 18, 3], sr_ratios=[8, 4, 2, 1],
-        # drop_rate=0.0, drop_path_rate=0.05)
-        **kwargs)
-    model.default_cfg = _cfg()
-
-    return model
-
-
-@register_model
-def mypvt_large(pretrained=False, **kwargs):
-    model = MyPyramidVisionTransformer(
-        patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 8, 27, 3], sr_ratios=[8, 4, 2, 1],
-        # drop_rate=0.0, drop_path_rate=0.02)
-        **kwargs)
-    model.default_cfg = _cfg()
-
-    return model
 
 
 
