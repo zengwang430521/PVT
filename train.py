@@ -301,11 +301,12 @@ def main(args):
             model_without_ddp.load_state_dict(checkpoint['model'])
         else:
             model_without_ddp.load_state_dict(checkpoint)
-        state_dict = model.state_dict()
-        for k in ['head.weight', 'head.bias', 'head_dist.weight', 'head_dist.bias']:
-            if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
-                print(f"Removing key {k} from pretrained checkpoint")
-                del checkpoint_model[k]
+
+        # state_dict = model.state_dict()
+        # for k in ['head.weight', 'head.bias', 'head_dist.weight', 'head_dist.bias']:
+        #     if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
+        #         print(f"Removing key {k} from pretrained checkpoint")
+        #         del checkpoint_model[k]
 
         # # interpolate position embedding
         # pos_embed_checkpoint = checkpoint_model['pos_embed']
@@ -327,7 +328,7 @@ def main(args):
         # new_pos_embed = torch.cat((extra_tokens, pos_tokens), dim=1)
         # checkpoint_model['pos_embed'] = new_pos_embed
 
-        model.load_state_dict(checkpoint_model, strict=False)
+        # model.load_state_dict(checkpoint_model, strict=False)
 
     model.to(device)
 
