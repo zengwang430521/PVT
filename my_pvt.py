@@ -6,9 +6,9 @@ from functools import partial
 from pvt import ( Mlp, Attention, PatchEmbed, Block, DropPath, to_2tuple, trunc_normal_,register_model, _cfg)
 
 
-__all__ = [
-    'mypvt_tiny', 'mypvt_small', 'mypvt_medium', 'mypvt_large'
-]
+# __all__ = [
+#     'mypvt_tiny', 'mypvt_small', 'mypvt_medium', 'mypvt_large'
+# ]
 
 # import torchvision
 # torchvision.models.resnet50()
@@ -547,7 +547,7 @@ class DownLayer2(nn.Module):
                        torch.index_select(pos_embed, 1, pos_down.reshape(-1)).reshape(B, self.sample_num, -1))
         x = tuple_add(x, pos_feature)
         x = tuple_forward(self.pos_drop, x)
-        return x, pos
+        return x, (pos_grid, pos_down)
 
 
 class MyPVT2(nn.Module):
