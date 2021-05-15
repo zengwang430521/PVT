@@ -17,6 +17,8 @@ from mmdet.datasets import build_dataset
 from mmdet.models import build_detector
 from mmdet.utils import collect_env, get_root_logger
 import pvt
+import my_pvt
+import my_fpn
 
 
 def parse_args():
@@ -158,6 +160,9 @@ def main():
 
     model = build_detector(
         cfg.model, train_cfg=cfg.train_cfg, test_cfg=cfg.test_cfg)
+
+    # empty_input = torch.zeros([2,3,224,224])
+    # output = model.extract_feat(empty_input)
 
     datasets = [build_dataset(cfg.data.train)]
     if len(cfg.workflow) == 2:
