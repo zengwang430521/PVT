@@ -4,6 +4,7 @@ _base_ = [
 ]
 model = dict(
     # pretrained='pretrained/mypvt2_small.pth',
+    pretrained=None,
     backbone=dict(
         type='mypvt2_small',
         style='pytorch'),
