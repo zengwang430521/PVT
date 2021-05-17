@@ -401,7 +401,8 @@ class MyPVT2(nn.Module):
 
         # stage 1 Unchanged
         x, (H, W) = self.patch_embed1(x)
-        x = x + self.pos_embed1
+        pos_embed1 = self._get_pos_embed(self.pos_embed1, self.patch_embed1, H, W)
+        x = x + pos_embed1
         x = self.pos_drop1(x)
         for blk in self.block1:
             x = blk(x, H, W)
