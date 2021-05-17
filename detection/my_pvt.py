@@ -325,12 +325,12 @@ class MyPVT2(nn.Module):
         # trunc_normal_(self.cls_token, std=.02)
         self.apply(self._init_weights)
 
-        # transfer loc to xy
-        hl = wl = img_size // patch_size
-        y_map, x_map = torch.meshgrid(torch.arange(hl).float() / (hl - 1), torch.arange(wl).float() / (wl - 1))
-        xy_map = torch.stack((x_map, y_map), dim=-1)
-        xy_map = xy_map.reshape(-1, 2)
-        self.register_buffer('xy_map', xy_map)
+        # # transfer loc to xy
+        # hl = wl = img_size // patch_size
+        # y_map, x_map = torch.meshgrid(torch.arange(hl).float() / (hl - 1), torch.arange(wl).float() / (wl - 1))
+        # xy_map = torch.stack((x_map, y_map), dim=-1)
+        # xy_map = xy_map.reshape(-1, 2)
+        # self.register_buffer('xy_map', xy_map)
 
     def reset_drop_path(self, drop_path_rate):
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(self.depths))]
@@ -396,8 +396,8 @@ class MyPVT2(nn.Module):
 
     def forward_features(self, x):
         outs = []
-
         B = x.shape[0]
+        device = x.device
 
         # stage 1 Unchanged
         x, (H, W) = self.patch_embed1(x)
@@ -407,15 +407,20 @@ class MyPVT2(nn.Module):
         for blk in self.block1:
             x = blk(x, H, W)
 
-        # generate pos index of each node
-        pos = torch.arange(x.shape[1], dtype=torch.long, device=x.device)
+        # # generate pos index of each node
+        # loc = torch.meshgrid()
+        # y, x = torch.meshgrid(torch.arange(H, device=x.device).float() / (H - 1),
+        #                       torch.arange(W, device=x.device).float() / (W - 1))
+
         # split x into grid and adaptive nodes
+        pos = torch.arange(x.shape[1], dtype=torch.long, device=x.device)
         tmp = pos.reshape([H, W])
         grid_stride = self.grid_stride
         pos_grid = tmp[grid_stride // 2:H:grid_stride, grid_stride // 2:W:grid_stride]
         pos_grid = pos_grid.reshape([-1])
         mask = torch.ones(pos.shape, dtype=torch.bool, device=pos.device)
         mask[pos_grid] = 0
+
         pos_ada = torch.masked_select(pos, mask)
 
         x_grid = torch.index_select(x, 1, pos_grid)
@@ -425,8 +430,14 @@ class MyPVT2(nn.Module):
         pos_grid = pos_grid[None, :].repeat([B, 1])
         pos_ada = pos_ada[None, :].repeat([B, 1])
         pos = (pos_grid, pos_ada)
+
         # transfer pos from index to xy coord
-        loc = [self.xy_map[p, :] for p in pos]
+        # transfer loc to xy
+        y_map, x_map = torch.meshgrid(torch.arange(H, device=device).float() / (H - 1),
+                                      torch.arange(W, device=device).float() / (W - 1))
+        xy_map = torch.stack((x_map, y_map), dim=-1)
+        xy_map = xy_map.reshape(-1, 2)
+        loc = [xy_map[p, :] for p in pos]
         outs.append((x, loc, [H, W]))
 
         # stage 2
