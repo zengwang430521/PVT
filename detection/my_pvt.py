@@ -118,6 +118,19 @@ def tuple_times(x, alpha):
     return [x_i * alpha for x_i in x]
 
 
+def get_pos_embed(pos_embed, loc_xy, pos_size):
+    H, W = pos_size
+    B, N, _ = loc_xy.shape
+    C = pos_embed.shape[-1]
+    pos_embed = pos_embed.reshape(1, H, W, -1)
+    pos_embed = pos_embed.permute(0, 3, 1, 2).expand([B, C, H, W])
+    loc_xy = loc_xy * 2 - 1
+    loc_xy = loc_xy.unsqueeze(1)
+    pos_feature = F.grid_sample(pos_embed, loc_xy)
+    pos_feature = pos_feature.permute(0, 2, 3, 1).squeeze(1)
+    return pos_feature
+
+
 class MyBlock2(nn.Module):
 
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
@@ -179,9 +192,9 @@ class DownLayer2(nn.Module):
         self.block = down_block
         self.pos_drop = nn.Dropout(p=drop_rate)
 
-    def forward(self, x, pos, pos_embed):
+    def forward(self, x, loc, pos_embed, pos_size):
         x_grid, x_ada = x
-        pos_grid, pos_ada = pos
+        loc_grid, loc_ada = loc
         B, N_g, C = x_grid.shape
         B, N, C = x_ada.shape
         assert self.sample_num <= N
@@ -192,17 +205,25 @@ class DownLayer2(nn.Module):
         conf = F.softmax(conf, dim=1) * N
         _, index_down = torch.topk(conf, self.sample_num, 1)
         x_down = torch.gather(x_ada, 1, index_down.expand([B, self.sample_num, C]))
-        pos_down = torch.gather(pos_ada, 1, index_down.squeeze(-1))
-        x_down, pos_down = x_down.contiguous(), pos_down.contiguous()
+
+        loc_down = torch.gather(loc_ada, 1, index_down.expand([B, self.sample_num, 2]))
+
+        x_down, loc_down = x_down.contiguous(), loc_down.contiguous()
 
         x = self.block((x_grid, x_down), (x_grid, x_ada),
                        conf=(conf.new_ones(B, N_g, 1), conf))
 
-        pos_feature = (torch.index_select(pos_embed, 1, pos_grid.reshape(-1)).reshape(B, N_g, -1),
-                       torch.index_select(pos_embed, 1, pos_down.reshape(-1)).reshape(B, self.sample_num, -1))
+        # pos_feature = (torch.index_select(pos_embed, 1, loc_grid.reshape(-1)).reshape(B, N_g, -1),
+        #                torch.index_select(pos_embed, 1, loc_down.reshape(-1)).reshape(B, self.sample_num, -1))
+        pos_feature = get_pos_embed(pos_embed,
+                                    torch.cat([loc_grid, loc_down], dim=1),
+                                    pos_size)
+        pos_feature = (pos_feature[:, :N_g, :],
+                       pos_feature[:, N_g:, :])
+
         x = tuple_add(x, pos_feature)
         x = tuple_forward(self.pos_drop, x)
-        return x, (pos_grid, pos_down)
+        return x, (loc_grid, loc_down)
 
 
 class MyPVT2(nn.Module):
@@ -219,6 +240,8 @@ class MyPVT2(nn.Module):
         # patch_embed
         self.patch_embed1 = PatchEmbed(img_size=img_size, patch_size=patch_size, in_chans=in_chans,
                                        embed_dim=embed_dims[0])
+
+        self.pos_size = [img_size // patch_size, img_size // patch_size]
         # pos_embed
         self.pos_embed1 = nn.Parameter(torch.zeros(1, self.patch_embed1.num_patches, embed_dims[0]))
         self.pos_drop1 = nn.Dropout(p=drop_rate)
@@ -401,35 +424,29 @@ class MyPVT2(nn.Module):
         pos_grid = pos_grid[None, :].repeat([B, 1])
         pos_ada = pos_ada[None, :].repeat([B, 1])
         pos = (pos_grid, pos_ada)
-
         # transfer pos from index to xy coord
         loc = [self.xy_map[p, :] for p in pos]
         outs.append((x, loc, [H, W]))
 
         # stage 2
-        x, pos = self.down_layers1(x, pos, self.pos_embed2)     # down sample
+        x, loc = self.down_layers1(x, loc, self.pos_embed2, self.pos_size)     # down sample
         H, W = H // 2, W // 2
         for blk in self.block2:
             x = blk(x, x)
-        loc = [self.xy_map[p, :] for p in pos]
         outs.append((x, loc, [H, W]))
 
-
         # stage 3
-        x, pos = self.down_layers2(x, pos, self.pos_embed3)     # down sample
+        x, loc = self.down_layers2(x, loc, self.pos_embed3, self.pos_size)     # down sample
         H, W = H // 2, W // 2
         for blk in self.block3:
             x = blk(x, x)
-        loc = [self.xy_map[p, :] for p in pos]
         outs.append((x, loc, [H, W]))
 
-
         # stage 4
-        x, pos = self.down_layers3(x, pos, self.pos_embed4)     # down sample
+        x, loc = self.down_layers3(x, loc, self.pos_embed4, self.pos_size)     # down sample
         H, W = H // 2, W // 2
         for blk in self.block4:
             x = blk(x, x)
-        loc = [self.xy_map[p, :] for p in pos]
         outs.append((x, loc, [H, W]))
         return outs
 
