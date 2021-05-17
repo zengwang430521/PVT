@@ -160,7 +160,7 @@ def main():
     model = build_detector(
         cfg.model, train_cfg=cfg.train_cfg, test_cfg=cfg.test_cfg)
 
-    empty_input = torch.zeros([2,3,224,224])
+    empty_input = torch.zeros([2, 3, 256, 256])
     output = model.extract_feat(empty_input)
 
     datasets = [build_dataset(cfg.data.train)]
