@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from functools import partial
 from mmdet.models.builder import BACKBONES
-from pvt import (Mlp, Attention, PatchEmbed, Block, DropPath, to_2tuple, trunc_normal_, _cfg)
+from pvt import (Mlp, Attention, PatchEmbed, Block, DropPath, to_2tuple, trunc_normal_, _cfg, get_root_logger, load_checkpoint)
 
 
 class MyAttention2(nn.Module):
@@ -337,14 +337,10 @@ class MyPVT2(nn.Module):
             self.block4[i].drop_path.drop_prob = dpr[cur + i]
             # print(dpr[cur + i])
 
-    def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
+    def init_weights(self, pretrained=None):
+        if isinstance(pretrained, str):
+            logger = get_root_logger()
+            load_checkpoint(self, pretrained, map_location='cpu', strict=False, logger=logger)
 
     # @torch.jit.ignore
     def no_weight_decay(self):
