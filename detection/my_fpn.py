@@ -15,7 +15,7 @@ def token2map(x, loc, map_size, kernel_size, sigma):
     loc = loc * torch.FloatTensor([W-1, H-1]).to(loc.device)[None, None, :]
     loc = loc.round().long()
     idx = loc[..., 0] + loc[..., 1] * W
-    idx = idx + torch.arange(B)[:, None] * H*W
+    idx = idx + torch.arange(B)[:, None].to(loc.device) * H*W
 
     out = x.new_zeros(B*H*W, C+1)
     out.index_add_(dim=0, index=idx.reshape(B*N),
