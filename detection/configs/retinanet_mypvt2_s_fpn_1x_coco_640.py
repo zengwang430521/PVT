@@ -81,3 +81,5 @@ data = dict(
         img_prefix=data_root + 'val2017/',
         pipeline=test_pipeline))
 evaluation = dict(interval=1, metric='bbox')
+
+find_unused_parameters=True
