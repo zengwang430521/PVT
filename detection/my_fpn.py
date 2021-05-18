@@ -286,6 +286,10 @@ class MyFPN(BaseModule):
     @auto_fp16()
     def forward(self, inputs):
         """Forward function."""
+        tmp = inputs[-1]
+        tmp_out = tmp
+
+        inputs = inputs[:-1]
         assert len(inputs) == len(self.in_channels)
 
         tokens = [torch.cat(tmp[0], dim=1) for tmp in inputs]
@@ -340,6 +344,11 @@ class MyFPN(BaseModule):
                         outs.append(self.fpn_convs[i](F.relu(outs[-1])))
                     else:
                         outs.append(self.fpn_convs[i](outs[-1]))
+
+        # debug
+        for tmp_loc in locs:
+            tmp_out = tmp_out + tmp_loc.sum() * 0
+        outs[-1] = outs[-1] + tmp_out
         return tuple(outs)
 
 
