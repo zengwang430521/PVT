@@ -82,4 +82,4 @@ data = dict(
         pipeline=test_pipeline))
 evaluation = dict(interval=1, metric='bbox')
 
-find_unused_parameters=True
+# find_unused_parameters = True

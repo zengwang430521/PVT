@@ -327,6 +327,7 @@ class MyFPN(BaseModule):
                 if self.add_extra_convs == 'on_input':
                     src_lv = self.backbone_end_level - 1
                     extra_source = token2map(tokens[src_lv], locs[src_lv], feature_sizes[src_lv], self.kernel_size[src_lv], self.sigma[src_lv])
+                    extra_source = extra_source + tokens[0].sum() * 0
                 elif self.add_extra_convs == 'on_lateral':
                     extra_source = laterals[-1]
                 elif self.add_extra_convs == 'on_output':

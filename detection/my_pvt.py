@@ -461,10 +461,10 @@ class MyPVT2(nn.Module):
             x = blk(x, x)
         outs.append((x, loc, [H, W]))
 
-        # for pos embed grad
-        x[0][:, 0, 0] += self.pos_embed2.sum() * 0 \
-                         + self.pos_embed3.sum() * 0 \
-                         + self.pos_embed4.sum() * 0
+        # # for pos embed grad
+        # x[0][:, 0, 0] += self.pos_embed2.sum() * 0 \
+        #                  + self.pos_embed3.sum() * 0 \
+        #                  + self.pos_embed4.sum() * 0
         return outs
 
     def forward(self, x):
