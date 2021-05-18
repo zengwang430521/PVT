@@ -309,7 +309,8 @@ class MyPVT2(nn.Module):
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=1, alpha=alpha)
             for i in range(1, depths[3])])
-        self.norm = norm_layer(embed_dims[3])
+
+        # self.norm = norm_layer(embed_dims[3])
 
         # cls_token
         # self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dims[3]))
