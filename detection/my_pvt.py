@@ -424,6 +424,9 @@ class MyPVT2(nn.Module):
 
         pos_ada = torch.masked_select(pos, mask)
 
+        # # debug
+        # f1 = x.reshape([B, H, W, -1]).permute(0, 3, 1, 2)
+
         x_grid = torch.index_select(x, 1, pos_grid)
         x_ada = torch.index_select(x, 1, pos_ada)
         x = (x_grid, x_ada)
@@ -440,6 +443,11 @@ class MyPVT2(nn.Module):
         xy_map = xy_map.reshape(-1, 2)
         loc = [xy_map[p, :] for p in pos]
         outs.append((x, loc, [H, W]))
+
+        # # DEBUG
+        # from my_fpn import token2map
+        # f2 = token2map(torch.cat(x, dim=1), torch.cat(loc, dim=1), [H, W], 7, 2)
+        # err = f1 - f2
 
         # stage 2
         x, loc = self.down_layers1(x, loc, self.pos_embed2, self.pos_size)     # down sample
