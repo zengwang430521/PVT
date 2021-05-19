@@ -3,7 +3,7 @@ import torch
 import math
 import torch.nn as nn
 import torch.nn.functional as F
-from mmcv.cnn import ConvModule
+from mmcv.cnn import ConvModule, initialize
 from mmcv.runner import BaseModule, auto_fp16
 from mmdet.models.builder import NECKS
 
@@ -350,6 +350,18 @@ class MyFPN(BaseModule):
         # outs[-1] = outs[-1] + tmp_out
         return tuple(outs)
 
+    def init_weights(self):
+        """Initialize the weights."""
+        if not self._is_init:
+            if self.init_cfg:
+                initialize(self, self.init_cfg)
+            for m in self.children():
+                if hasattr(m, 'init_weights'):
+                    m.init_weights()
+            self._is_init = True
+        else:
+            warnings.warn(f'init_weights of {self.__class__.__name__} has '
+                          f'been called more than once.')
 
 @NECKS.register_module()
 class MyFPN1(BaseModule):
