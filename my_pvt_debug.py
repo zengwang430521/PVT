@@ -127,6 +127,7 @@ def get_pos_embed(pos_embed, loc_xy, pos_size):
     loc_xy = loc_xy.unsqueeze(1)
     pos_feature = F.grid_sample(pos_embed, loc_xy)
     pos_feature = pos_feature.permute(0, 2, 3, 1).squeeze(1)
+    print('use interpolate pos embed.')
     return pos_feature
 
 
