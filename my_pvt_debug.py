@@ -2,8 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from functools import partial
-from mmdet.models.builder import BACKBONES
-from my_pvt import (Mlp, Attention, PatchEmbed, Block, DropPath, to_2tuple, trunc_normal_, _cfg)
+from pvt import ( Mlp, Attention, PatchEmbed, Block, DropPath, to_2tuple, trunc_normal_,register_model, _cfg)
 
 
 class MyAttention2(nn.Module):
@@ -471,8 +470,7 @@ class MyPVT2(nn.Module):
         x = self.head(x)
         return x
 
-
-@BACKBONES.register_module()
+@register_model
 class mypvt2d_small(MyPVT2):
     def __init__(self, **kwargs):
         super().__init__(
