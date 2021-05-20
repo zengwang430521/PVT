@@ -2,6 +2,14 @@ _base_ = [
     '../configs/_base_/models/retinanet_r50_fpn.py',
     '../configs/_base_/default_runtime.py'
 ]
+
+log_config = dict(
+    interval=1,
+    hooks=[
+        dict(type='TextLoggerHook'),
+        # dict(type='TensorboardLoggerHook')
+    ])
+
 model = dict(
     pretrained='pretrained/pvt_small.pth',
     backbone=dict(

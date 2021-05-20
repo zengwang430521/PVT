@@ -3,11 +3,11 @@ dist_train.sh configs/retinanet_mypvt2_s_fpn_1x_coco_640.py 8
 
 srun -p 3dv-share -w SH-IDC1-10-198-6-129 --gres=gpu:8 -n1 --ntasks-per-node=8 --cpus-per-task=5 --job-name=pvt_s_d --kill-on-bad-exit=1
 
-srun -p 3dv-share -w SH-IDC1-10-198-6-130 --gres=gpu:2 -n1 --ntasks-per-node=2 --cpus-per-task=2 --job-name=pvt_s_d --kill-on-bad-exit=1
-python -u train.py configs/retinanet_pvt_s_fpn_1x_coco_640.py --work-dir=work_dirs/pvt_s_d --launcher="slurm"
+srun -p 3dv-share -w SH-IDC1-10-198-6-130 --gres=gpu:2 -n1 --ntasks-per-node=2 --cpus-per-task=2 --job-name=pvt_s_d --kill-on-bad-exit=1 \
+python -u train.py configs/debug_cfg.py --work-dir=work_dirs/pvt_s_d --launcher="slurm"
 
-srun -p pat_earth --gres=gpu:2 -n1 --ntasks-per-node=2 --cpus-per-task=2 --job-name=pvt_s_d --kill-on-bad-exit=1
-python -u train.py configs/retinanet_pvt_s_fpn_1x_coco_640.py --work-dir=work_dirs/pvt_s_d --launcher="slurm"
+srun -p pat_earth --gres=gpu:2 -n1 --ntasks-per-node=2 --cpus-per-task=2 --job-name=pvt_s_d --kill-on-bad-exit=1  \
+python -u train.py configs/debug_cfg.py --work-dir=work_dirs/pvt_s_d --launcher="slurm"
 
 
 srun -p pat_earth --gres=gpu:8 -n1 --ntasks-per-node=1 --job-name=pvt_s_d --kill-on-bad-exit=1
