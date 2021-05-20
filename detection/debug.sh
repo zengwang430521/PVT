@@ -7,7 +7,7 @@ srun -p 3dv-share -w SH-IDC1-10-198-6-130 --gres=gpu:2 -n1 --ntasks-per-node=2 -
 python -u train.py configs/debug_cfg.py --work-dir=work_dirs/debug --launcher="slurm"
 
 srun -p pat_earth --gres=gpu:2 -n1 --ntasks-per-node=2 --cpus-per-task=2 --job-name=pvt_s_d --kill-on-bad-exit=1  \
-python -u train.py configs/debug_cfg.py --work-dir=work_dirs/debug --launcher="slurm"
+python my_debug.py
 
 
 srun -p pat_earth --gres=gpu:8 -n1 --ntasks-per-node=1 --job-name=pvt_s_d --kill-on-bad-exit=1
