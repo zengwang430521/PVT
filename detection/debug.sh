@@ -9,6 +9,8 @@ python -u train.py configs/debug_cfg.py --work-dir=work_dirs/debug --launcher="s
 srun -p pat_earth --gres=gpu:2 -n1 --ntasks-per-node=2 --cpus-per-task=2 --job-name=pvt_s_d --kill-on-bad-exit=1  \
 python -u train.py configs/debug_cfg.py --work-dir=work_dirs/debug --launcher="slurm"
 
+srun -p pat_earth --gres=gpu:1 -n1 --ntasks-per-node=1 --cpus-per-task=1 --job-name=env --kill-on-bad-exit=1
+
 
 srun -p pat_earth --gres=gpu:8 -n1 --ntasks-per-node=1 --job-name=pvt_s_d --kill-on-bad-exit=1
 dist_train.sh configs/retinanet_mypvt2_s_fpn_1x_coco_640.py 8
