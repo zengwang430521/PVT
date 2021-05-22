@@ -32,6 +32,25 @@ class PVTCNN(PyramidVisionTransformer):
             nn.Conv2d(256, embed_dims[0], kernel_size=1)
         )
 
+    def reset_drop_path(self, drop_path_rate):
+        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(self.depths))]
+        cur = 0
+        for i in range(self.depths[0]):
+            # self.block1[i].drop_path.drop_prob = dpr[cur + i]
+            pass
+
+        cur += self.depths[0]
+        for i in range(self.depths[1]):
+            self.block2[i].drop_path.drop_prob = dpr[cur + i]
+
+        cur += self.depths[1]
+        for i in range(self.depths[2]):
+            self.block3[i].drop_path.drop_prob = dpr[cur + i]
+
+        cur += self.depths[2]
+        for i in range(self.depths[3]):
+            self.block4[i].drop_path.drop_prob = dpr[cur + i]
+
     def forward_features(self, x):
         B = x.shape[0]
 
