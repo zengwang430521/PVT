@@ -3,7 +3,7 @@ _base_ = [
     '../configs/_base_/default_runtime.py'
 ]
 model = dict(
-    pretrained='../work_dirs/mypvt2_s_again/pretrain_177.pth',
+    pretrained='pretrained/mypvt2_s_300.pth',
     # pretrained=None,
     backbone=dict(
         type='mypvt2_small',

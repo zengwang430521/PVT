@@ -3,7 +3,7 @@ import torch
 import math
 import torch.nn as nn
 import torch.nn.functional as F
-from mmcv.cnn import ConvModule  #, initialize
+from mmcv.cnn import ConvModule, initialize
 from mmcv.runner import BaseModule, auto_fp16
 from mmdet.models.builder import NECKS
 
