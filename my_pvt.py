@@ -771,10 +771,247 @@ def mypvt2_small(pretrained=False, **kwargs):
     return model
 
 
+class MyPVT3(nn.Module):
+    def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
+                 num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
+                 attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
+                 depths=[3, 4, 6, 3], sr_ratios=[8, 1, 1, 1], alpha=1, grid_stride=8):
+        super().__init__()
+        self.grid_stride = int(grid_stride)
+        self.num_classes = num_classes
+        self.depths = depths
+        self.alpha = alpha
+
+        # patch_embed
+        self.patch_embed1 = PatchEmbed(img_size=img_size, patch_size=patch_size, in_chans=in_chans,
+                                       embed_dim=embed_dims[0])
+        self.patch_embed2 = PatchEmbed(img_size=img_size // 4, patch_size=2, in_chans=embed_dims[0],
+                                       embed_dim=embed_dims[1])
+        self.patch_embed3 = PatchEmbed(img_size=img_size // 8, patch_size=2, in_chans=embed_dims[1],
+                                       embed_dim=embed_dims[2])
+        self.patch_embed4 = PatchEmbed(img_size=img_size // 16, patch_size=2, in_chans=embed_dims[2],
+                                       embed_dim=embed_dims[3])
+
+        # pos_embed
+        self.pos_embed1 = nn.Parameter(torch.zeros(1, self.patch_embed1.num_patches, embed_dims[0]))
+        self.pos_drop1 = nn.Dropout(p=drop_rate)
+        self.pos_embed2 = nn.Parameter(torch.zeros(1, self.patch_embed2.num_patches, embed_dims[1]))
+        self.pos_drop2 = nn.Dropout(p=drop_rate)
+        self.pos_embed3 = nn.Parameter(torch.zeros(1, self.patch_embed3.num_patches, embed_dims[2]))
+        self.pos_drop3 = nn.Dropout(p=drop_rate)
+        self.pos_embed4 = nn.Parameter(torch.zeros(1, self.patch_embed4.num_patches + 1, embed_dims[3]))
+        self.pos_drop4 = nn.Dropout(p=drop_rate)
+
+        # transformer encoder
+        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
+        sample_num = self.patch_embed1.num_patches
+        cur = 0
+
+        # stage 1, unchanged
+        self.block1 = nn.ModuleList([Block(
+            dim=embed_dims[0], num_heads=num_heads[0], mlp_ratio=mlp_ratios[0], qkv_bias=qkv_bias, qk_scale=qk_scale,
+            drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
+            sr_ratio=sr_ratios[0])  # , alpha=alpha)
+            for i in range(depths[0])])
+        cur += depths[0]
+
+        # stage 2
+        self.block2 = nn.ModuleList([MyBlock2(
+            dim=embed_dims[1], num_heads=num_heads[1], mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
+            drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
+            sr_ratio=1, alpha=alpha)
+            for i in range(0, depths[1])])
+        cur += depths[1]
+
+        # stage 3
+        self.block3 = nn.ModuleList([MyBlock2(
+            dim=embed_dims[2], num_heads=num_heads[2], mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
+            drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
+            sr_ratio=1, alpha=alpha)
+            for i in range(0, depths[2])])
+        cur += depths[2]
+
+        # stage 4
+        self.block4 = nn.ModuleList([MyBlock2(
+            dim=embed_dims[3], num_heads=num_heads[3], mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
+            drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
+            sr_ratio=1, alpha=alpha)
+            for i in range(0, depths[3])])
+        self.norm = norm_layer(embed_dims[3])
+
+        # cls_token
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dims[3]))
+
+        # classification head
+        self.head = nn.Linear(embed_dims[3], num_classes) if num_classes > 0 else nn.Identity()
+
+        # init weights
+        trunc_normal_(self.pos_embed1, std=.02)
+        trunc_normal_(self.pos_embed2, std=.02)
+        trunc_normal_(self.pos_embed3, std=.02)
+        trunc_normal_(self.pos_embed4, std=.02)
+        trunc_normal_(self.cls_token, std=.02)
+        self.apply(self._init_weights)
+
+    def reset_drop_path(self, drop_path_rate):
+        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(self.depths))]
+        cur = 0
+        for i in range(self.depths[0]):
+            self.block1[i].drop_path.drop_prob = dpr[cur + i]
+            # print(dpr[cur + i])
+
+        cur += self.depths[0]
+        self.down_layers1.block.drop_path.drop_prob = dpr[cur]
+        cur += 1
+        for i in range(self.depths[1] - 1):
+            self.block2[i].drop_path.drop_prob = dpr[cur + i]
+            # print(dpr[cur + i])
+
+        cur += self.depths[1] - 1
+        self.down_layers2.block.drop_path.drop_prob = dpr[cur]
+        cur += 1
+        for i in range(self.depths[2] - 1):
+            self.block3[i].drop_path.drop_prob = dpr[cur + i]
+            # print(dpr[cur + i])
+
+        cur += self.depths[2] - 1
+        self.down_layers3.block.drop_path.drop_prob = dpr[cur]
+        cur += 1
+        for i in range(self.depths[3] - 1):
+            self.block4[i].drop_path.drop_prob = dpr[cur + i]
+            # print(dpr[cur + i])
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+
+    # @torch.jit.ignore
+    def no_weight_decay(self):
+        # return {'pos_embed', 'cls_token'} # has pos_embed may be better
+        return {'cls_token'}
+
+    def get_classifier(self):
+        return self.head
+
+    def reset_classifier(self, num_classes, global_pool=''):
+        self.num_classes = num_classes
+        self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
+
+    def _get_pos_embed(self, pos_embed, patch_embed, H, W):
+        if H * W == self.patch_embed1.num_patches:
+            return pos_embed
+        else:
+            return F.interpolate(
+                pos_embed.reshape(1, patch_embed.H, patch_embed.W, -1).permute(0, 3, 1, 2),
+                size=(H, W), mode="bilinear").reshape(1, -1, H * W).permute(0, 2, 1)
+
+    def split_tokens(self, x, H, W, level):
+        # split x into grid and adaptive nodes
+
+        B = x.shape[0]
+
+        pos = torch.arange(x.shape[1], dtype=torch.long, device=x.device)
+        tmp = pos.reshape([H, W])
+        grid_stride = int(self.grid_stride // 2 ** (level-1))
+
+        pos_grid = tmp[grid_stride // 2:H:grid_stride, grid_stride // 2:W:grid_stride]
+        pos_grid = pos_grid.reshape([-1])
+        mask = torch.ones(pos.shape, dtype=torch.bool, device=pos.device)
+        mask[pos_grid] = 0
+        pos_ada = torch.masked_select(pos, mask)
+
+        x_grid = torch.index_select(x, 1, pos_grid)
+        x_ada = torch.index_select(x, 1, pos_ada)
+        x = (x_grid, x_ada)
+
+        pos_grid = pos_grid[None, :].repeat([B, 1])
+        pos_ada = pos_ada[None, :].repeat([B, 1])
+        pos = (pos_grid, pos_ada)
+        return x, pos
+
+    def merge_tokens(self, x, pos):
+        out = torch.cat(x, dim=1)
+        index = torch.cat(pos, dim=1)[0]
+        out = torch.index_select(out, dim=1, index=index).contiguous()
+        return out
+
+    def forward_features(self, x):
+        B = x.shape[0]
+
+        # stage 1 Unchanged
+        x, (H, W) = self.patch_embed1(x)
+        x = x + self.pos_embed1
+        x = self.pos_drop1(x)
+        for blk in self.block1:
+            x = blk(x, H, W)
+        x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+
+        # stage 2
+        x, (H, W) = self.patch_embed2(x)
+        x = x + self.pos_embed2
+        x = self.pos_drop2(x)
+
+        x, pos = self.split_tokens(x, H, W, level=2)
+        for blk in self.block2:
+            x = blk(x, x)
+        x = self.merge_tokens(x, pos)
+
+        x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+
+        # stage 3
+        x, (H, W) = self.patch_embed3(x)
+        x = x + self.pos_embed3
+        x = self.pos_drop3(x)
+        x, pos = self.split_tokens(x, H, W, level=3)
+        for blk in self.block3:
+            x = blk(x, x)
+        x = self.merge_tokens(x, pos)
+        x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+
+        # stage 4
+        x, (H, W) = self.patch_embed4(x)
+        cls_tokens = self.cls_token.expand(B, -1, -1)
+        x = torch.cat((cls_tokens, x), dim=1)
+        x = x + self.pos_embed4
+        x = self.pos_drop4(x)
+        x_cls = x[:, [0]]
+        x, pos = self.split_tokens(x[:, 1:], H, W, level=4)
+        x = (torch.cat([x_cls, x[0]], 1), x[1])
+        for blk in self.block4:
+            x = blk(x, x)
+        x_cls = x[0][:, [0]]
+        x = (x[0][:, 1:], x[1])
+        x = self.merge_tokens(x, pos)
+        x = torch.cat([x_cls, x], 1)
+        x = self.norm(x)
+        return x[:, 0]
+
+    def forward(self, x):
+        x = self.forward_features(x)
+        x = self.head(x)
+
+        return x
+
+
+@register_model
+def mypvt3_small(pretrained=False, **kwargs):
+    model = MyPVT3(
+        patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 1, 1, 1], grid_stride=8, **kwargs)
+    model.default_cfg = _cfg()
+
+    return model
+
+
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt2_small().to(device)
+    model = mypvt3_small().to(device)
     empty_input = torch.rand([2, 3, 224, 224], device=device)
     output = model(empty_input)
     print('Finish')
