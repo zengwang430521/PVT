@@ -361,6 +361,7 @@ class MyPVT4(nn.Module):
 
     def forward_features(self, x):
         B = x.shape[0]
+        device = x.device
 
         # stage 1 Unchanged
         x, (H, W) = self.patch_embed1(x)
@@ -413,7 +414,6 @@ def mypvt4_small(pretrained=False, **kwargs):
     model.default_cfg = _cfg()
 
     return model
-
 
 
 
