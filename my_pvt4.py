@@ -56,6 +56,8 @@ def reconstruct_feature(feature, mask, kernel_size, sigma):
     out = guassian_filt(torch.cat([feature, mask], dim=1),
                         kernel_size=kernel_size, sigma=sigma)
     feature_inter = out[:, :-1] / (out[:, [-1]] + 1e-8)
+    mask_inter = (out[:, [-1]] > 0).float()
+    feature_inter = feature_inter * mask_inter
     out = feature + (1 - mask) * feature_inter
     return out
 
@@ -77,6 +79,7 @@ def token2map(x, loc, map_size, kernel_size, sigma):
 
     feature = feature / (mask + 1e-8)
     mask = (mask > 0).float()
+    feature = feature * mask
     feature = reconstruct_feature(feature, mask, kernel_size, sigma)
     return feature
 
