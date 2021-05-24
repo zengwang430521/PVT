@@ -992,7 +992,7 @@ class MyPVT3(nn.Module):
 def mypvt3_small(pretrained=False, **kwargs):
     model = MyPVT3(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 1, 1, 1], grid_stride=8, **kwargs)
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], grid_stride=8, **kwargs)
     model.default_cfg = _cfg()
 
     return model
@@ -1001,7 +1001,10 @@ def mypvt3_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt3_small().to(device)
+    model = mypvt3_small(drop_path_rate=0.1).to(device)
+    model.reset_drop_path(0.1)
+
     empty_input = torch.rand([2, 3, 224, 224], device=device)
     output = model(empty_input)
     print('Finish')
+
