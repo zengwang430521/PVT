@@ -78,7 +78,7 @@ def my_train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
-    print_freq = 1
+    print_freq = 10
 
     # prefetcher = data_prefetcher(data_loader, device, prefetch=True)
     prefetcher = DataPrefetcher(data_loader)
