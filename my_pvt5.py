@@ -7,7 +7,6 @@ from pvt import ( Mlp, Attention, PatchEmbed, Block, DropPath, to_2tuple, trunc_
 import math
 
 
-
 def guassian_filt(x, kernel_size=3, sigma=2):
     channels = x.shape[1]
 
@@ -194,16 +193,24 @@ class DownLayer(nn.Module):
         self.block = down_block
         self.pos_drop = nn.Dropout(p=drop_rate)
 
-    def forward(self, x, pos, pos_embed, H, W, pos_size):
+    def forward(self, x, pos, pos_embed, H, W, pos_size, N_grid):
         B, N, C = x.shape
         assert self.sample_num <= N
 
+        x_grid = x[:, :N_grid]
+        x_ada = x[:, N_grid:]
+        pos_grid = pos[:, :N_grid]
+        pos_ada = pos[:, N_grid:]
+
         conf = self.conf(self.norm(x))
         conf = F.softmax(conf, dim=1) * N
-        _, index_down = torch.topk(conf, self.sample_num, 1)
-        x_down = torch.gather(x, 1, index_down.expand([B, self.sample_num, C]))
-        pos_down = torch.gather(pos, 1, index_down.expand([B, self.sample_num, 2]))
-        x_down, pos_down = x_down.contiguous(), pos_down.contiguous()
+        conf_ada = conf[:, N_grid:]
+        _, index_down = torch.topk(conf_ada, self.sample_num, 1)
+        x_down = torch.gather(x_ada, 1, index_down.expand([B, self.sample_num, C]))
+        pos_down = torch.gather(pos_ada, 1, index_down.expand([B, self.sample_num, 2]))
+
+        x_down = torch.cat([x_grid, x_down], 1)
+        pos_down = torch.cat([pos_grid, pos_down], 1)
 
         x = x * conf
         x_down = self.block(x_down, x, pos, H, W)
@@ -214,7 +221,7 @@ class DownLayer(nn.Module):
         return x_down, pos_down
 
 
-class MyPVT4(nn.Module):
+class MyPVT5(nn.Module):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
@@ -223,6 +230,7 @@ class MyPVT4(nn.Module):
         self.num_classes = num_classes
         self.depths = depths
         self.alpha = alpha
+        self.grid_stride = sr_ratios[0]
 
         # patch_embed
         self.patch_embed1 = PatchEmbed(img_size=img_size, patch_size=patch_size, in_chans=in_chans,
@@ -382,19 +390,39 @@ class MyPVT4(nn.Module):
         xy_map = torch.stack((x_map, y_map), dim=-1)
         loc = xy_map.reshape(-1, 2)[None, ...].repeat([B, 1, 1])
 
-        x, loc = self.down_layers1(x, loc, self.pos_embed2, H, W, self.pos_size)     # down sample
+        # split into grid and adaptive tokens
+        pos = torch.arange(x.shape[1], dtype=torch.long, device=x.device)
+        tmp = pos.reshape([H, W])
+        grid_stride = self.grid_stride
+        pos_grid = tmp[grid_stride // 2:H:grid_stride, grid_stride // 2:W:grid_stride]
+        pos_grid = pos_grid.reshape([-1])
+        mask = torch.ones(pos.shape, dtype=torch.bool, device=pos.device)
+        mask[pos_grid] = 0
+        pos_ada = torch.masked_select(pos, mask)
+
+        x_grid = torch.index_select(x, 1, pos_grid)
+        x_ada = torch.index_select(x, 1, pos_ada)
+        loc_grid = torch.index_select(loc, 1, pos_grid)
+        loc_ada = torch.index_select(loc, 1,  pos_ada)
+
+        x = torch.cat([x_grid, x_ada], 1)
+        loc = torch.cat([loc_grid, loc_ada], 1)
+        N_grid = x_grid.shape[1]
+
+        # stage 2
+        x, loc = self.down_layers1(x, loc, self.pos_embed2, H, W, self.pos_size, N_grid)     # down sample
         H, W = H // 2, W // 2
         for blk in self.block2:
             x = blk(x, x, loc, H, W)
 
         # stage 3
-        x, loc = self.down_layers2(x, loc, self.pos_embed3, H, W, self.pos_size)     # down sample
+        x, loc = self.down_layers2(x, loc, self.pos_embed3, H, W, self.pos_size, N_grid)     # down sample
         H, W = H // 2, W // 2
         for blk in self.block3:
             x = blk(x, x, loc, H, W)
 
         # stage 4
-        x, pos = self.down_layers3(x, loc, self.pos_embed4, H, W, self.pos_size)     # down sample
+        x, pos = self.down_layers3(x, loc, self.pos_embed4, H, W, self.pos_size, N_grid)     # down sample
         H, W = H // 2, W // 2
         cls_tokens = self.cls_token.expand(B, -1, -1)
         x = torch.cat((cls_tokens, x), dim=1)
@@ -412,8 +440,8 @@ class MyPVT4(nn.Module):
 
 
 @register_model
-def mypvt4_small(pretrained=False, **kwargs):
-    model = MyPVT4(
+def mypvt5_small(pretrained=False, **kwargs):
+    model = MyPVT5(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], **kwargs)
     model.default_cfg = _cfg()
@@ -425,7 +453,7 @@ def mypvt4_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt4_small(drop_path_rate=0.1).to(device)
+    model = mypvt5_small(drop_path_rate=0.1).to(device)
     model.reset_drop_path(0.1)
 
     empty_input = torch.rand([2, 3, 224, 224], device=device)
