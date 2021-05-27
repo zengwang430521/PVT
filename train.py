@@ -29,6 +29,7 @@ import pvt_impr1
 import pvt_cnn
 import my_pvt4
 import my_pvt5
+import my_pvt6
 import utils
 import collections
 import samplers
@@ -417,6 +418,8 @@ def main(args):
             #     utils._load_checkpoint_for_ema(model_ema, checkpoint['model_ema'])
             if 'scaler' in checkpoint:
                 loss_scaler.load_state_dict(checkpoint['scaler'])
+
+        print('resume from' + args.resume)
 
     if args.eval:
         test_stats = evaluate(data_loader_val, model, device)
