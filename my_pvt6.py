@@ -56,8 +56,7 @@ def reconstruct_feature(feature, mask, kernel_size, sigma):
                         kernel_size=kernel_size, sigma=sigma)
     feature_inter = out[:, :-1]
     mask_inter = out[:, [-1]]
-    tmp = mask_inter.min()
-    feature_inter = feature_inter / (mask_inter + 1e-6)
+    feature_inter = feature_inter / (mask_inter + 1e-5)
     mask_inter = (mask_inter > 0).float()
     feature_inter = feature_inter * mask_inter
     out = feature + (1 - mask) * feature_inter
@@ -80,11 +79,20 @@ def token2map(x, loc, map_size, kernel_size, sigma, conf=None):
                    source=torch.cat([x, conf], dim=-1).reshape(B*N, C+1))
     out = out.reshape(B, H, W, C+1).permute(0, 3, 1, 2)
     feature, mask = out[:, :-1], out[:, [-1]]
+    mask = mask.abs()
+    feature = feature / (mask + 1e-5)
+    if torch.isnan(feature.sum()):
+        print('NAN error when gather!')
+        print(feature)
 
-    feature = feature / (mask + 1e-6)
     mask = (mask > 0).float()
     feature = feature * mask
     feature = reconstruct_feature(feature, mask, kernel_size, sigma)
+
+    if torch.isnan(feature.sum()):
+        print('NAN error when inter!')
+        print(feature)
+
     return feature
 
 
