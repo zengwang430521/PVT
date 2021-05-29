@@ -56,6 +56,7 @@ def reconstruct_feature(feature, mask, kernel_size, sigma):
                         kernel_size=kernel_size, sigma=sigma)
     feature_inter = out[:, :-1]
     mask_inter = out[:, [-1]]
+    feature_inter = feature_inter * (mask_inter > 0.05).type(feature_inter.dtype)
     feature_inter = feature_inter / (mask_inter + 1e-5)
     mask_inter = (mask_inter > 0).float()
     feature_inter = feature_inter * mask_inter
@@ -74,6 +75,8 @@ def token2map(x, loc, map_size, kernel_size, sigma, conf=None):
 
     if conf is None:
         conf = x.new_ones(B, N, 1)
+    else:
+        conf = conf * (conf > 0.05).type(conf.dtype)
     out = x.new_zeros(B*H*W, C+1)
     out.index_add_(dim=0, index=idx.reshape(B*N),
                    source=torch.cat([x, conf], dim=-1).reshape(B*N, C+1))
