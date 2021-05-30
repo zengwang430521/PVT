@@ -22,7 +22,7 @@ class GumbelSigmoid(nn.Module):
     def __init__(self):
         super(GumbelSigmoid, self).__init__()
         self.softmax = nn.Softmax(dim=-1)
-        self.p_value = 1e-8
+        self.p_value = 1e-6
 
     def forward(self, x):
 
@@ -253,10 +253,11 @@ class DownLayer(nn.Module):
         pos_ada = pos[:, N_grid:]
 
         conf = self.conf(self.norm(x))
-        # conf = F.softmax(conf, dim=1) * N
         conf_ada = conf[:, N_grid:]
         # _, index_down = torch.topk(conf_ada, self.sample_num, 1)
         index_down = gumble_top_k(conf_ada, self.sample_num, 1)
+        # conf = F.softmax(conf, dim=1) * N
+        conf = F.sigmoid(conf)
         conf = self.gumble_sigmoid(conf)
 
         x_down = torch.gather(x_ada, 1, index_down.expand([B, self.sample_num, C]))
@@ -512,6 +513,7 @@ if __name__ == '__main__':
     empty_input = torch.rand([2, 3, 224, 224], device=device)
     output = model(empty_input)
     tmp = output.sum()
+    print(tmp)
 
     print('Finish')
 
