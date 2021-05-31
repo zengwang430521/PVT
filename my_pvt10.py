@@ -236,8 +236,8 @@ def get_pos_embed(pos_embed, loc_xy, pos_size):
 
 def map2token(feature_map, loc_xy):
     B, N, _ = loc_xy.shape
-    B, C, H, W = feature_map.shape
-    loc_xy = loc_xy * 2 - 1
+    # B, C, H, W = feature_map.shape
+    loc_xy = loc_xy.type(feature_map.dtype) * 2 - 1
     loc_xy = loc_xy.unsqueeze(1)
     tokens = F.grid_sample(feature_map, loc_xy)
     tokens = tokens.permute(0, 2, 3, 1).squeeze(1)
