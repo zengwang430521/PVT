@@ -241,7 +241,7 @@ class DownLayer(nn.Module):
         self.conf = nn.Linear(embed_dim, 1)
         self.block = down_block
         self.pos_drop = nn.Dropout(p=drop_rate)
-        self.gumble_sigmoid = GumbelSigmoid()
+        # self.gumble_sigmoid = GumbelSigmoid()
 
     def forward(self, x, pos, pos_embed, H, W, pos_size, N_grid):
         B, N, C = x.shape
@@ -258,7 +258,7 @@ class DownLayer(nn.Module):
         index_down = gumble_top_k(conf_ada, self.sample_num, 1)
         # conf = F.softmax(conf, dim=1) * N
         conf = F.sigmoid(conf)
-        conf = self.gumble_sigmoid(conf)
+        # conf = self.gumble_sigmoid(conf)
 
         x_down = torch.gather(x_ada, 1, index_down.expand([B, self.sample_num, C]))
         pos_down = torch.gather(pos_ada, 1, index_down.expand([B, self.sample_num, 2]))
