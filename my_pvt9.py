@@ -6,6 +6,7 @@ from functools import partial
 from pvt import ( Mlp, Attention, PatchEmbed, Block, DropPath, to_2tuple, trunc_normal_,register_model, _cfg)
 import math
 
+vis = True
 
 def gumble_top_k(x, k, dim, p_value=1e-6):
     # Noise
@@ -271,6 +272,15 @@ class DownLayer(nn.Module):
 
         # x = x * conf
         x_down = self.block(x_down, x, pos, H, W, conf)
+        if vis and conf.shape[1] == H*W:
+            conf_t = F.sigmoid(conf.float()).reshape(-1, H, W).detach().cpu().numpy()
+            import matplotlib.pyplot as plt
+            for i in range(len(conf_t)):
+                ax = plt.subplot(1, len(conf_t), i+1)
+                tmp = conf_t[i]
+                # tmp = tmp / tmp.max()
+                ax.imshow(tmp)
+            tmp = 0
 
         pos_feature = get_pos_embed(pos_embed, pos_down, pos_size)
         x_down += pos_feature
@@ -433,6 +443,8 @@ class MyPVT9(nn.Module):
     def forward_features(self, x):
         B = x.shape[0]
         device = x.device
+        outs = []
+        img = x
 
         # stage 1 Unchanged
         x, (H, W) = self.patch_embed1(x)
@@ -466,25 +478,36 @@ class MyPVT9(nn.Module):
         loc = torch.cat([loc_grid, loc_ada], 1)
         N_grid = x_grid.shape[1]
 
+        if vis:
+            outs.append((x, loc, [H, W]))
+
         # stage 2
         x, loc = self.down_layers1(x, loc, self.pos_embed2, H, W, self.pos_size, N_grid)     # down sample
         H, W = H // 2, W // 2
         for blk in self.block2:
             x = blk(x, x, loc, H, W)
+        if vis:
+            outs.append((x, loc, [H, W]))
 
         # stage 3
         x, loc = self.down_layers2(x, loc, self.pos_embed3, H, W, self.pos_size, N_grid)     # down sample
         H, W = H // 2, W // 2
         for blk in self.block3:
             x = blk(x, x, loc, H, W)
+        if vis:
+            outs.append((x, loc, [H, W]))
 
         # stage 4
-        x, pos = self.down_layers3(x, loc, self.pos_embed4, H, W, self.pos_size, N_grid)     # down sample
+        x, loc = self.down_layers3(x, loc, self.pos_embed4, H, W, self.pos_size, N_grid)     # down sample
         H, W = H // 2, W // 2
         cls_tokens = self.cls_token.expand(B, -1, -1)
         x = torch.cat((cls_tokens, x), dim=1)
         for blk in self.block4:
             x = blk(x, x, loc, H, W)
+
+        if vis:
+            outs.append((x, loc, [H, W]))
+            # show_tokens(img, outs, N_grid)
 
         x = self.norm(x)
         return x[:, 0]
@@ -494,6 +517,26 @@ class MyPVT9(nn.Module):
         x = self.head(x)
 
         return x
+
+
+def show_tokens(x, out, N_grid=14*14):
+    import matplotlib.pyplot as plt
+    IMAGENET_DEFAULT_MEAN = torch.tensor([0.485, 0.456, 0.406], device=x.device)[None, :, None, None]
+    IMAGENET_DEFAULT_STD = torch.tensor([0.229, 0.224, 0.225], device=x.device)[None, :, None, None]
+    x = x * IMAGENET_DEFAULT_STD + IMAGENET_DEFAULT_MEAN
+    for i in range(x.shape[0]):
+        img = x[i].permute(1, 2, 0).detach().cpu()
+        ax = plt.subplot(1, len(out)+1, 1)
+        ax.clear()
+        ax.imshow(img)
+        for lv in range(len(out)):
+            ax = plt.subplot(1, len(out)+1, lv+2)
+            ax.clear()
+            ax.imshow(img, extent=[0, 1, 0, 1])
+            loc_grid = out[lv][1][i, :N_grid].detach().cpu().numpy()
+            ax.scatter(loc_grid[:, 0], loc_grid[:, 1], c='blue', s=0.4+lv*0.1)
+            loc_ada = out[lv][1][i, N_grid:].detach().cpu().numpy()
+            ax.scatter(loc_ada[:, 0], loc_ada[:, 1], c='red', s=0.4+lv*0.1)
 
 
 @register_model
