@@ -6,7 +6,7 @@ from functools import partial
 from pvt import ( Mlp, Attention, PatchEmbed, Block, DropPath, to_2tuple, trunc_normal_,register_model, _cfg)
 import math
 
-vis = True
+vis = False
 
 def gumble_top_k(x, k, dim, p_value=1e-6):
     # Noise
