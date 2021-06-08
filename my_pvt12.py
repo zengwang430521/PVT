@@ -2,10 +2,143 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from functools import partial
+
 from pvt import ( Mlp, Attention, PatchEmbed, Block, DropPath, to_2tuple, trunc_normal_,register_model, _cfg)
+import math
+import matplotlib.pyplot as plt
+
+vis = False
 
 
-class MyAttention2(nn.Module):
+def gumble_top_k(x, k, dim, p_value=1e-6, T=1):
+    # Noise
+    noise = torch.rand_like(x)
+    noise = -1 * (noise + p_value).log()
+    noise = -1 * (noise + p_value).log()
+    # add
+    x = x / T + noise
+    _, index_k = torch.topk(x, k, dim)
+    return index_k
+
+
+class GumbelSigmoid(nn.Module):
+    def __init__(self):
+        super(GumbelSigmoid, self).__init__()
+        self.softmax = nn.Softmax(dim=-1)
+        self.p_value = 1e-6
+
+    def forward(self, x):
+
+        # Shape <x> : [B, N, 1]
+        # Shape <r> : [B, N, 1]
+        r = 1 - x
+        x = (x + self.p_value).log()
+        r = (r + self.p_value).log()
+
+        # Generate Noise
+        x_N = torch.rand_like(x)
+        r_N = torch.rand_like(r)
+        x_N = -1 * (x_N + self.p_value).log()
+        r_N = -1 * (r_N + self.p_value).log()
+        x_N = -1 * (x_N + self.p_value).log()
+        r_N = -1 * (r_N + self.p_value).log()
+
+        # Get Final Distribution
+        x = x + x_N
+        x = x / (1 + self.p_value)
+        r = r + r_N
+        r = r / (1 + self.p_value)
+
+        x = torch.stack((x, r), dim=-1)
+        x = self.softmax(x)
+        x = x[..., 0]
+
+        # if self.training:
+        #     self.cur_T = self.cur_T * self.decay_alpha
+
+        return x
+
+
+def guassian_filt(x, kernel_size=3, sigma=2):
+    channels = x.shape[1]
+
+    # Create a x, y coordinate grid of shape (kernel_size, kernel_size, 2)
+    x_coord = torch.arange(kernel_size, device=x.device)
+    x_grid = x_coord.repeat(kernel_size).view(kernel_size, kernel_size)
+    y_grid = x_grid.t()
+    xy_grid = torch.stack([x_grid, y_grid], dim=-1).float()
+
+    mean = (kernel_size - 1) / 2.
+    variance = sigma ** 2.
+
+    # Calculate the 2-dimensional gaussian kernel which is
+    # the product of two gaussian distributions for two different
+    # variables (in this case called x and y)
+    gaussian_kernel = (1. / (2. * math.pi * variance)) * \
+                      torch.exp(
+                          -torch.sum((xy_grid - mean) ** 2., dim=-1) / \
+                          (2 * variance)
+                      )
+
+    # Make sure sum of values in gaussian kernel equals 1.
+    gaussian_kernel = gaussian_kernel / torch.sum(gaussian_kernel)
+
+    # Reshape to 2d depthwise convolutional weight
+    gaussian_kernel = gaussian_kernel.view(1, 1, kernel_size, kernel_size)
+    gaussian_kernel = gaussian_kernel.repeat(channels, 1, 1, 1)
+
+    paddding = int((kernel_size - 1) // 2)
+
+    y = F.conv2d(
+        input=x,
+        weight=gaussian_kernel,
+        stride=1,
+        padding=paddding,
+        dilation=1,
+        groups=channels
+    )
+    return y
+
+
+def reconstruct_feature(feature, mask, kernel_size, sigma):
+    if kernel_size <= 1:
+        return feature
+    feature = feature * mask
+    out = guassian_filt(torch.cat([feature, mask], dim=1),
+                        kernel_size=kernel_size, sigma=sigma)
+    feature_inter = out[:, :-1]
+    mask_inter = out[:, [-1]]
+    tmp = mask_inter.min()
+    feature_inter = feature_inter / (mask_inter + 1e-6)
+    mask_inter = (mask_inter > 0).float()
+    feature_inter = feature_inter * mask_inter
+    out = feature + (1 - mask) * feature_inter
+    return out
+
+
+def token2map(x, loc, map_size, kernel_size, sigma):
+    H, W = map_size
+    B, N, C = x.shape
+    loc = loc.clamp(0, 1)
+    loc = loc * torch.FloatTensor([W-1, H-1]).to(loc.device)[None, None, :]
+    loc = loc.round().long()
+    idx = loc[..., 0] + loc[..., 1] * W
+    idx = idx + torch.arange(B)[:, None].to(loc.device) * H*W
+
+    out = x.new_zeros(B*H*W, C+1)
+    out.index_add_(dim=0, index=idx.reshape(B*N),
+                   source=torch.cat([x, x.new_ones(B, N, 1)], dim=-1).reshape(B*N, C+1))
+    out = out.reshape(B, H, W, C+1).permute(0, 3, 1, 2)
+    feature, mask = out[:, :-1], out[:, [-1]]
+
+    feature = feature / (mask + 1e-6)
+    mask = (mask > 0).float()
+    feature = feature * mask
+    feature = reconstruct_feature(feature, mask, kernel_size, sigma)
+    return feature
+
+
+class MyAttention(nn.Module):
     def __init__(self, dim, dim_out=-1, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0., sr_ratio=1):
         super().__init__()
         if dim_out < 0:
@@ -22,12 +155,6 @@ class MyAttention2(nn.Module):
         self.q = nn.Linear(dim, dim_out, bias=qkv_bias)
         self.k = nn.Linear(dim, dim_out, bias=qkv_bias)
         self.v = nn.Linear(dim, dim_out, bias=qkv_bias)
-        if not dim_out == dim:
-            self.k2 = nn.Linear(dim_out, dim_out, bias=qkv_bias)
-            self.v2 = nn.Linear(dim_out, dim_out, bias=qkv_bias)
-        else:
-            self.k2, self.v2 = self.k, self.v
-
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim_out, dim_out)
         self.proj_drop = nn.Dropout(proj_drop)
@@ -37,23 +164,22 @@ class MyAttention2(nn.Module):
             self.sr = nn.Conv2d(dim, dim, kernel_size=sr_ratio, stride=sr_ratio)
             self.norm = nn.LayerNorm(dim)
 
-    def forward_grid(self, x, x_source, conf):
+    def forward(self, x, x_source, loc_source, H, W, conf_source=None):
         B, N, C = x.shape
         q = self.q(x).reshape(B, N, self.num_heads, self.dim_out // self.num_heads).permute(0, 2, 1, 3)
 
+        if self.sr_ratio > 1:
+            x_source = token2map(x_source, loc_source, [H, W], self.sr_ratio-1, 2)
+            x_source = self.sr(x_source).reshape(B, C, -1).permute(0, 2, 1)
+            x_source = self.norm(x_source)
         _, Ns, _ = x_source.shape
-
-        if conf[1] is not None:
-            conf = torch.cat(conf, dim=1)
-            x_source = x_source * conf
-
         k = self.k(x_source).reshape(B, Ns, self.num_heads, self.dim_out // self.num_heads).permute(0, 2, 1, 3)
         v = self.v(x_source).reshape(B, Ns, self.num_heads, self.dim_out // self.num_heads).permute(0, 2, 1, 3)
 
-        # kv = self.kv(x_source).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
-        # k, v = kv[0], kv[1]
-
         attn = (q @ k.transpose(-2, -1)) * self.scale
+        if conf_source is not None:
+            conf_source = conf_source.squeeze(-1)[:, None, None, :]
+            attn = attn + conf_source
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
 
@@ -62,59 +188,39 @@ class MyAttention2(nn.Module):
         x = self.proj_drop(x)
         return x
 
-    def forward_ada(self, x, x_source):
-        B, N, C = x.shape
-        q = self.q(x).reshape(B, N, self.num_heads, self.dim_out // self.num_heads).permute(0, 2, 1, 3)
 
-        _, Ns, _ = x_source.shape
+class MyBlock(nn.Module):
 
-        k = self.k2(x_source).reshape(B, Ns, self.num_heads, self.dim_out // self.num_heads).permute(0, 2, 1, 3)
-        v = self.v2(x_source).reshape(B, Ns, self.num_heads, self.dim_out // self.num_heads).permute(0, 2, 1, 3)
-        # kv = self.kv(x_source).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
-        # k, v = kv[0], kv[1]
+    def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
+                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, dim_out=None, sr_ratio=1, alpha=1):
+        super().__init__()
+        if dim_out is None:
+            dim_out = dim
+        self.norm1 = norm_layer(dim)
+        self.attn = MyAttention(
+            dim,
+            dim_out=dim_out,
+            num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale,
+            attn_drop=attn_drop, proj_drop=drop, sr_ratio=sr_ratio)
+        # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
+        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+        self.norm2 = norm_layer(dim_out)
+        mlp_hidden_dim = int(dim_out * mlp_ratio)
+        self.mlp = Mlp(in_features=dim_out, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
+        self.use_fc = False
+        if dim_out != dim:
+            self.use_fc = True
+            self.fc = nn.Linear(dim, dim_out)
+        self.alpha = alpha
 
-        attn = (q @ k.transpose(-2, -1)) * self.scale
-        attn = attn.softmax(dim=-1)
-        attn = self.attn_drop(attn)
+    def forward(self, x, x_source, loc, H, W, conf_source=None):
+        if self.use_fc:
+            x = self.fc(x) + self.drop_path(self.attn(self.norm1(x), self.norm1(x_source), loc, H, W, conf_source)) * self.alpha
+        else:
+            x = x + self.drop_path(self.attn(self.norm1(x), self.norm1(x_source), loc, H, W, conf_source)) * self.alpha
 
-        x = (attn @ v).transpose(1, 2).reshape(B, N, self.dim_out)
-        x = self.proj(x)
-        x = self.proj_drop(x)
+        x = x + self.drop_path(self.mlp(self.norm2(x))) * self.alpha
         return x
-
-    '''
-    x: Tuple of 2 tensor (x_grid, x_ada)
-    x_grid: Feature of grid location.
-    x_ada: Feature of ada location.
-    x_sourceL Tuple of 2 tensor, the same as x.
-    '''
-    def forward(self, x, x_source, conf=(None, None)):
-        x_grid, x_ada = x
-        # merge grid and ada nodes in x_source
-        x_source = torch.cat(x_source, dim=1)
-        # gather feature into x_grid
-        x_grid = self.forward_grid(x_grid, x_source, conf)
-        # get feature from new x_grid
-        x_ada = self.forward_ada(x_ada, x_grid)
-        return (x_grid, x_ada)
-
-
-def tuple_add(x, y):
-    x = [x_i + y_i for (x_i, y_i) in zip(x, y)]
-    return x
-
-
-def tuple_forward(net, x):
-    N_grid = x[0].shape[1]
-    N_ada = x[1].shape[2]
-    x = torch.cat(x, dim=1)
-    x = net(x)
-    x = (x[:, :N_grid], x[:, N_grid:])
-    return x
-
-
-def tuple_times(x, alpha):
-    return [x_i * alpha for x_i in x]
 
 
 def get_pos_embed(pos_embed, loc_xy, pos_size):
@@ -131,130 +237,99 @@ def get_pos_embed(pos_embed, loc_xy, pos_size):
     return pos_feature
 
 
-class MyBlock2(nn.Module):
-
-    def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
-                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, dim_out=None, sr_ratio=1, alpha=1):
-        super().__init__()
-        if dim_out is None:
-            dim_out = dim
-        self.norm1 = norm_layer(dim)
-        self.attn = MyAttention2(
-            dim,
-            dim_out=dim_out,
-            num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale,
-            attn_drop=attn_drop, proj_drop=drop, sr_ratio=sr_ratio)
-        # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
-        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
-        self.norm2 = norm_layer(dim_out)
-        mlp_hidden_dim = int(dim_out * mlp_ratio)
-        self.mlp = Mlp(in_features=dim_out, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
-        self.use_fc = False
-        if dim_out != dim:
-            self.use_fc = True
-            self.fc = nn.Linear(dim, dim_out)
-        self.alpha = alpha
-
-    def forward(self, x, x_source, conf=(None, None)):
-        y = self.attn(tuple_forward(self.norm1, x),
-                      tuple_forward(self.norm1, x_source),
-                      conf)
-        y = tuple_forward(self.drop_path, y)
-        y = tuple_times(y, self.alpha)
-        if self.use_fc:
-            x = tuple_add(tuple_forward(self.fc, x), y)
-        else:
-            x = tuple_add(x, y)
-
-        y = tuple_forward(self.norm2, x)
-        y = tuple_forward(self.mlp, y)
-        y = tuple_forward(self.drop_path, y)
-        y = tuple_times(y, self.alpha)
-        x = tuple_add(x, y)
-        return x
-
-        # if self.use_fc:
-        #     x = self.fc(x) + self.drop_path(self.attn(self.norm1(x), self.norm1(x_source), H, W)) * self.alpha
-        # else:
-        #     x = x + self.drop_path(self.attn(self.norm1(x), self.norm1(x_source), H, W)) * self.alpha
-        # x = x + self.drop_path(self.mlp(self.norm2(x))) * self.alpha
-        # return x
-
-
-class DownLayer2(nn.Module):
+class DownLayer(nn.Module):
     """ Down sample
     """
-    def __init__(self, sample_num, embed_dim, drop_rate, down_block, norm_layer=nn.LayerNorm):
+    def __init__(self, sample_num, embed_dim, drop_rate, down_block):
         super().__init__()
         self.sample_num = sample_num
-        self.norm = norm_layer(embed_dim)
+        self.norm = nn.LayerNorm(embed_dim)
         self.conf = nn.Linear(embed_dim, 1)
         self.block = down_block
         self.pos_drop = nn.Dropout(p=drop_rate)
+        # self.gumble_sigmoid = GumbelSigmoid()
+        # temperature of confidence weight
+        self.T = 1.0
+        self.T_min = 0.01
+        self.T_decay = 0.9998
 
-    def forward(self, x, loc, pos_embed, pos_size):
-        x_grid, x_ada = x
-        loc_grid, loc_ada = loc
-        B, N_g, C = x_grid.shape
-        B, N, C = x_ada.shape
+    def forward(self, x, pos, pos_embed, H, W, pos_size, N_grid):
+        B, N, C = x.shape
         assert self.sample_num <= N
 
-        # only x_ada needs down sample
-        # FIXME: Should we add position embedding before or after down sampling ?
-        conf = self.conf(self.norm(x_ada))
-        conf = F.softmax(conf, dim=1) * N
-        _, index_down = torch.topk(conf, self.sample_num, 1)
+        x_grid = x[:, :N_grid]
+        x_ada = x[:, N_grid:]
+        pos_grid = pos[:, :N_grid]
+        pos_ada = pos[:, N_grid:]
+
+        conf = self.conf(self.norm(x))
+        if vis:
+            if H == 56:
+                show_conf(conf, pos)
+
+        conf_ada = conf[:, N_grid:]
+
+        # temperature
+        T = self.T if self.training else self.T_min
+        self.T = max(self.T_min, self.T * self.T_decay)
+        # _, index_down = torch.topk(conf_ada, self.sample_num, 1)
+        index_down = gumble_top_k(conf_ada, self.sample_num, 1, T)
+        # conf = F.softmax(conf, dim=1) * N
+        # conf = F.sigmoid(conf)
+        # conf = self.gumble_sigmoid(conf)
+
         x_down = torch.gather(x_ada, 1, index_down.expand([B, self.sample_num, C]))
+        pos_down = torch.gather(pos_ada, 1, index_down.expand([B, self.sample_num, 2]))
 
-        loc_down = torch.gather(loc_ada, 1, index_down.expand([B, self.sample_num, 2]))
+        x_down = torch.cat([x_grid, x_down], 1)
+        pos_down = torch.cat([pos_grid, pos_down], 1)
 
-        x_down, loc_down = x_down.contiguous(), loc_down.contiguous()
+        # x = x * conf
+        x_down = self.block(x_down, x, pos, H, W, conf)
+        # if vis and conf.shape[1] == H*W:
+        #     conf_t = F.sigmoid(conf.float()).reshape(-1, H, W).detach().cpu().numpy()
+        #     import matplotlib.pyplot as plt
+        #     for i in range(len(conf_t)):
+        #         ax = plt.subplot(1, len(conf_t), i+1)
+        #         tmp = conf_t[i]
+        #         # tmp = tmp / tmp.max()
+        #         ax.imshow(tmp)
+        #     tmp = 0
 
-        x = self.block((x_grid, x_down), (x_grid, x_ada),
-                       conf=(conf.new_ones(B, N_g, 1), conf))
-
-        # pos_feature = (torch.index_select(pos_embed, 1, loc_grid.reshape(-1)).reshape(B, N_g, -1),
-        #                torch.index_select(pos_embed, 1, loc_down.reshape(-1)).reshape(B, self.sample_num, -1))
-        pos_feature = get_pos_embed(pos_embed,
-                                    torch.cat([loc_grid, loc_down], dim=1),
-                                    pos_size)
-        pos_feature = (pos_feature[:, :N_g, :],
-                       pos_feature[:, N_g:, :])
-
-        x = tuple_add(x, pos_feature)
-        x = tuple_forward(self.pos_drop, x)
-        return x, (loc_grid, loc_down)
+        pos_feature = get_pos_embed(pos_embed, pos_down, pos_size)
+        x_down += pos_feature
+        x_down = self.pos_drop(x_down)
+        return x_down, pos_down
 
 
-class MyPVT2(nn.Module):
+class MyPVT(nn.Module):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
-                 depths=[3, 4, 6, 3], sr_ratios=[8, 1, 1, 1], alpha=1, grid_stride=8):
+                 depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], alpha=1):
         super().__init__()
-        self.grid_stride = int(grid_stride)
         self.num_classes = num_classes
         self.depths = depths
         self.alpha = alpha
+        self.grid_stride = sr_ratios[0]
 
         # patch_embed
         self.patch_embed1 = PatchEmbed(img_size=img_size, patch_size=patch_size, in_chans=in_chans,
                                        embed_dim=embed_dims[0])
-
-        self.pos_size = [img_size // patch_size, img_size // patch_size]
         # pos_embed
         self.pos_embed1 = nn.Parameter(torch.zeros(1, self.patch_embed1.num_patches, embed_dims[0]))
         self.pos_drop1 = nn.Dropout(p=drop_rate)
         self.pos_embed2 = nn.Parameter(torch.zeros(1, self.patch_embed1.num_patches, embed_dims[1]))
         self.pos_embed3 = nn.Parameter(torch.zeros(1, self.patch_embed1.num_patches, embed_dims[2]))
         self.pos_embed4 = nn.Parameter(torch.zeros(1, self.patch_embed1.num_patches, embed_dims[3]))
+        self.pos_size = [img_size // patch_size, img_size // patch_size]
 
         # transformer encoder
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
         sample_num = self.patch_embed1.num_patches
         cur = 0
 
-        # stage 1, unchanged
+        # stage 1
         self.block1 = nn.ModuleList([Block(
             dim=embed_dims[0], num_heads=num_heads[0], mlp_ratio=mlp_ratios[0], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
@@ -264,52 +339,48 @@ class MyPVT2(nn.Module):
 
         # stage 2
         sample_num = sample_num // 4
-        self.down_layers1 = DownLayer2(sample_num=sample_num, embed_dim=embed_dims[0], drop_rate=drop_rate,
-                                       norm_layer=norm_layer,
-                                       down_block=MyBlock2(
+        self.down_layers1 = DownLayer(sample_num=sample_num, embed_dim=embed_dims[0], drop_rate=drop_rate,
+                                      down_block=MyBlock(
                                             dim=embed_dims[0], dim_out=embed_dims[1], num_heads=num_heads[1],
                                             mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
                                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                             norm_layer=norm_layer, sr_ratio=1, alpha=alpha))
 
-        self.block2 = nn.ModuleList([MyBlock2(
+        self.block2 = nn.ModuleList([MyBlock(
             dim=embed_dims[1], num_heads=num_heads[1], mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
-            sr_ratio=1, alpha=alpha)
+            sr_ratio=sr_ratios[1], alpha=alpha)
             for i in range(1, depths[1])])
         cur += depths[1]
 
         # stage 3
         sample_num = sample_num // 4
-        self.down_layers2 = DownLayer2(sample_num=sample_num, embed_dim=embed_dims[1], drop_rate=drop_rate,
-                                       norm_layer=norm_layer,
-                                       down_block=MyBlock2(
+        self.down_layers2 = DownLayer(sample_num=sample_num, embed_dim=embed_dims[1], drop_rate=drop_rate,
+                                      down_block=MyBlock(
                                             dim=embed_dims[1], dim_out=embed_dims[2], num_heads=num_heads[2],
                                             mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
                                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                             norm_layer=norm_layer, sr_ratio=1, alpha=alpha))
-        self.block3 = nn.ModuleList([MyBlock2(
+        self.block3 = nn.ModuleList([MyBlock(
             dim=embed_dims[2], num_heads=num_heads[2], mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
-            sr_ratio=1, alpha=alpha)
+            sr_ratio=sr_ratios[2], alpha=alpha)
             for i in range(1, depths[2])])
         cur += depths[2]
 
         # stage 4
         sample_num = sample_num // 4
-        self.down_layers3 = DownLayer2(sample_num=sample_num, embed_dim=embed_dims[2], drop_rate=drop_rate,
-                                       norm_layer=norm_layer,
-                                       down_block=MyBlock2(
+        self.down_layers3 = DownLayer(sample_num=sample_num, embed_dim=embed_dims[2], drop_rate=drop_rate,
+                                      down_block=MyBlock(
                                             dim=embed_dims[2], dim_out=embed_dims[3], num_heads=num_heads[3],
                                             mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
                                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                             norm_layer=norm_layer, sr_ratio=1, alpha=alpha))
-        self.block4 = nn.ModuleList([MyBlock2(
+        self.block4 = nn.ModuleList([MyBlock(
             dim=embed_dims[3], num_heads=num_heads[3], mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
-            sr_ratio=1, alpha=alpha)
+            sr_ratio=sr_ratios[3], alpha=alpha)
             for i in range(1, depths[3])])
-
         self.norm = norm_layer(embed_dims[3])
 
         # cls_token
@@ -323,15 +394,10 @@ class MyPVT2(nn.Module):
         trunc_normal_(self.pos_embed2, std=.02)
         trunc_normal_(self.pos_embed3, std=.02)
         trunc_normal_(self.pos_embed4, std=.02)
-        # trunc_normal_(self.cls_token, std=.02)
+        trunc_normal_(self.cls_token, std=.02)
         self.apply(self._init_weights)
 
-        # # transfer loc to xy
-        # hl = wl = img_size // patch_size
-        # y_map, x_map = torch.meshgrid(torch.arange(hl).float() / (hl - 1), torch.arange(wl).float() / (wl - 1))
-        # xy_map = torch.stack((x_map, y_map), dim=-1)
-        # xy_map = xy_map.reshape(-1, 2)
-        # self.register_buffer('xy_map', xy_map)
+        self.num = 0
 
     def reset_drop_path(self, drop_path_rate):
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(self.depths))]
@@ -360,11 +426,6 @@ class MyPVT2(nn.Module):
         for i in range(self.depths[3] - 1):
             self.block4[i].drop_path.drop_prob = dpr[cur + i]
             # print(dpr[cur + i])
-
-    # def init_weights(self, pretrained=None):
-    #     if isinstance(pretrained, str):
-    #         logger = get_root_logger()
-    #         load_checkpoint(self, pretrained, map_location='cpu', strict=False, logger=logger)
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -396,25 +457,25 @@ class MyPVT2(nn.Module):
                 size=(H, W), mode="bilinear").reshape(1, -1, H * W).permute(0, 2, 1)
 
     def forward_features(self, x):
-        outs = []
         B = x.shape[0]
         device = x.device
+        outs = []
         img = x
 
         # stage 1 Unchanged
         x, (H, W) = self.patch_embed1(x)
-        pos_embed1 = self._get_pos_embed(self.pos_embed1, self.patch_embed1, H, W)
-        x = x + pos_embed1
+        x = x + self.pos_embed1
         x = self.pos_drop1(x)
         for blk in self.block1:
             x = blk(x, H, W)
 
-        # # generate pos index of each node
-        # loc = torch.meshgrid()
-        # y, x = torch.meshgrid(torch.arange(H, device=x.device).float() / (H - 1),
-        #                       torch.arange(W, device=x.device).float() / (W - 1))
+        # stage 2
+        y_map, x_map = torch.meshgrid(torch.arange(H, device=device).float() / (H - 1),
+                                      torch.arange(W, device=device).float() / (W - 1))
+        xy_map = torch.stack((x_map, y_map), dim=-1)
+        loc = xy_map.reshape(-1, 2)[None, ...].repeat([B, 1, 1])
 
-        # split x into grid and adaptive nodes
+        # split into grid and adaptive tokens
         pos = torch.arange(x.shape[1], dtype=torch.long, device=x.device)
         tmp = pos.reshape([H, W])
         grid_stride = self.grid_stride
@@ -422,94 +483,114 @@ class MyPVT2(nn.Module):
         pos_grid = pos_grid.reshape([-1])
         mask = torch.ones(pos.shape, dtype=torch.bool, device=pos.device)
         mask[pos_grid] = 0
-
         pos_ada = torch.masked_select(pos, mask)
 
         x_grid = torch.index_select(x, 1, pos_grid)
         x_ada = torch.index_select(x, 1, pos_ada)
-        x = (x_grid, x_ada)
+        loc_grid = torch.index_select(loc, 1, pos_grid)
+        loc_ada = torch.index_select(loc, 1,  pos_ada)
 
-        pos_grid = pos_grid[None, :].repeat([B, 1])
-        pos_ada = pos_ada[None, :].repeat([B, 1])
-        pos = (pos_grid, pos_ada)
+        x = torch.cat([x_grid, x_ada], 1)
+        loc = torch.cat([loc_grid, loc_ada], 1)
+        N_grid = x_grid.shape[1]
 
-        # transfer pos from index to xy coord
-        # transfer loc to xy
-        y_map, x_map = torch.meshgrid(torch.arange(H, device=device).float() / (H - 1),
-                                      torch.arange(W, device=device).float() / (W - 1))
-        xy_map = torch.stack((x_map, y_map), dim=-1)
-        xy_map = xy_map.reshape(-1, 2)
-        loc = [xy_map[p, :] for p in pos]
-        outs.append((x, loc, [H, W]))
+        if vis:
+            outs.append((x, loc, [H, W]))
 
         # stage 2
-        x, loc = self.down_layers1(x, loc, self.pos_embed2, self.pos_size)     # down sample
+        x, loc = self.down_layers1(x, loc, self.pos_embed2, H, W, self.pos_size, N_grid)     # down sample
         H, W = H // 2, W // 2
         for blk in self.block2:
-            x = blk(x, x)
-        outs.append((x, loc, [H, W]))
+            x = blk(x, x, loc, H, W)
+        if vis:
+            outs.append((x, loc, [H, W]))
 
         # stage 3
-        x, loc = self.down_layers2(x, loc, self.pos_embed3, self.pos_size)     # down sample
+        x, loc = self.down_layers2(x, loc, self.pos_embed3, H, W, self.pos_size, N_grid)     # down sample
         H, W = H // 2, W // 2
         for blk in self.block3:
-            x = blk(x, x)
-        outs.append((x, loc, [H, W]))
+            x = blk(x, x, loc, H, W)
+        if vis:
+            outs.append((x, loc, [H, W]))
 
         # stage 4
-        x, loc = self.down_layers3(x, loc, self.pos_embed4, self.pos_size)     # down sample
+        x, loc = self.down_layers3(x, loc, self.pos_embed4, H, W, self.pos_size, N_grid)     # down sample
+        H, W = H // 2, W // 2
         cls_tokens = self.cls_token.expand(B, -1, -1)
-        x = (torch.cat((cls_tokens, x[0]), dim=1), x[1])
-
+        x = torch.cat((cls_tokens, x), dim=1)
         for blk in self.block4:
-            x = blk(x, x)
-        x_grid = x[0]
-        x_grid = self.norm(x_grid)
+            x = blk(x, x, loc, H, W)
 
-        show_tokens(img, outs)
-        return x_grid[:, 0]
+        if vis:
+            outs.append((x, loc, [H, W]))
+            # show_tokens(img, outs, N_grid)
+            if self.num % 1 == 0:
+                show_tokens(img, outs, N_grid)
+            self.num = self.num + 1
+
+        x = self.norm(x)
+        return x[:, 0]
 
     def forward(self, x):
         x = self.forward_features(x)
         x = self.head(x)
+
         return x
 
 
-def show_tokens(x, out):
+def show_tokens(x, out, N_grid=14*14):
     import matplotlib.pyplot as plt
     IMAGENET_DEFAULT_MEAN = torch.tensor([0.485, 0.456, 0.406], device=x.device)[None, :, None, None]
     IMAGENET_DEFAULT_STD = torch.tensor([0.229, 0.224, 0.225], device=x.device)[None, :, None, None]
     x = x * IMAGENET_DEFAULT_STD + IMAGENET_DEFAULT_MEAN
-    for i in range(x.shape[0]):
+    # for i in range(x.shape[0]):
+    for i in range(1):
         img = x[i].permute(1, 2, 0).detach().cpu()
-        ax = plt.subplot(1, len(out)+1, 1)
+        ax = plt.subplot(1, len(out)+2, 1)
         ax.clear()
         ax.imshow(img)
         for lv in range(len(out)):
-            ax = plt.subplot(1, len(out)+1, lv+2)
+            ax = plt.subplot(1, len(out)+2, lv+2+(lv > 0))
             ax.clear()
             ax.imshow(img, extent=[0, 1, 0, 1])
-            loc_grid = out[lv][1][0][i].detach().cpu().numpy()
+            loc_grid = out[lv][1][i, :N_grid].detach().cpu().numpy()
             ax.scatter(loc_grid[:, 0], 1 - loc_grid[:, 1], c='blue', s=0.4+lv*0.1)
-            loc_ada = out[lv][1][1][i].detach().cpu().numpy()
+            loc_ada = out[lv][1][i, N_grid:].detach().cpu().numpy()
             ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
+    return
 
 
+def show_conf(conf, loc):
+    H = int(conf.shape[1]**0.5)
+    if H == 56:
+        conf = F.softmax(conf, dim=1)
+        conf_map = token2map(conf,  map_size=[H, H], loc=loc, kernel_size=3, sigma=2)
+        lv = 3
+        ax = plt.subplot(1, 6, lv)
+        ax.clear()
+        ax.imshow(conf_map[0, 0].detach().cpu())
 
 
 @register_model
-class mypvt2d_small(MyPVT2):
-    def __init__(self, **kwargs):
-        super().__init__(
-            patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4],
-            qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 1, 1, 1],
-            grid_stride=8, drop_rate=0.0, drop_path_rate=0.1)
+def mypvt12_small(pretrained=False, **kwargs):
+    model = MyPVT(
+        patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], **kwargs)
+    model.default_cfg = _cfg()
+
+    return model
 
 
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt2d_small().to(device)
+    model = mypvt12_small(drop_path_rate=0.1).to(device)
+    model.reset_drop_path(0.1)
+
     empty_input = torch.rand([2, 3, 224, 224], device=device)
     output = model(empty_input)
+    tmp = output.sum()
+    print(tmp)
+
     print('Finish')
+

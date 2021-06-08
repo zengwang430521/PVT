@@ -7,8 +7,7 @@ from pvt import ( Mlp, Attention, PatchEmbed, Block, DropPath, to_2tuple, trunc_
 import math
 import matplotlib.pyplot as plt
 
-vis = True
-num = 0
+vis = False
 
 
 def gumble_top_k(x, k, dim, p_value=1e-6):
@@ -548,9 +547,9 @@ def show_tokens(x, out, N_grid=14*14):
             ax.clear()
             ax.imshow(img, extent=[0, 1, 0, 1])
             loc_grid = out[lv][1][i, :N_grid].detach().cpu().numpy()
-            ax.scatter(loc_grid[:, 0], loc_grid[:, 1], c='blue', s=0.4+lv*0.1)
+            ax.scatter(loc_grid[:, 0], 1 - loc_grid[:, 1], c='blue', s=0.4+lv*0.1)
             loc_ada = out[lv][1][i, N_grid:].detach().cpu().numpy()
-            ax.scatter(loc_ada[:, 0], loc_ada[:, 1], c='red', s=0.4+lv*0.1)
+            ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
     return
 
 

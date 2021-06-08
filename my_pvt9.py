@@ -5,8 +5,12 @@ from functools import partial
 
 from pvt import ( Mlp, Attention, PatchEmbed, Block, DropPath, to_2tuple, trunc_normal_,register_model, _cfg)
 import math
+import matplotlib.pyplot as plt
 
 vis = False
+num = 0
+conf_T = 1
+
 
 def gumble_top_k(x, k, dim, p_value=1e-6):
     # Noise
@@ -14,6 +18,8 @@ def gumble_top_k(x, k, dim, p_value=1e-6):
     noise = -1 * (noise + p_value).log()
     noise = -1 * (noise + p_value).log()
     # add
+    if vis:
+        x = x / conf_T
     x = x + noise
     _, index_k = torch.topk(x, k, dim)
     return index_k
@@ -257,6 +263,12 @@ class DownLayer(nn.Module):
         pos_ada = pos[:, N_grid:]
 
         conf = self.conf(self.norm(x))
+        if vis:
+            # conf = conf / conf_T
+            if H == 56:
+                show_conf(conf, pos)
+
+
         conf_ada = conf[:, N_grid:]
         # _, index_down = torch.topk(conf_ada, self.sample_num, 1)
         index_down = gumble_top_k(conf_ada, self.sample_num, 1)
@@ -272,15 +284,15 @@ class DownLayer(nn.Module):
 
         # x = x * conf
         x_down = self.block(x_down, x, pos, H, W, conf)
-        if vis and conf.shape[1] == H*W:
-            conf_t = F.sigmoid(conf.float()).reshape(-1, H, W).detach().cpu().numpy()
-            import matplotlib.pyplot as plt
-            for i in range(len(conf_t)):
-                ax = plt.subplot(1, len(conf_t), i+1)
-                tmp = conf_t[i]
-                # tmp = tmp / tmp.max()
-                ax.imshow(tmp)
-            tmp = 0
+        # if vis and conf.shape[1] == H*W:
+        #     conf_t = F.sigmoid(conf.float()).reshape(-1, H, W).detach().cpu().numpy()
+        #     import matplotlib.pyplot as plt
+        #     for i in range(len(conf_t)):
+        #         ax = plt.subplot(1, len(conf_t), i+1)
+        #         tmp = conf_t[i]
+        #         # tmp = tmp / tmp.max()
+        #         ax.imshow(tmp)
+        #     tmp = 0
 
         pos_feature = get_pos_embed(pos_embed, pos_down, pos_size)
         x_down += pos_feature
@@ -382,6 +394,8 @@ class MyPVT9(nn.Module):
         trunc_normal_(self.pos_embed4, std=.02)
         trunc_normal_(self.cls_token, std=.02)
         self.apply(self._init_weights)
+
+        self.num = 0
 
     def reset_drop_path(self, drop_path_rate):
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(self.depths))]
@@ -508,6 +522,9 @@ class MyPVT9(nn.Module):
         if vis:
             outs.append((x, loc, [H, W]))
             # show_tokens(img, outs, N_grid)
+            if self.num % 1 == 0:
+                show_tokens(img, outs, N_grid)
+            self.num = self.num + 1
 
         x = self.norm(x)
         return x[:, 0]
@@ -524,20 +541,32 @@ def show_tokens(x, out, N_grid=14*14):
     IMAGENET_DEFAULT_MEAN = torch.tensor([0.485, 0.456, 0.406], device=x.device)[None, :, None, None]
     IMAGENET_DEFAULT_STD = torch.tensor([0.229, 0.224, 0.225], device=x.device)[None, :, None, None]
     x = x * IMAGENET_DEFAULT_STD + IMAGENET_DEFAULT_MEAN
-    for i in range(x.shape[0]):
+    # for i in range(x.shape[0]):
+    for i in range(1):
         img = x[i].permute(1, 2, 0).detach().cpu()
-        ax = plt.subplot(1, len(out)+1, 1)
+        ax = plt.subplot(1, len(out)+2, 1)
         ax.clear()
         ax.imshow(img)
         for lv in range(len(out)):
-            ax = plt.subplot(1, len(out)+1, lv+2)
+            ax = plt.subplot(1, len(out)+2, lv+2+(lv > 0))
             ax.clear()
             ax.imshow(img, extent=[0, 1, 0, 1])
             loc_grid = out[lv][1][i, :N_grid].detach().cpu().numpy()
-            ax.scatter(loc_grid[:, 0], loc_grid[:, 1], c='blue', s=0.4+lv*0.1)
+            ax.scatter(loc_grid[:, 0], 1 - loc_grid[:, 1], c='blue', s=0.4+lv*0.1)
             loc_ada = out[lv][1][i, N_grid:].detach().cpu().numpy()
-            ax.scatter(loc_ada[:, 0], loc_ada[:, 1], c='red', s=0.4+lv*0.1)
+            ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
+    return
 
+
+def show_conf(conf, loc):
+    H = int(conf.shape[1]**0.5)
+    if H == 56:
+        conf = F.softmax(conf, dim=1)
+        conf_map = token2map(conf,  map_size=[H, H], loc=loc, kernel_size=3, sigma=2)
+        lv = 3
+        ax = plt.subplot(1, 6, lv)
+        ax.clear()
+        ax.imshow(conf_map[0, 0].detach().cpu())
 
 @register_model
 def mypvt9_small(pretrained=False, **kwargs):

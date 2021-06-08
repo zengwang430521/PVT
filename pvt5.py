@@ -6,7 +6,9 @@ from functools import partial
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 from timm.models.registry import register_model
 from timm.models.vision_transformer import _cfg
-
+vis = False
+import matplotlib.pyplot as plt
+# ax = plt.subplot(1, 4, 1)
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
@@ -116,6 +118,8 @@ class Attention(nn.Module):
         if self.conf is not None:
             conf_weight = self.conf(x_)
             attn = attn + conf_weight[:, None, None, :, 0]
+            if vis:
+                show_conf(conf_weight)
 
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
@@ -307,6 +311,9 @@ class PyramidVisionTransformer(nn.Module):
     def forward_features(self, x):
         B = x.shape[0]
 
+        if vis:
+            show_img(x)
+
         # stage 1
         x, (H, W) = self.patch_embed1(x)
         x = x + self.pos_embed1
@@ -370,6 +377,31 @@ def pvt5_small(pretrained=False, **kwargs):
     model.default_cfg = _cfg()
 
     return model
+
+
+def show_img(x):
+    IMAGENET_DEFAULT_MEAN = torch.tensor([0.485, 0.456, 0.406], device=x.device)[None, :, None, None]
+    IMAGENET_DEFAULT_STD = torch.tensor([0.229, 0.224, 0.225], device=x.device)[None, :, None, None]
+    x = x * IMAGENET_DEFAULT_STD + IMAGENET_DEFAULT_MEAN
+    img = x[0].permute(1, 2, 0).detach().cpu()
+    ax = plt.subplot(1, 4, 1)
+    ax.clear()
+    ax.imshow(img)
+
+
+def show_conf(conf):
+    H = int(conf.shape[1]**0.5)
+    if H == 7:
+        return
+    conf = F.softmax(conf, dim=1).reshape(-1, H, H)
+    lv_dict = {}
+    lv_dict[56] = 2
+    lv_dict[28] = 3
+    lv_dict[14] = 4
+    lv = lv_dict[H]
+    ax = plt.subplot(1, 4, lv)
+    ax.clear()
+    ax.imshow(conf[0].detach().cpu())
 
 
 
