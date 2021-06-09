@@ -273,6 +273,7 @@ class DownLayer(nn.Module):
         feature_map = token2map(x, pos, [H, W], self.block.attn.sr_ratio - 1, 2)
         xd_grid = self.conv(feature_map).flatten(2).permute(0, 2, 1)
         h, w = H // 2, W // 2
+        device = x.device
         y_map, x_map = torch.meshgrid(torch.arange(h, device=device).float() / (h - 1),
                                       torch.arange(w, device=device).float() / (w - 1))
         xy_map = torch.stack((x_map, y_map), dim=-1)
@@ -589,8 +590,9 @@ if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     model = mypvt15_small(drop_path_rate=0.1).to(device)
     model.reset_drop_path(0.1)
-
     empty_input = torch.rand([2, 3, 224, 224], device=device)
+    del device
+
     output = model(empty_input)
     tmp = output.sum()
     print(tmp)
