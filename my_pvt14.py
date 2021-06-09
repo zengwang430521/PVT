@@ -222,6 +222,8 @@ class MyBlock(nn.Module):
             self.use_fc = True
             self.fc = nn.Linear(dim, dim_out)
         self.alpha = alpha
+        self.dim = dim
+        self.dim_out = dim_out
 
     def forward(self, x, x_source, loc, H, W, conf_source=None):
         if self.use_fc:
@@ -253,8 +255,6 @@ class DownLayer(nn.Module):
     def __init__(self, sample_num, embed_dim, drop_rate, down_block):
         super().__init__()
         self.sample_num = sample_num
-        self.norm = nn.LayerNorm(embed_dim)
-        self.conf = nn.Linear(embed_dim, 1)
         self.block = down_block
         self.pos_drop = nn.Dropout(p=drop_rate)
         # self.gumble_sigmoid = GumbelSigmoid()
@@ -262,15 +262,17 @@ class DownLayer(nn.Module):
         self.T = 1.0
         self.T_min = 0.01
         self.T_decay = 0.9998
-        self.conv = nn.Conv2d(embed_dim, embed_dim, kernel_size=3, stride=1, padding=1)
+        self.conv = nn.Conv2d(embed_dim, self.block.dim_out, kernel_size=3, stride=1, padding=1)
+        self.norm = nn.LayerNorm(self.block.dim_out)
+        self.conf = nn.Linear(self.block.dim_out, 1)
+
 
     def forward(self, x, pos, pos_embed, H, W, pos_size, N_grid):
-        B, N, C = x.shape
-        assert self.sample_num <= N
         x = token2map(x, pos, [H, W], self.block.attn.sr_ratio - 1, 2)
         x = self.conv(x)
         x = map2token(x, pos)
-
+        B, N, C = x.shape
+        assert self.sample_num <= N
 
         x_grid = x[:, :N_grid]
         x_ada = x[:, N_grid:]
@@ -356,7 +358,7 @@ class MyPVT(nn.Module):
         sample_num = sample_num // 4
         self.down_layers1 = DownLayer(sample_num=sample_num, embed_dim=embed_dims[0], drop_rate=drop_rate,
                                       down_block=MyBlock(
-                                            dim=embed_dims[0], dim_out=embed_dims[1], num_heads=num_heads[1],
+                                            dim=embed_dims[1], dim_out=embed_dims[1], num_heads=num_heads[1],
                                             mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
                                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                             norm_layer=norm_layer, sr_ratio=1, alpha=alpha))
@@ -372,7 +374,7 @@ class MyPVT(nn.Module):
         sample_num = sample_num // 4
         self.down_layers2 = DownLayer(sample_num=sample_num, embed_dim=embed_dims[1], drop_rate=drop_rate,
                                       down_block=MyBlock(
-                                            dim=embed_dims[1], dim_out=embed_dims[2], num_heads=num_heads[2],
+                                            dim=embed_dims[2], dim_out=embed_dims[2], num_heads=num_heads[2],
                                             mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
                                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                             norm_layer=norm_layer, sr_ratio=1, alpha=alpha))
@@ -387,7 +389,7 @@ class MyPVT(nn.Module):
         sample_num = sample_num // 4
         self.down_layers3 = DownLayer(sample_num=sample_num, embed_dim=embed_dims[2], drop_rate=drop_rate,
                                       down_block=MyBlock(
-                                            dim=embed_dims[2], dim_out=embed_dims[3], num_heads=num_heads[3],
+                                            dim=embed_dims[3], dim_out=embed_dims[3], num_heads=num_heads[3],
                                             mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
                                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                             norm_layer=norm_layer, sr_ratio=1, alpha=alpha))
