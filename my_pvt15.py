@@ -331,6 +331,7 @@ class MyPVT(nn.Module):
         # transformer encoder
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
         sample_num = self.patch_embed1.num_patches
+        sample_num = sample_num // 2
         cur = 0
 
         # stage 1
