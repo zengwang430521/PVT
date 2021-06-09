@@ -138,7 +138,7 @@ def token2map(x, loc, map_size, kernel_size, sigma):
     return feature
 
 
-def map2token(feature_map, loc_xy, mode='bilinear', align_corners=True):
+def map2token(feature_map, loc_xy, mode='bilinear', align_corners=False):
     B, N, _ = loc_xy.shape
     # B, C, H, W = feature_map.shape
     loc_xy = loc_xy.type(feature_map.dtype) * 2 - 1
@@ -265,7 +265,6 @@ class DownLayer(nn.Module):
         self.conv = nn.Conv2d(embed_dim, self.block.dim_out, kernel_size=3, stride=1, padding=1)
         self.norm = nn.LayerNorm(self.block.dim_out)
         self.conf = nn.Linear(self.block.dim_out, 1)
-
 
     def forward(self, x, pos, pos_embed, H, W, pos_size, N_grid):
         x = token2map(x, pos, [H, W], self.block.attn.sr_ratio - 1, 2)
@@ -605,6 +604,8 @@ if __name__ == '__main__':
     model.reset_drop_path(0.1)
 
     empty_input = torch.rand([2, 3, 224, 224], device=device)
+    del device
+
     output = model(empty_input)
     tmp = output.sum()
     print(tmp)
