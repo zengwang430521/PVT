@@ -261,7 +261,8 @@ class DownLayer(nn.Module):
         self.pos_drop = nn.Dropout(p=drop_rate)
         # self.gumble_sigmoid = GumbelSigmoid()
         # temperature of confidence weight
-        self.T = 1.0
+        # self.T = 1.0
+        self.register_buffer('T', torch.tensor(1.0, dtype=torch.float))
         self.T_min = 0.01
         self.T_decay = 0.9998
         self.conv = nn.Conv2d(embed_dim, self.block.dim_out, kernel_size=2, stride=2, padding=0)
@@ -285,10 +286,10 @@ class DownLayer(nn.Module):
                 show_conf(conf, pos)
 
         # temperature
-        T = self.T if self.training else self.T_min
-        self.T = max(self.T_min, self.T * self.T_decay)
+        T = self.T
+        self.T = (self.T * self.T_decay).clamp(self.T_min, 1.0)
         # _, index_down = torch.topk(conf_ada, self.sample_num, 1)
-        index_down = gumble_top_k(conf, self.sample_num, 1, T)
+        index_down = gumble_top_k(conf, self.sample_num, 1, T=T)
         # conf = F.softmax(conf, dim=1) * N
         # conf = F.sigmoid(conf)
         # conf = self.gumble_sigmoid(conf)
