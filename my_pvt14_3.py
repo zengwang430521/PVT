@@ -259,7 +259,7 @@ class DownLayer(nn.Module):
         self.pos_drop = nn.Dropout(p=drop_rate)
         # self.gumble_sigmoid = GumbelSigmoid()
         # temperature of confidence weight
-        self.T = 1.0
+        self.register_buffer('T', torch.tensor(1.0, dtype=torch.float))
         self.T_min = 1
         self.T_decay = 0.9998
         self.conv = nn.Conv2d(embed_dim, self.block.dim_out, kernel_size=3, stride=1, padding=1)
@@ -286,8 +286,10 @@ class DownLayer(nn.Module):
         conf_ada = conf[:, N_grid:]
 
         # temperature
-        T = self.T if self.training else self.T_min
-        self.T = max(self.T_min, self.T * self.T_decay)
+        # T = self.T if self.training else self.T_min
+        T = self.T
+        self.T = (self.T * self.T_decay).clamp(self.T_min, 1.0)
+
         # _, index_down = torch.topk(conf_ada, self.sample_num, 1)
         index_down = gumble_top_k(conf_ada, self.sample_num, 1, T=T)
         # conf = F.softmax(conf, dim=1) * N
@@ -600,7 +602,7 @@ def mypvt14_3_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt14_2_small(drop_path_rate=0.1).to(device)
+    model = mypvt14_3_small(drop_path_rate=0.1).to(device)
     model.reset_drop_path(0.1)
 
     empty_input = torch.rand([2, 3, 224, 224], device=device)

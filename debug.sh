@@ -208,8 +208,8 @@ srun -p pat_earth \
     -x SH-IDC1-10-198-4-100,SH-IDC1-10-198-4-101,SH-IDC1-10-198-4-102,SH-IDC1-10-198-4-103,SH-IDC1-10-198-4-116,SH-IDC1-10-198-4-117,SH-IDC1-10-198-4-118,SH-IDC1-10-198-4-118 \
     --job-name=pvt --ntasks=8 \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
-    python -u train.py --model mypvt14_2_small --batch-size 128 --epochs 300 --num_workers 5  --cache_mode \
-    --output_dir ./work_dirs/my14_2_s --data-path data/imagenet
+    python -u train.py --model mypvt14_small --batch-size 128 --epochs 300 --num_workers 5  --cache_mode \
+    --output_dir ./work_dirs/my14_s_2 --data-path data/imagenet
 
 
     python -u train.py --model mypvt10_small --batch-size 128 --epochs 300 --num_workers 5  --cache_mode \
