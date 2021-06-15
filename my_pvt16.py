@@ -78,7 +78,7 @@ def reconstruct_feature(feature, mask, kernel_size, sigma):
     return out
 
 
-def token2map(x, loc, map_size, kernel_size, sigma):
+def token2map(x, loc, map_size, kernel_size, sigma, return_mask=False):
     H, W = map_size
     B, N, C = x.shape
     loc = loc.clamp(0, 1)
@@ -97,6 +97,8 @@ def token2map(x, loc, map_size, kernel_size, sigma):
     mask = (mask > 0).float()
     feature = feature * mask
     feature = reconstruct_feature(feature, mask, kernel_size, sigma)
+    if return_mask:
+        return feature, mask
     return feature
 
 
@@ -213,6 +215,7 @@ def get_pos_embed(pos_embed, loc_xy, pos_size=None):
     return pos_feature
 
 
+from partialconv2d import PartialConv2d
 class DownLayer(nn.Module):
     """ Down sample
     """
@@ -226,13 +229,14 @@ class DownLayer(nn.Module):
         self.register_buffer('T', torch.tensor(1.0, dtype=torch.float))
         self.T_min = 1
         self.T_decay = 0.9998
-        self.conv = nn.Conv2d(embed_dim, self.block.dim_out, kernel_size=3, stride=1, padding=1)
+        # self.conv = nn.Conv2d(embed_dim, self.block.dim_out, kernel_size=3, stride=1, padding=1)
+        self.conv = PartialConv2d(embed_dim, self.block.dim_out, kernel_size=3, stride=1, padding=1)
         self.norm = nn.LayerNorm(self.block.dim_out)
         self.conf = nn.Linear(self.block.dim_out, 1)
 
     def forward(self, x, pos, pos_embed, H, W, pos_size, N_grid):
-        x = token2map(x, pos, [H, W], self.block.attn.sr_ratio - 1, 2)
-        x = self.conv(x)
+        x, mask = token2map(x, pos, [H, W], 1, 2, return_mask=True)
+        x = self.conv(x, mask)
         x = map2token(x, pos)
         B, N, C = x.shape
         assert self.sample_num <= N
