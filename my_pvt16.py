@@ -312,6 +312,7 @@ class MyPVT(nn.Module):
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
         sample_num = self.patch_embed1.num_patches
         cur = 0
+        N_grid = sample_num // self.grid_stride // self.grid_stride
 
         # stage 1
         self.block1 = nn.ModuleList([Block(
@@ -323,7 +324,7 @@ class MyPVT(nn.Module):
 
         # stage 2
         sample_num = sample_num // 4
-        self.down_layers1 = DownLayer(sample_num=sample_num, embed_dim=embed_dims[0], drop_rate=drop_rate,
+        self.down_layers1 = DownLayer(sample_num=sample_num-N_grid, embed_dim=embed_dims[0], drop_rate=drop_rate,
                                       down_block=MyBlock(
                                             dim=embed_dims[1], dim_out=embed_dims[1], num_heads=num_heads[1],
                                             mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
@@ -339,7 +340,7 @@ class MyPVT(nn.Module):
 
         # stage 3
         sample_num = sample_num // 4
-        self.down_layers2 = DownLayer(sample_num=sample_num, embed_dim=embed_dims[1], drop_rate=drop_rate,
+        self.down_layers2 = DownLayer(sample_num=sample_num-N_grid, embed_dim=embed_dims[1], drop_rate=drop_rate,
                                       down_block=MyBlock(
                                             dim=embed_dims[2], dim_out=embed_dims[2], num_heads=num_heads[2],
                                             mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
@@ -354,7 +355,7 @@ class MyPVT(nn.Module):
 
         # stage 4
         sample_num = sample_num // 4
-        self.down_layers3 = DownLayer(sample_num=sample_num, embed_dim=embed_dims[2], drop_rate=drop_rate,
+        self.down_layers3 = DownLayer(sample_num=sample_num-N_grid, embed_dim=embed_dims[2], drop_rate=drop_rate,
                                       down_block=MyBlock(
                                             dim=embed_dims[3], dim_out=embed_dims[3], num_heads=num_heads[3],
                                             mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
