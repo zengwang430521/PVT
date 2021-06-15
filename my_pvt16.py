@@ -201,11 +201,9 @@ class MyBlock(nn.Module):
         return x
 
 
-def get_pos_embed(pos_embed, loc_xy, pos_size):
-    H, W = pos_size
+def get_pos_embed(pos_embed, loc_xy, pos_size=None):
+    _, H, W, C = pos_embed.shape
     B, N, _ = loc_xy.shape
-    C = pos_embed.shape[-1]
-    pos_embed = pos_embed.reshape(1, H, W, -1)
     pos_embed = pos_embed.permute(0, 3, 1, 2).expand([B, C, H, W])
     loc_xy = loc_xy * 2 - 1
     loc_xy = loc_xy.unsqueeze(1)
@@ -301,11 +299,12 @@ class MyPVT(nn.Module):
         self.patch_embed1 = PatchEmbed(img_size=img_size, patch_size=patch_size, in_chans=in_chans,
                                        embed_dim=embed_dims[0])
         # pos_embed
-        self.pos_embed1 = nn.Parameter(torch.zeros(1, self.patch_embed1.num_patches, embed_dims[0]))
+        H = W = img_size // patch_size
+        self.pos_embed1 = nn.Parameter(torch.zeros(1, H, W, embed_dims[0]))
         self.pos_drop1 = nn.Dropout(p=drop_rate)
-        self.pos_embed2 = nn.Parameter(torch.zeros(1, self.patch_embed1.num_patches, embed_dims[1]))
-        self.pos_embed3 = nn.Parameter(torch.zeros(1, self.patch_embed1.num_patches, embed_dims[2]))
-        self.pos_embed4 = nn.Parameter(torch.zeros(1, self.patch_embed1.num_patches, embed_dims[3]))
+        self.pos_embed2 = nn.Parameter(torch.zeros(1, H // 2, W // 2, embed_dims[1]))
+        self.pos_embed3 = nn.Parameter(torch.zeros(1, H // 4, W // 4, embed_dims[2]))
+        self.pos_embed4 = nn.Parameter(torch.zeros(1, H // 8, W // 8, embed_dims[3]))
         self.pos_size = [img_size // patch_size, img_size // patch_size]
 
         # transformer encoder
@@ -449,7 +448,7 @@ class MyPVT(nn.Module):
 
         # stage 1 Unchanged
         x, (H, W) = self.patch_embed1(x)
-        x = x + self.pos_embed1
+        x = x + self.pos_embed1.flatten(start_dim=1, end_dim=2)
         x = self.pos_drop1(x)
         for blk in self.block1:
             x = blk(x, H, W)
