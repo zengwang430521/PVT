@@ -6,6 +6,8 @@ from functools import partial
 from pvt import ( Mlp, Attention, PatchEmbed, Block, DropPath, to_2tuple, trunc_normal_,register_model, _cfg)
 import math
 import matplotlib.pyplot as plt
+from partialconv2d import PartialConv2d
+from torchvision.ops import roi_align
 
 vis = False
 
@@ -215,7 +217,6 @@ def get_pos_embed(pos_embed, loc_xy, pos_size=None):
     return pos_feature
 
 
-from partialconv2d import PartialConv2d
 class DownLayer(nn.Module):
     """ Down sample
     """
@@ -290,17 +291,63 @@ class DownLayer(nn.Module):
         return x_down, pos_down
 
 
+def extract_local_feature(src, loc, kernel_size=(3,3)):
+    B, C, H, W = src.shape
+    B, N, _ = loc.shape
+    loc = loc.clamp(0, 1)
+    loc[..., 0] = loc[..., 0] * (W - 1)
+    loc[..., 1] = loc[..., 1] * (H - 1)
+    bbox_size = torch.tensor(kernel_size, device=loc.device, dtype=loc.dtype)
+    # bbox = torch.cat([
+    #     torch.arange(0, B, device=loc.device, dtype=loc.dtype)[:, None, None].expand([B, N, 1]),
+    #     loc - bbox_size / 2,
+    #     loc + bbox_size / 2
+    # ], dim=-1)
+
+    bbox = torch.cat([
+        loc - bbox_size / 2,
+        loc + bbox_size / 2
+    ], dim=-1)
+    bbox = [bb for bb in bbox]
+    loc_feature = roi_align(src, bbox, kernel_size, sampling_ratio=1)
+    return loc_feature
+
+
+class ExtraSampleLayer(nn.Module):
+    def __init__(self, embed_dim, src_dim=3, kernel_size=(4, 4), stride=4, delta_factor=0.01):
+        super().__init__()
+        self.delta_layer = nn.Linear(embed_dim, 2)
+        self.delta_factor = delta_factor
+        self.local_conv = nn.Conv2d(src_dim, embed_dim, kernel_size, stride)
+        self.norm = nn.LayerNorm(embed_dim)
+        self.kernel_size = kernel_size
+        self.embed_dim = embed_dim
+
+    def forward(self, x, loc, src):
+        B, N, _ = loc.shape
+        delta = self.delta_layer(x) * self.delta_factor
+        loc_extra = loc + delta
+        loc_extra = loc_extra.clamp(0, 1)
+        extra = extract_local_feature(src, loc_extra, self.kernel_size)
+        extra = self.local_conv(extra).squeeze(-1).squeeze(-1)
+        extra = extra.reshape(B, N, self.embed_dim)
+        extra = self.norm(extra)
+        return torch.cat([x, extra], dim=1), torch.cat([loc, loc_extra], dim=1)
+
+
 class MyPVT(nn.Module):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
                  depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], alpha=1):
         super().__init__()
+        self.ave_layer = nn.AvgPool2d(2)
+        img_size = img_size // 2
+
         self.num_classes = num_classes
         self.depths = depths
         self.alpha = alpha
         self.grid_stride = sr_ratios[0]
-
         # patch_embed
         self.patch_embed1 = PatchEmbed(img_size=img_size, patch_size=patch_size, in_chans=in_chans,
                                        embed_dim=embed_dims[0])
@@ -317,7 +364,8 @@ class MyPVT(nn.Module):
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
         sample_num = self.patch_embed1.num_patches
         cur = 0
-        N_grid = sample_num // self.grid_stride // self.grid_stride
+        # N_grid = sample_num // self.grid_stride // self.grid_stride
+        N_grid = (H // self.grid_stride) * (W // self.grid_stride)
 
         # stage 1
         self.block1 = nn.ModuleList([Block(
@@ -335,6 +383,7 @@ class MyPVT(nn.Module):
                                             mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
                                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                             norm_layer=norm_layer, sr_ratio=sr_ratios[0], alpha=alpha))
+        self.extra_layer1 = ExtraSampleLayer(embed_dim=embed_dims[1])
 
         self.block2 = nn.ModuleList([MyBlock(
             dim=embed_dims[1], num_heads=num_heads[1], mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
@@ -351,6 +400,7 @@ class MyPVT(nn.Module):
                                             mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
                                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                             norm_layer=norm_layer, sr_ratio=sr_ratios[1], alpha=alpha))
+        self.extra_layer2 = ExtraSampleLayer(embed_dim=embed_dims[2])
         self.block3 = nn.ModuleList([MyBlock(
             dim=embed_dims[2], num_heads=num_heads[2], mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
@@ -366,6 +416,7 @@ class MyPVT(nn.Module):
                                             mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
                                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                             norm_layer=norm_layer, sr_ratio=sr_ratios[2], alpha=alpha))
+        self.extra_layer3 = ExtraSampleLayer(embed_dim=embed_dims[3])
         self.block4 = nn.ModuleList([MyBlock(
             dim=embed_dims[3], num_heads=num_heads[3], mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
@@ -451,6 +502,7 @@ class MyPVT(nn.Module):
         device = x.device
         outs = []
         img = x
+        x = self.ave_layer(x)
 
         # stage 1 Unchanged
         x, (H, W) = self.patch_embed1(x)
@@ -489,6 +541,7 @@ class MyPVT(nn.Module):
 
         # stage 2
         x, loc = self.down_layers1(x, loc, self.pos_embed2, H, W, self.pos_size, N_grid)     # down sample
+        x, loc = self.extra_layer1(x, loc, img)
         H, W = H // 2, W // 2
         for blk in self.block2:
             x = blk(x, x, loc, H, W)
@@ -497,6 +550,7 @@ class MyPVT(nn.Module):
 
         # stage 3
         x, loc = self.down_layers2(x, loc, self.pos_embed3, H, W, self.pos_size, N_grid)     # down sample
+        x, loc = self.extra_layer2(x, loc, img)
         H, W = H // 2, W // 2
         for blk in self.block3:
             x = blk(x, x, loc, H, W)
@@ -505,6 +559,7 @@ class MyPVT(nn.Module):
 
         # stage 4
         x, loc = self.down_layers3(x, loc, self.pos_embed4, H, W, self.pos_size, N_grid)     # down sample
+        x, loc = self.extra_layer3(x, loc, img)
         H, W = H // 2, W // 2
         # cls_tokens = self.cls_token.expand(B, -1, -1)
         # x = torch.cat((cls_tokens, x), dim=1)
