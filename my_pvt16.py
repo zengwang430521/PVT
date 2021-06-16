@@ -229,14 +229,16 @@ class DownLayer(nn.Module):
         self.register_buffer('T', torch.tensor(1.0, dtype=torch.float))
         self.T_min = 1
         self.T_decay = 0.9998
-        # self.conv = nn.Conv2d(embed_dim, self.block.dim_out, kernel_size=3, stride=1, padding=1)
-        self.conv = PartialConv2d(embed_dim, self.block.dim_out, kernel_size=3, stride=1, padding=1)
+        self.conv = nn.Conv2d(embed_dim, self.block.dim_out, kernel_size=3, stride=1, padding=1)
+        # self.conv = PartialConv2d(embed_dim, self.block.dim_out, kernel_size=3, stride=1, padding=1)
         self.norm = nn.LayerNorm(self.block.dim_out)
         self.conf = nn.Linear(self.block.dim_out, 1)
 
     def forward(self, x, pos, pos_embed, H, W, pos_size, N_grid):
-        x, mask = token2map(x, pos, [H, W], 1, 2, return_mask=True)
-        x = self.conv(x, mask)
+        # x, mask = token2map(x, pos, [H, W], 1, 2, return_mask=True)
+        # x = self.conv(x, mask)
+        x = token2map(x, pos, [H, W], self.block.attn.sr_ratio - 1, 2)
+        x = self.conv(x)
         x = map2token(x, pos)
         B, N, C = x.shape
         assert self.sample_num <= N
