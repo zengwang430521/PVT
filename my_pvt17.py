@@ -619,6 +619,7 @@ def show_conf(conf, loc):
 @register_model
 def mypvt17_small(pretrained=False, **kwargs):
     model = MyPVT(
+        img_size=448,
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], **kwargs)
     model.default_cfg = _cfg()
@@ -632,7 +633,7 @@ if __name__ == '__main__':
     model = mypvt17_small(drop_path_rate=0.1).to(device)
     model.reset_drop_path(0.1)
 
-    empty_input = torch.rand([2, 3, 224, 224], device=device)
+    empty_input = torch.rand([2, 3, 448, 448], device=device)
     del device
 
     output = model(empty_input)
