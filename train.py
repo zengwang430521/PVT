@@ -46,6 +46,8 @@ import my_pvt14_6
 import my_pvt15
 import my_pvt16
 import my_pvt17
+import my_pvt18
+import my_pvt19
 import pvt2
 import pvt3
 import pvt4

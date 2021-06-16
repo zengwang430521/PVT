@@ -285,10 +285,9 @@ class DownLayer(nn.Module):
         #         ax.imshow(tmp)
         #     tmp = 0
 
-        if pos_embed is not None:
-            pos_feature = get_pos_embed(pos_embed, pos_down, pos_size)
-            x_down += pos_feature
-            x_down = self.pos_drop(x_down)
+        pos_feature = get_pos_embed(pos_embed, pos_down, pos_size)
+        x_down += pos_feature
+        x_down = self.pos_drop(x_down)
         return x_down, pos_down
 
 
@@ -386,25 +385,13 @@ class MyPVT(nn.Module):
                                             mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
                                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                             norm_layer=norm_layer, sr_ratio=sr_ratios[0], alpha=alpha))
-
         self.extra_layer1 = ExtraSampleLayer(embed_dim=embed_dims[1])
-        self.extra_block1 = MyBlock(
-                dim=embed_dims[1], dim_out=embed_dims[1], num_heads=num_heads[1],
-                mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
-                drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + 1],
-                norm_layer=norm_layer, sr_ratio=sr_ratios[0], alpha=alpha)
-        self.extra_down1 = DownLayer(sample_num=sample_num - N_grid, embed_dim=embed_dims[1], drop_rate=drop_rate,
-                      down_block=MyBlock(
-                          dim=embed_dims[1], dim_out=embed_dims[1], num_heads=num_heads[1],
-                          mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
-                          drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur+2],
-                          norm_layer=norm_layer, sr_ratio=sr_ratios[0], alpha=alpha))
 
         self.block2 = nn.ModuleList([MyBlock(
             dim=embed_dims[1], num_heads=num_heads[1], mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[1], alpha=alpha)
-            for i in range(3, depths[1])])
+            for i in range(1, depths[1])])
         cur += depths[1]
 
         # stage 3
@@ -416,22 +403,11 @@ class MyPVT(nn.Module):
                                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                             norm_layer=norm_layer, sr_ratio=sr_ratios[1], alpha=alpha))
         self.extra_layer2 = ExtraSampleLayer(embed_dim=embed_dims[2])
-        self.extra_block2 = MyBlock(
-                dim=embed_dims[2], dim_out=embed_dims[2], num_heads=num_heads[2],
-                mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
-                drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur+1],
-                norm_layer=norm_layer, sr_ratio=sr_ratios[1], alpha=alpha)
-        self.extra_down2 = DownLayer(sample_num=sample_num - N_grid, embed_dim=embed_dims[2], drop_rate=drop_rate,
-                      down_block=MyBlock(
-                          dim=embed_dims[2], dim_out=embed_dims[2], num_heads=num_heads[2],
-                          mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
-                          drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur+2],
-                          norm_layer=norm_layer, sr_ratio=sr_ratios[1], alpha=alpha))
         self.block3 = nn.ModuleList([MyBlock(
             dim=embed_dims[2], num_heads=num_heads[2], mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[2], alpha=alpha)
-            for i in range(3, depths[2])])
+            for i in range(1, depths[2])])
         cur += depths[2]
 
         # stage 4
@@ -443,22 +419,11 @@ class MyPVT(nn.Module):
                                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                             norm_layer=norm_layer, sr_ratio=sr_ratios[2], alpha=alpha))
         self.extra_layer3 = ExtraSampleLayer(embed_dim=embed_dims[3])
-        self.extra_block3 = MyBlock(
-                dim=embed_dims[3], dim_out=embed_dims[3], num_heads=num_heads[3],
-                mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
-                drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur+1],
-                norm_layer=norm_layer, sr_ratio=sr_ratios[2], alpha=alpha)
-        self.extra_down3 = DownLayer(sample_num=sample_num - N_grid, embed_dim=embed_dims[3], drop_rate=drop_rate,
-                      down_block=MyBlock(
-                          dim=embed_dims[3], dim_out=embed_dims[3], num_heads=num_heads[3],
-                          mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
-                          drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur+2],
-                          norm_layer=norm_layer, sr_ratio=sr_ratios[2], alpha=alpha))
         self.block4 = nn.ModuleList([MyBlock(
             dim=embed_dims[3], num_heads=num_heads[3], mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[3], alpha=alpha)
-            for i in range(3, depths[3])])
+            for i in range(1, depths[3])])
         self.norm = norm_layer(embed_dims[3])
 
         # cls_token
@@ -486,28 +451,22 @@ class MyPVT(nn.Module):
 
         cur += self.depths[0]
         self.down_layers1.block.drop_path.drop_prob = dpr[cur]
-        self.extra_block1.drop_path.drop_prob = dpr[cur+1]
-        self.extra_down1.block.drop_path.drop_prob = dpr[cur+2]
-        cur += 3
-        for i in range(self.depths[1] - 3):
+        cur += 1
+        for i in range(self.depths[1] - 1):
             self.block2[i].drop_path.drop_prob = dpr[cur + i]
             # print(dpr[cur + i])
 
-        cur += self.depths[1] - 3
+        cur += self.depths[1] - 1
         self.down_layers2.block.drop_path.drop_prob = dpr[cur]
-        self.extra_block2.drop_path.drop_prob = dpr[cur+1]
-        self.extra_down2.block.drop_path.drop_prob = dpr[cur+2]
-        cur += 3
-        for i in range(self.depths[2] - 3):
+        cur += 1
+        for i in range(self.depths[2] - 1):
             self.block3[i].drop_path.drop_prob = dpr[cur + i]
             # print(dpr[cur + i])
 
-        cur += self.depths[2] - 3
+        cur += self.depths[2] - 1
         self.down_layers3.block.drop_path.drop_prob = dpr[cur]
-        self.extra_block3.drop_path.drop_prob = dpr[cur+1]
-        self.extra_down3.block.drop_path.drop_prob = dpr[cur+2]
-        cur += 3
-        for i in range(self.depths[3] - 3):
+        cur += 1
+        for i in range(self.depths[3] - 1):
             self.block4[i].drop_path.drop_prob = dpr[cur + i]
             # print(dpr[cur + i])
 
@@ -584,36 +543,37 @@ class MyPVT(nn.Module):
 
         # stage 2
         x, loc = self.down_layers1(x, loc, self.pos_embed2, H, W, self.pos_size, N_grid)     # down sample
-        x, loc = self.extra_layer1(x, loc, img, self.pos_embed2)
-        x = self.extra_block1(x, x, loc, H, W)
-        x, loc = self.extra_down1(x, loc, self.pos_embed2, H, W, self.pos_size, N_grid)
         H, W = H // 2, W // 2
-        for blk in self.block2:
-            x = blk(x, x, loc, H, W)
+        x_e, loc_e = self.extra_layer1(x, loc, img, self.pos_embed2)
+        for n, blk in enumerate(self.block2):
+            if n == 0:
+                x = blk(x, x_e, loc_e, H, W)
+            else:
+                x = blk(x, x, loc, H, W)
         if vis:
             outs.append((x, loc, [H, W]))
 
         # stage 3
         x, loc = self.down_layers2(x, loc, self.pos_embed3, H, W, self.pos_size, N_grid)     # down sample
-        x, loc = self.extra_layer2(x, loc, img, self.pos_embed3)
-        x = self.extra_block2(x, x, loc, H, W)
-        x, loc = self.extra_down2(x, loc, self.pos_embed3, H, W, self.pos_size, N_grid)
         H, W = H // 2, W // 2
-        for blk in self.block3:
-            x = blk(x, x, loc, H, W)
+        x_e, loc_e = self.extra_layer2(x, loc, img, self.pos_embed3)
+        for n, blk in enumerate(self.block3):
+            if n == 0:
+                x = blk(x, x_e, loc_e, H, W)
+            else:
+                x = blk(x, x, loc, H, W)
         if vis:
             outs.append((x, loc, [H, W]))
 
         # stage 4
         x, loc = self.down_layers3(x, loc, self.pos_embed4, H, W, self.pos_size, N_grid)     # down sample
-        x, loc = self.extra_layer3(x, loc, img, self.pos_embed4)
-        x = self.extra_block3(x, x, loc, H, W)
-        x, loc = self.extra_down3(x, loc, self.pos_embed4, H, W, self.pos_size, N_grid)
         H, W = H // 2, W // 2
-        # cls_tokens = self.cls_token.expand(B, -1, -1)
-        # x = torch.cat((cls_tokens, x), dim=1)
-        for blk in self.block4:
-            x = blk(x, x, loc, H, W)
+        x_e, loc_e = self.extra_layer3(x, loc, img, self.pos_embed4)
+        for n, blk in enumerate(self.block4):
+            if n == 0:
+                x = blk(x, x_e, loc_e, H, W)
+            else:
+                x = blk(x, x, loc, H, W)
 
         if vis:
             outs.append((x, loc, [H, W]))
@@ -666,7 +626,7 @@ def show_conf(conf, loc):
 
 
 @register_model
-def mypvt18_small(pretrained=False, **kwargs):
+def mypvt19_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], **kwargs)
@@ -678,7 +638,7 @@ def mypvt18_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt18_small(drop_path_rate=0.1).to(device)
+    model = mypvt19_small(drop_path_rate=0.1).to(device)
     model.reset_drop_path(0.1)
 
     empty_input = torch.rand([2, 3, 224, 224], device=device)
