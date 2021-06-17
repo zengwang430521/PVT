@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from partialconv2d import PartialConv2d
 from torchvision.ops import roi_align
 
-vis = True
+vis = False
 
 
 def gumble_top_k(x, k, dim, T=1, p_value=1e-6):
