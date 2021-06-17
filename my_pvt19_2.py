@@ -251,7 +251,7 @@ class DownLayer(nn.Module):
 
         conf = self.conf(self.norm(x))
         if vis:
-            if H == 56:
+            if H == 28:
                 show_conf(conf, pos)
 
         conf_ada = conf[:, N_grid:]
@@ -319,12 +319,14 @@ class ExtraSampleLayer(nn.Module):
         self.delta_layer = nn.Linear(embed_dim, 2)
         self.delta_factor = delta_factor
         self.local_conv = nn.Conv2d(src_dim, embed_dim, kernel_size, stride)
-        self.norm = nn.LayerNorm(embed_dim)
+        self.norm1 = nn.LayerNorm(embed_dim)
+        self.norm2 = nn.LayerNorm(embed_dim)
         self.kernel_size = kernel_size
         self.embed_dim = embed_dim
 
     def forward(self, x, loc, src, pos_embed):
         B, N, _ = loc.shape
+        x = self.norm1(x)
         delta = self.delta_layer(x) * self.delta_factor
         loc_extra = loc + delta
         loc_extra = loc_extra.clamp(0, 1)
@@ -333,7 +335,7 @@ class ExtraSampleLayer(nn.Module):
         extra = extra.reshape(B, N, self.embed_dim)
         pos_feature = get_pos_embed(pos_embed, loc_extra)
         extra += pos_feature
-        extra = self.norm(extra)
+        extra = self.norm2(extra)
         return torch.cat([x, extra], dim=1), torch.cat([loc, loc_extra], dim=1)
 
 
@@ -615,7 +617,7 @@ def show_tokens(x, out, N_grid=14*14):
                 loc_ada = loc[N_grid:N//2]
                 ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
                 loc_extra = loc[N//2:]
-                ax.scatter(loc_extra[:, 0], 1 - loc_extra[:, 1], c='green', s=0.4+lv*0.1)
+                ax.scatter(loc_extra[:, 0], 1 - loc_extra[:, 1], c='yellow', s=0.4+lv*0.1)
             else:
                 loc_ada = loc[N_grid:]
                 ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
@@ -624,7 +626,7 @@ def show_tokens(x, out, N_grid=14*14):
 
 def show_conf(conf, loc):
     H = int(conf.shape[1]**0.5)
-    if H == 56:
+    if H == 28:
         conf = F.softmax(conf, dim=1)
         conf_map = token2map(conf,  map_size=[H, H], loc=loc, kernel_size=3, sigma=2)
         lv = 3
