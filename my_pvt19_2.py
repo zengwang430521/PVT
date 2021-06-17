@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from partialconv2d import PartialConv2d
 from torchvision.ops import roi_align
 
-vis = False
+vis = True
 
 
 def gumble_top_k(x, k, dim, T=1, p_value=1e-6):
@@ -238,7 +238,7 @@ class DownLayer(nn.Module):
     def forward(self, x, pos, pos_embed, H, W, pos_size, N_grid):
         # x, mask = token2map(x, pos, [H, W], 1, 2, return_mask=True)
         # x = self.conv(x, mask)
-        x = token2map(x, pos, [H, W], self.block.attn.sr_ratio - 1, 2)
+        x = token2map(x, pos, [H, W], self.block.attn.sr_ratio + 1, 2)
         x = self.conv(x)
         x = map2token(x, pos)
         B, N, C = x.shape
@@ -551,7 +551,7 @@ class MyPVT(nn.Module):
             else:
                 x = blk(x, x, loc, H, W)
         if vis:
-            outs.append((x, loc, [H, W]))
+            outs.append((x_e, loc_e, [H, W]))
 
         # stage 3
         x, loc = self.down_layers2(x, loc, self.pos_embed3, H, W, self.pos_size, N_grid)     # down sample
@@ -563,7 +563,7 @@ class MyPVT(nn.Module):
             else:
                 x = blk(x, x, loc, H, W)
         if vis:
-            outs.append((x, loc, [H, W]))
+            outs.append((x_e, loc_e, [H, W]))
 
         # stage 4
         x, loc = self.down_layers3(x, loc, self.pos_embed4, H, W, self.pos_size, N_grid)     # down sample
@@ -576,8 +576,7 @@ class MyPVT(nn.Module):
                 x = blk(x, x, loc, H, W)
 
         if vis:
-            outs.append((x, loc, [H, W]))
-            # show_tokens(img, outs, N_grid)
+            outs.append((x_e, loc_e, [H, W]))
             if self.num % 1 == 0:
                 show_tokens(img, outs, N_grid)
             self.num = self.num + 1
@@ -607,10 +606,19 @@ def show_tokens(x, out, N_grid=14*14):
             ax = plt.subplot(1, len(out)+2, lv+2+(lv > 0))
             ax.clear()
             ax.imshow(img, extent=[0, 1, 0, 1])
-            loc_grid = out[lv][1][i, :N_grid].detach().cpu().numpy()
-            ax.scatter(loc_grid[:, 0], 1 - loc_grid[:, 1], c='blue', s=0.4+lv*0.1)
-            loc_ada = out[lv][1][i, N_grid:].detach().cpu().numpy()
-            ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
+            loc = out[lv][1][i].detach().cpu().numpy()
+
+            loc_grid = loc[:N_grid]
+            ax.scatter(loc_grid[:, 0], 1 - loc_grid[:, 1], c='blue', s=0.4 + lv * 0.1)
+            if lv > 0:
+                N = loc.shape[0]
+                loc_ada = loc[N_grid:N//2]
+                ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
+                loc_extra = loc[N//2:]
+                ax.scatter(loc_extra[:, 0], 1 - loc_extra[:, 1], c='green', s=0.4+lv*0.1)
+            else:
+                loc_ada = loc[N_grid:]
+                ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
     return
 
 
@@ -626,7 +634,7 @@ def show_conf(conf, loc):
 
 
 @register_model
-def mypvt19_2_small(pretrained=False, **kwargs):
+def mypvt19_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], **kwargs)
@@ -638,7 +646,7 @@ def mypvt19_2_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt19_2_small(drop_path_rate=0.1).to(device)
+    model = mypvt19_small(drop_path_rate=0.1).to(device)
     model.reset_drop_path(0.1)
 
     empty_input = torch.rand([2, 3, 224, 224], device=device)

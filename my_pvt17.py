@@ -238,7 +238,7 @@ class DownLayer(nn.Module):
     def forward(self, x, pos, pos_embed, H, W, pos_size, N_grid):
         # x, mask = token2map(x, pos, [H, W], 1, 2, return_mask=True)
         # x = self.conv(x, mask)
-        x = token2map(x, pos, [H, W], self.block.attn.sr_ratio - 1, 2)
+        x = token2map(x, pos, [H, W], self.block.attn.sr_ratio + 1, 2)
         x = self.conv(x)
         x = map2token(x, pos)
         B, N, C = x.shape
