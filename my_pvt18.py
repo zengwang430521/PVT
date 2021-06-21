@@ -315,26 +315,35 @@ def extract_local_feature(src, loc, kernel_size=(3,3)):
 
 
 class ExtraSampleLayer(nn.Module):
-    def __init__(self, embed_dim, src_dim=3, kernel_size=(4, 4), stride=4, delta_factor=0.01):
+    def __init__(self, embed_dim, src_dim=3, kernel_size=(4, 4), stride=4, delta_factor=0.01, mlp_ratio=4):
         super().__init__()
         self.delta_layer = nn.Linear(embed_dim, 2)
         self.delta_factor = delta_factor
         self.local_conv = nn.Conv2d(src_dim, embed_dim, kernel_size, stride)
-        self.norm = nn.LayerNorm(embed_dim)
+        self.norm1 = nn.LayerNorm(embed_dim)
+        self.norm2 = nn.LayerNorm(embed_dim)
         self.kernel_size = kernel_size
         self.embed_dim = embed_dim
+        mlp_hidden_dim = int(embed_dim * mlp_ratio)
+        self.mlp = Mlp(in_features=embed_dim*2, hidden_features=mlp_hidden_dim, out_features=embed_dim)
 
-    def forward(self, x, loc, src, pos_embed):
+    def forward(self, x, loc, src, pos_embed, H, W, kernel_size):
         B, N, _ = loc.shape
+        x = self.norm1(x)
         delta = self.delta_layer(x) * self.delta_factor
         loc_extra = loc + delta
         loc_extra = loc_extra.clamp(0, 1)
         extra = extract_local_feature(src, loc_extra, self.kernel_size)
         extra = self.local_conv(extra).squeeze(-1).squeeze(-1)
         extra = extra.reshape(B, N, self.embed_dim)
+        extra_inter = token2map(x, loc, [H, W], kernel_size=kernel_size, sigma=2)
         pos_feature = get_pos_embed(pos_embed, loc_extra)
         extra += pos_feature
-        extra = self.norm(extra)
+        extra = self.norm2(extra)
+
+        extra_inter = map2token(extra_inter, loc_extra)
+        extra = torch.cat([extra, extra_inter], dim=-1)
+        extra = self.mlp(extra)
         return torch.cat([x, extra], dim=1), torch.cat([loc, loc_extra], dim=1)
 
 
@@ -387,7 +396,7 @@ class MyPVT(nn.Module):
                                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                             norm_layer=norm_layer, sr_ratio=sr_ratios[0], alpha=alpha))
 
-        self.extra_layer1 = ExtraSampleLayer(embed_dim=embed_dims[1])
+        self.extra_layer1 = ExtraSampleLayer(embed_dim=embed_dims[1], mlp_ratio=mlp_ratios[1])
         self.extra_block1 = MyBlock(
                 dim=embed_dims[1], dim_out=embed_dims[1], num_heads=num_heads[1],
                 mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
@@ -415,7 +424,7 @@ class MyPVT(nn.Module):
                                             mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
                                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                             norm_layer=norm_layer, sr_ratio=sr_ratios[1], alpha=alpha))
-        self.extra_layer2 = ExtraSampleLayer(embed_dim=embed_dims[2])
+        self.extra_layer2 = ExtraSampleLayer(embed_dim=embed_dims[2], mlp_ratio=mlp_ratios[2])
         self.extra_block2 = MyBlock(
                 dim=embed_dims[2], dim_out=embed_dims[2], num_heads=num_heads[2],
                 mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
@@ -442,7 +451,7 @@ class MyPVT(nn.Module):
                                             mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
                                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                             norm_layer=norm_layer, sr_ratio=sr_ratios[2], alpha=alpha))
-        self.extra_layer3 = ExtraSampleLayer(embed_dim=embed_dims[3])
+        self.extra_layer3 = ExtraSampleLayer(embed_dim=embed_dims[3], mlp_ratio=mlp_ratios[3])
         self.extra_block3 = MyBlock(
                 dim=embed_dims[3], dim_out=embed_dims[3], num_heads=num_heads[3],
                 mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
@@ -584,43 +593,44 @@ class MyPVT(nn.Module):
 
         # stage 2
         x, loc = self.down_layers1(x, loc, self.pos_embed2, H, W, self.pos_size, N_grid)     # down sample
-        x, loc = self.extra_layer1(x, loc, img, self.pos_embed2)
-        x = self.extra_block1(x, x, loc, H, W)
-        x, loc = self.extra_down1(x, loc, self.pos_embed2, H, W, self.pos_size, N_grid)
         H, W = H // 2, W // 2
-        for blk in self.block2:
-            x = blk(x, x, loc, H, W)
+        x, loc = self.extra_layer1(x, loc, img, self.pos_embed2, H, W, kernel_size=5)
         if vis:
             outs.append((x, loc, [H, W]))
+        x = self.extra_block1(x, x, loc, H, W)
+        x, loc = self.extra_down1(x, loc, self.pos_embed2, H, W, self.pos_size, N_grid)
+        for blk in self.block2:
+            x = blk(x, x, loc, H, W)
+
 
         # stage 3
         x, loc = self.down_layers2(x, loc, self.pos_embed3, H, W, self.pos_size, N_grid)     # down sample
-        x, loc = self.extra_layer2(x, loc, img, self.pos_embed3)
-        x = self.extra_block2(x, x, loc, H, W)
-        x, loc = self.extra_down2(x, loc, self.pos_embed3, H, W, self.pos_size, N_grid)
         H, W = H // 2, W // 2
-        for blk in self.block3:
-            x = blk(x, x, loc, H, W)
+        x, loc = self.extra_layer2(x, loc, img, self.pos_embed3, H, W, kernel_size=3)
         if vis:
             outs.append((x, loc, [H, W]))
+        x = self.extra_block2(x, x, loc, H, W)
+        x, loc = self.extra_down2(x, loc, self.pos_embed3, H, W, self.pos_size, N_grid)
+        for blk in self.block3:
+            x = blk(x, x, loc, H, W)
 
         # stage 4
         x, loc = self.down_layers3(x, loc, self.pos_embed4, H, W, self.pos_size, N_grid)     # down sample
-        x, loc = self.extra_layer3(x, loc, img, self.pos_embed4)
-        x = self.extra_block3(x, x, loc, H, W)
-        x, loc = self.extra_down3(x, loc, self.pos_embed4, H, W, self.pos_size, N_grid)
         H, W = H // 2, W // 2
-        # cls_tokens = self.cls_token.expand(B, -1, -1)
-        # x = torch.cat((cls_tokens, x), dim=1)
-        for blk in self.block4:
-            x = blk(x, x, loc, H, W)
-
+        x, loc = self.extra_layer3(x, loc, img, self.pos_embed4, H, W, kernel_size=1)
         if vis:
             outs.append((x, loc, [H, W]))
             # show_tokens(img, outs, N_grid)
             if self.num % 1 == 0:
                 show_tokens(img, outs, N_grid)
             self.num = self.num + 1
+
+        x = self.extra_block3(x, x, loc, H, W)
+        x, loc = self.extra_down3(x, loc, self.pos_embed4, H, W, self.pos_size, N_grid)
+        # cls_tokens = self.cls_token.expand(B, -1, -1)
+        # x = torch.cat((cls_tokens, x), dim=1)
+        for blk in self.block4:
+            x = blk(x, x, loc, H, W)
 
         x = self.norm(x)
         return x.mean(dim=1)
@@ -632,7 +642,7 @@ class MyPVT(nn.Module):
         return x
 
 
-def show_tokens(x, out, N_grid=14*14):
+def show_tokens(x, out, N_grid=7*7):
     import matplotlib.pyplot as plt
     IMAGENET_DEFAULT_MEAN = torch.tensor([0.485, 0.456, 0.406], device=x.device)[None, :, None, None]
     IMAGENET_DEFAULT_STD = torch.tensor([0.229, 0.224, 0.225], device=x.device)[None, :, None, None]
@@ -647,27 +657,45 @@ def show_tokens(x, out, N_grid=14*14):
             ax = plt.subplot(1, len(out)+2, lv+2+(lv > 0))
             ax.clear()
             ax.imshow(img, extent=[0, 1, 0, 1])
-            loc_grid = out[lv][1][i, :N_grid].detach().cpu().numpy()
-            ax.scatter(loc_grid[:, 0], 1 - loc_grid[:, 1], c='blue', s=0.4+lv*0.1)
-            loc_ada = out[lv][1][i, N_grid:].detach().cpu().numpy()
-            ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
-    return
+            loc = out[lv][1][i].detach().cpu().numpy()
 
+            loc_grid = loc[:N_grid]
+            ax.scatter(loc_grid[:, 0], 1 - loc_grid[:, 1], c='blue', s=0.4 + lv * 0.1)
+            if lv > 0:
+                N = loc.shape[0]
+                loc_ada = loc[N_grid:N//2]
+                ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
+                loc_extra = loc[N//2:]
+                ax.scatter(loc_extra[:, 0], 1 - loc_extra[:, 1], c='yellow', s=0.4+lv*0.1)
+            else:
+                loc_ada = loc[N_grid:]
+                ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
+    return
 
 def show_conf(conf, loc):
     H = int(conf.shape[1]**0.5)
-    if H == 56:
-        conf = F.softmax(conf, dim=1)
-        conf_map = token2map(conf,  map_size=[H, H], loc=loc, kernel_size=3, sigma=2)
-        lv = 3
-        ax = plt.subplot(1, 6, lv)
-        ax.clear()
-        ax.imshow(conf_map[0, 0].detach().cpu())
+    conf = F.softmax(conf, dim=1)
+    conf_map = token2map(conf,  map_size=[H, H], loc=loc, kernel_size=3, sigma=2)
+    lv = 3
+    ax = plt.subplot(1, 6, lv)
+    ax.clear()
+    ax.imshow(conf_map[0, 0].detach().cpu())
 
 
 @register_model
 def mypvt18_small(pretrained=False, **kwargs):
     model = MyPVT(
+        img_size=448,
+        patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], **kwargs)
+    model.default_cfg = _cfg()
+
+    return model
+
+@register_model
+def mypvt18_small_2(pretrained=False, **kwargs):
+    model = MyPVT(
+        img_size=224,
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], **kwargs)
     model.default_cfg = _cfg()
