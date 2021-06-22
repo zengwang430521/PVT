@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from partialconv2d import PartialConv2d
 from torchvision.ops import roi_align
 
-vis = False
+vis = True
 
 
 def gumble_top_k(x, k, dim, T=1, p_value=1e-6):
@@ -315,35 +315,36 @@ def extract_local_feature(src, loc, kernel_size=(3,3)):
 
 
 class ExtraSampleLayer(nn.Module):
-    def __init__(self, embed_dim, src_dim=3, kernel_size=(4, 4), stride=4, delta_factor=0.01, mlp_ratio=4):
+    def __init__(self, embed_dim, src_dim=3, kernel_size=(4, 4), stride=4, delta_factor=0.001, mlp_ratio=4, local_dim=64):
         super().__init__()
+        self.local_dim = local_dim
         self.delta_layer = nn.Linear(embed_dim, 2)
         self.delta_factor = delta_factor
-        self.local_conv = nn.Conv2d(src_dim, embed_dim, kernel_size, stride)
+        self.local_conv = nn.Conv2d(src_dim, local_dim, kernel_size, stride)
         self.norm1 = nn.LayerNorm(embed_dim)
-        self.norm2 = nn.LayerNorm(embed_dim)
+        self.norm2 = nn.LayerNorm(local_dim)
         self.kernel_size = kernel_size
         self.embed_dim = embed_dim
         mlp_hidden_dim = int(embed_dim * mlp_ratio)
-        self.mlp = Mlp(in_features=embed_dim*2, hidden_features=mlp_hidden_dim, out_features=embed_dim)
+        self.mlp = Mlp(in_features=embed_dim+local_dim, hidden_features=mlp_hidden_dim, out_features=embed_dim)
 
     def forward(self, x, loc, src, pos_embed, H, W, kernel_size):
         B, N, _ = loc.shape
-        x = self.norm1(x)
-        delta = self.delta_layer(x) * self.delta_factor
+        delta = self.delta_layer(self.norm1(x)) * self.delta_factor
         loc_extra = loc + delta
         loc_extra = loc_extra.clamp(0, 1)
         extra = extract_local_feature(src, loc_extra, self.kernel_size)
         extra = self.local_conv(extra).squeeze(-1).squeeze(-1)
-        extra = extra.reshape(B, N, self.embed_dim)
-        extra_inter = token2map(x, loc, [H, W], kernel_size=kernel_size, sigma=2)
-        pos_feature = get_pos_embed(pos_embed, loc_extra)
-        extra += pos_feature
+        extra = extra.reshape(B, N, self.local_dim)
         extra = self.norm2(extra)
 
+        extra_inter = token2map(x, loc, [H, W], kernel_size=kernel_size, sigma=2)
         extra_inter = map2token(extra_inter, loc_extra)
         extra = torch.cat([extra, extra_inter], dim=-1)
         extra = self.mlp(extra)
+        extra = extra_inter + extra
+        # pos_feature = get_pos_embed(pos_embed, loc_extra)
+        # extra += pos_feature
         return torch.cat([x, extra], dim=1), torch.cat([loc, loc_extra], dim=1)
 
 

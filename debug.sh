@@ -209,12 +209,26 @@ srun -p pat_earth \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --model mypvt20_small --batch-size 128 --epochs 300 --num_workers 5  --cache_mode \
     --output_dir ./work_dirs/my20_s2 --data-path data/imagenet
+
     --resume work_dirs/my20_s/checkpoint.pth
-
-
     --input-size 448
 
 
+
+
+spring.submit arun \
+    -p spring_scheduler \
+    -n 16 --gpu \
+    --job-name=pvt \
+    --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 \
+    "python -u train.py --model mypvt18_small --batch-size 128 --epochs 300 --num_workers 5  --cache_mode \
+    --output_dir ./work_dirs/my18_s --data-path data/imagenet --input-size 448"
+
+srun -p 3dv-share \
+    --job-name=pvt --ntasks=8 \
+    --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
+    python -u train.py --model mypvt18_small --batch-size 128 --epochs 300 --num_workers 5  --cache_mode \
+    --output_dir ./work_dirs/my18_s --data-path data/imagenet --input-size 448
 
 
 
