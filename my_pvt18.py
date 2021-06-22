@@ -322,7 +322,7 @@ class ExtraSampleLayer(nn.Module):
         self.delta_factor = delta_factor
         self.local_conv = nn.Conv2d(src_dim, local_dim, kernel_size, stride)
         self.norm1 = nn.LayerNorm(embed_dim)
-        self.norm2 = nn.LayerNorm(local_dim)
+        self.norm2 = nn.LayerNorm(embed_dim)
         self.kernel_size = kernel_size
         self.embed_dim = embed_dim
         mlp_hidden_dim = int(embed_dim * mlp_ratio)
@@ -336,16 +336,17 @@ class ExtraSampleLayer(nn.Module):
         extra = extract_local_feature(src, loc_extra, self.kernel_size)
         extra = self.local_conv(extra).squeeze(-1).squeeze(-1)
         extra = extra.reshape(B, N, self.local_dim)
-        extra = self.norm2(extra)
-
         extra_inter = token2map(x, loc, [H, W], kernel_size=kernel_size, sigma=2)
         extra_inter = map2token(extra_inter, loc_extra)
-        extra = torch.cat([extra, extra_inter], dim=-1)
-        extra = self.mlp(extra)
-        extra = extra_inter + extra
-        # pos_feature = get_pos_embed(pos_embed, loc_extra)
-        # extra += pos_feature
-        return torch.cat([x, extra], dim=1), torch.cat([loc, loc_extra], dim=1)
+        x_local = token2map(extra, loc_extra, [H, W], kernel_size=kernel_size, sigma=2)
+        x_local = map2token(x_local, loc)
+
+        extra = torch.cat([extra_inter, extra], dim=-1)
+        x = torch.cat([x, x_local], dim=-1)
+        x, loc = torch.cat([x, extra], dim=1), torch.cat([loc, loc_extra], dim=1)
+        x = self.mlp(x)
+        x = self.norm2(x)
+        return x, loc
 
 
 class MyPVT(nn.Module):
@@ -672,6 +673,7 @@ def show_tokens(x, out, N_grid=7*7):
                 loc_ada = loc[N_grid:]
                 ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
     return
+
 
 def show_conf(conf, loc):
     H = int(conf.shape[1]**0.5)

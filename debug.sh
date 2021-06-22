@@ -222,13 +222,13 @@ spring.submit arun \
     --job-name=pvt \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 \
     "python -u train.py --model mypvt18_small --batch-size 128 --epochs 300 --num_workers 5  --cache_mode \
-    --output_dir ./work_dirs/my18_s --data-path data/imagenet --input-size 448"
+    --output_dir ./work_dirs/my18_s --data-path data/imagenet --input-size 448 --resume work_dirs/my18_s/checkpoint.pth "
 
-srun -p 3dv-share \
+srun -p spring_scheduler \
     --job-name=pvt --ntasks=8 \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --model mypvt18_small --batch-size 128 --epochs 300 --num_workers 5  --cache_mode \
-    --output_dir ./work_dirs/my18_s --data-path data/imagenet --input-size 448
+    --output_dir ./work_dirs/my18_s --data-path data/imagenet --input-size 448 --resume work_dirs/my18_s/checkpoint.pth
 
 
 
