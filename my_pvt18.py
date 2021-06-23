@@ -319,7 +319,7 @@ class ExtraSampleLayer(nn.Module):
         self.delta_factor = delta_factor
         self.local_conv = nn.Conv2d(src_dim, local_dim, kernel_size, stride)
         self.norm1 = nn.LayerNorm(embed_dim)
-        self.norm2 = nn.LayerNorm(embed_dim)
+        self.norm2 = nn.LayerNorm(local_dim)
         self.kernel_size = kernel_size
         self.embed_dim = embed_dim
         mlp_hidden_dim = int(embed_dim * mlp_ratio)
@@ -333,13 +333,13 @@ class ExtraSampleLayer(nn.Module):
         extra = extract_local_feature(src, loc_extra, self.kernel_size)
         extra = self.local_conv(extra).squeeze(-1).squeeze(-1)
         extra = extra.reshape(B, N, self.local_dim)
+        extra = self.norm2(extra)
         extra_inter = token2map(x, loc, [H, W], kernel_size=kernel_size, sigma=2)
         extra_inter = map2token(extra_inter, loc_extra)
         extra = torch.cat([extra_inter, extra], dim=-1)
-        extra = self.norm2(self.mlp(extra))
+        extra = self.mlp(extra)
         x, loc = torch.cat([x, extra], dim=1), torch.cat([loc, loc_extra], dim=1)
         return x, loc
-
 
         # x_local = token2map(extra, loc_extra, [H, W], kernel_size=kernel_size, sigma=2)
         # x_local = map2token(x_local, loc)
