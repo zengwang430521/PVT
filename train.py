@@ -60,7 +60,7 @@ import utils
 import collections
 import samplers
 from torch.utils.data import DataLoader
-
+import os
 
 def get_args_parser():
     parser = argparse.ArgumentParser('PVT training and evaluation script', add_help=False)
@@ -430,22 +430,28 @@ def main(args):
             checkpoint = torch.hub.load_state_dict_from_url(
                 args.resume, map_location='cpu', check_hash=True)
         else:
-            checkpoint = torch.load(args.resume, map_location='cpu')
-        if 'model' in checkpoint:
-            model_without_ddp.load_state_dict(checkpoint['model'])
-        else:
-            model_without_ddp.load_state_dict(checkpoint)
+            if not os.path.exists(args.resume):
+                checkpoint = None
+                print('NOTICE:' + args.resume + ' does not exist!')
+            else:
+                checkpoint = torch.load(args.resume, map_location='cpu')
 
-        if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
-            args.start_epoch = checkpoint['epoch'] + 1
-            # if args.model_ema:
-            #     utils._load_checkpoint_for_ema(model_ema, checkpoint['model_ema'])
-            if 'scaler' in checkpoint:
-                loss_scaler.load_state_dict(checkpoint['scaler'])
+        if checkpoint is not None:
+            if 'model' in checkpoint:
+                model_without_ddp.load_state_dict(checkpoint['model'])
+            else:
+                model_without_ddp.load_state_dict(checkpoint)
 
-        print('resume from' + args.resume)
+            if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
+                optimizer.load_state_dict(checkpoint['optimizer'])
+                lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+                args.start_epoch = checkpoint['epoch'] + 1
+                # if args.model_ema:
+                #     utils._load_checkpoint_for_ema(model_ema, checkpoint['model_ema'])
+                if 'scaler' in checkpoint:
+                    loss_scaler.load_state_dict(checkpoint['scaler'])
+
+            print('resume from' + args.resume)
 
     if args.eval:
         test_stats = evaluate(data_loader_val, model, device)

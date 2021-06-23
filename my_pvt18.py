@@ -6,8 +6,8 @@ from functools import partial
 from pvt import ( Mlp, Attention, PatchEmbed, Block, DropPath, to_2tuple, trunc_normal_,register_model, _cfg)
 import math
 import matplotlib.pyplot as plt
-from partialconv2d import PartialConv2d
-from torchvision.ops import roi_align
+# from partialconv2d import PartialConv2d
+# from torchvision.ops import roi_align
 
 vis = False
 
@@ -292,26 +292,23 @@ class DownLayer(nn.Module):
         return x_down, pos_down
 
 
-def extract_local_feature(src, loc, kernel_size=(3,3)):
+def extract_local_feature(src, loc, kernel_size=(3, 3)):
     B, C, H, W = src.shape
     B, N, _ = loc.shape
-    loc = loc.clamp(0, 1)
-    loc[..., 0] = loc[..., 0] * (W - 1)
-    loc[..., 1] = loc[..., 1] * (H - 1)
-    bbox_size = torch.tensor(kernel_size, device=loc.device, dtype=loc.dtype)
-    # bbox = torch.cat([
-    #     torch.arange(0, B, device=loc.device, dtype=loc.dtype)[:, None, None].expand([B, N, 1]),
-    #     loc - bbox_size / 2,
-    #     loc + bbox_size / 2
-    # ], dim=-1)
 
-    bbox = torch.cat([
-        loc - bbox_size / 2,
-        loc + bbox_size / 2
-    ], dim=-1)
-    bbox = [bb for bb in bbox]
-    loc_feature = roi_align(src, bbox, kernel_size, sampling_ratio=1)
-    return loc_feature
+    h, w = kernel_size
+    x = torch.arange(w, device=loc.device, dtype=loc.dtype)
+    x = (x - (w-1) / 2.0) / (W-1)
+    y = torch.arange(h, device=loc.device, dtype=loc.dtype)
+    y = (y - (h - 1) / 2.0) / (H-1)
+    y, x = torch.meshgrid(y, x)
+    grid = torch.stack([x, y], dim=-1)
+    grid = loc[:, :, None, None, :] + grid[None, None, ...]     # (B, N, h, w, 2)
+
+    loc_feature = F.grid_sample(src, grid.flatten(2, 3))        # (B, C, N, h * w)
+    loc_feature = loc_feature.reshape(B, C, N, h, w)            # (B, C, N, h, w)
+    loc_feature = loc_feature.permute(0, 2, 1, 3, 4)            # (B, N, C, h, w)
+    return loc_feature.flatten(0, 1)                            # (B * N, C, h, w)
 
 
 class ExtraSampleLayer(nn.Module):
