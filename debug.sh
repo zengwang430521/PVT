@@ -220,11 +220,11 @@ spring.submit arun -p spring_scheduler -n 1 --job-name=data unzip
 
 spring.submit arun \
     -p spring_scheduler \
-    -n 16 --gpu \
+    -n 8 --gpu \
     --job-name=pvt \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 \
     "python -u train.py --model mypvt18_small --batch-size 128 --epochs 300 --num_workers 5  --cache_mode \
-    --output_dir ./work_dirs/my18_s --data-path data/imagenet --input-size 448 "
+    --output_dir ./work_dirs/my18_s --data-path data/imagenet --input-size 448 --warmup-epochs 0 --lr 1e-3 "
 
 
 srun -p spring_scheduler \

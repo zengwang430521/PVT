@@ -335,15 +335,20 @@ class ExtraSampleLayer(nn.Module):
         extra = extra.reshape(B, N, self.local_dim)
         extra_inter = token2map(x, loc, [H, W], kernel_size=kernel_size, sigma=2)
         extra_inter = map2token(extra_inter, loc_extra)
-        x_local = token2map(extra, loc_extra, [H, W], kernel_size=kernel_size, sigma=2)
-        x_local = map2token(x_local, loc)
-
         extra = torch.cat([extra_inter, extra], dim=-1)
-        x = torch.cat([x, x_local], dim=-1)
+        extra = self.norm2(self.mlp(extra))
         x, loc = torch.cat([x, extra], dim=1), torch.cat([loc, loc_extra], dim=1)
-        x = self.mlp(x)
-        x = self.norm2(x)
         return x, loc
+
+
+        # x_local = token2map(extra, loc_extra, [H, W], kernel_size=kernel_size, sigma=2)
+        # x_local = map2token(x_local, loc)
+        # extra = torch.cat([extra_inter, extra], dim=-1)
+        # x = torch.cat([x, x_local], dim=-1)
+        # x, loc = torch.cat([x, extra], dim=1), torch.cat([loc, loc_extra], dim=1)
+        # x = self.mlp(x)
+        # x = self.norm2(x)
+        # return x, loc
 
 
 class MyPVT(nn.Module):
