@@ -956,6 +956,7 @@ class MyPVT17(nn.Module):
 
         return x
 
+
 @register_model
 def mypvt17_small(pretrained=False, **kwargs):
     model = MyPVT17(
