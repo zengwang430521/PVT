@@ -328,6 +328,7 @@ class ExtraSampleLayer(nn.Module):
     def forward(self, x, loc, src, pos_embed, H, W, kernel_size):
         B, N, _ = loc.shape
         delta = self.delta_layer(self.norm1(x)) * self.delta_factor
+        delta = delta * 0 + delta.detach()
         loc_extra = loc + delta
         loc_extra = loc_extra.clamp(0, 1)
         extra = extract_local_feature(src, loc_extra, self.kernel_size)
