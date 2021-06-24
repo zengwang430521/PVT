@@ -223,7 +223,10 @@ spring.submit arun \
     -n 8 --gpu \
     --job-name=pvt \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 \
-        "python -u train.py --model mypvt18_small --batch-size 128 --epochs 300 --num_workers 5  --cache_mode \
+    "python -u train.py --model mypvt17_small --batch-size 128 --epochs 300 --num_workers 5  --cache_mode \
+    --output_dir ./work_dirs/my17_s --data-path data/imagenet --input-size 448 --warmup-epochs 0 --lr 1e-3 "
+
+    "python -u train.py --model mypvt18_small --batch-size 128 --epochs 300 --num_workers 5  --cache_mode \
     --output_dir ./work_dirs/my18_s --data-path data/imagenet --input-size 448 --warmup-epochs 0 --lr 1e-3 "
 
     "python -u train.py --model mypvt16_small --batch-size 128 --epochs 300 --num_workers 5  --cache_mode \
