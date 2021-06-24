@@ -330,6 +330,7 @@ class ExtraSampleLayer(nn.Module):
         delta = self.delta_layer(self.norm1(x)) * self.delta_factor
         loc_extra = loc + delta
         loc_extra = loc_extra.clamp(0, 1)
+        loc_extra = loc_extra.detach()  # debug
         extra = extract_local_feature(src, loc_extra, self.kernel_size)
         extra = self.local_conv(extra).squeeze(-1).squeeze(-1)
         extra = extra.reshape(B, N, self.local_dim)
