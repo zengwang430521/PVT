@@ -202,6 +202,10 @@ class MyBlock(nn.Module):
             x = x + self.drop_path(self.attn(self.norm1(x), self.norm1(x_source), loc, H, W, conf_source)) * self.alpha
 
         x = x + self.drop_path(self.mlp(self.norm2(x))) * self.alpha
+
+        if torch.isnan(x).any():
+            print('NAN')
+
         return x
 
 
@@ -241,6 +245,8 @@ class DownLayer(nn.Module):
         x = token2map(x, pos, [H, W], self.block.attn.sr_ratio + 1, 2)
         x = self.conv(x)
         x = map2token(x, pos)
+        x = self.norm(x)
+
         B, N, C = x.shape
         assert self.sample_num <= N
 
@@ -248,8 +254,7 @@ class DownLayer(nn.Module):
         x_ada = x[:, N_grid:]
         pos_grid = pos[:, :N_grid]
         pos_ada = pos[:, N_grid:]
-
-        conf = self.conf(self.norm(x))
+        conf = self.conf(x)
         if vis:
             if H == 56:
                 show_conf(conf, pos)
@@ -305,6 +310,7 @@ def extract_local_feature(src, loc, kernel_size=(3, 3)):
     grid = torch.stack([x, y], dim=-1)
     grid = loc[:, :, None, None, :] + grid[None, None, ...]     # (B, N, h, w, 2)
 
+    grid = grid * 2 - 1
     loc_feature = F.grid_sample(src, grid.flatten(2, 3))        # (B, C, N, h * w)
     loc_feature = loc_feature.reshape(B, C, N, h, w)            # (B, C, N, h, w)
     loc_feature = loc_feature.permute(0, 2, 1, 3, 4)            # (B, N, C, h, w)
@@ -328,7 +334,7 @@ class ExtraSampleLayer(nn.Module):
     def forward(self, x, loc, src, pos_embed, H, W, kernel_size):
         B, N, _ = loc.shape
         delta = self.delta_layer(self.norm1(x)) * self.delta_factor
-        delta = delta * 0.0 + delta.detach() * 1
+        # delta = delta * 0.0 + delta.detach() * 1
         loc_extra = loc + delta
         loc_extra = loc_extra.clamp(0, 1)
         extra = extract_local_feature(src, loc_extra, self.kernel_size)
@@ -350,6 +356,47 @@ class ExtraSampleLayer(nn.Module):
         # x = self.mlp(x)
         # x = self.norm2(x)
         # return x, loc
+
+
+def show_tokens(x, out, N_grid=7*7):
+    import matplotlib.pyplot as plt
+    IMAGENET_DEFAULT_MEAN = torch.tensor([0.485, 0.456, 0.406], device=x.device)[None, :, None, None]
+    IMAGENET_DEFAULT_STD = torch.tensor([0.229, 0.224, 0.225], device=x.device)[None, :, None, None]
+    x = x * IMAGENET_DEFAULT_STD + IMAGENET_DEFAULT_MEAN
+    # for i in range(x.shape[0]):
+    for i in range(1):
+        img = x[i].permute(1, 2, 0).detach().cpu()
+        ax = plt.subplot(1, len(out)+2, 1)
+        ax.clear()
+        ax.imshow(img)
+        for lv in range(len(out)):
+            ax = plt.subplot(1, len(out)+2, lv+2+(lv > 0))
+            ax.clear()
+            ax.imshow(img, extent=[0, 1, 0, 1])
+            loc = out[lv][1][i].detach().cpu().numpy()
+
+            loc_grid = loc[:N_grid]
+            ax.scatter(loc_grid[:, 0], 1 - loc_grid[:, 1], c='blue', s=0.4 + lv * 0.1)
+            if lv > 0:
+                N = loc.shape[0]
+                loc_ada = loc[N_grid:N//2]
+                ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
+                loc_extra = loc[N//2:]
+                ax.scatter(loc_extra[:, 0], 1 - loc_extra[:, 1], c='yellow', s=0.4+lv*0.1)
+            else:
+                loc_ada = loc[N_grid:]
+                ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
+    return
+
+
+def show_conf(conf, loc):
+    H = int(conf.shape[1]**0.5)
+    conf = F.softmax(conf, dim=1)
+    conf_map = token2map(conf,  map_size=[H, H], loc=loc, kernel_size=3, sigma=2)
+    lv = 3
+    ax = plt.subplot(1, 6, lv)
+    ax.clear()
+    ax.imshow(conf_map[0, 0].detach().cpu())
 
 
 class MyPVT18(nn.Module):
@@ -603,7 +650,7 @@ class MyPVT18(nn.Module):
         if vis:
             outs.append((x, loc, [H, W]))
         x = self.extra_block1(x, x, loc, H, W)
-        x, loc = self.extra_down1(x, loc, self.pos_embed2, H, W, self.pos_size, N_grid)
+        x, loc = self.extra_down1(x, loc, None, H, W, self.pos_size, N_grid)
         for blk in self.block2:
             x = blk(x, x, loc, H, W)
 
@@ -615,7 +662,7 @@ class MyPVT18(nn.Module):
         if vis:
             outs.append((x, loc, [H, W]))
         x = self.extra_block2(x, x, loc, H, W)
-        x, loc = self.extra_down2(x, loc, self.pos_embed3, H, W, self.pos_size, N_grid)
+        x, loc = self.extra_down2(x, loc, None, H, W, self.pos_size, N_grid)
         for blk in self.block3:
             x = blk(x, x, loc, H, W)
 
@@ -631,7 +678,7 @@ class MyPVT18(nn.Module):
             self.num = self.num + 1
 
         x = self.extra_block3(x, x, loc, H, W)
-        x, loc = self.extra_down3(x, loc, self.pos_embed4, H, W, self.pos_size, N_grid)
+        x, loc = self.extra_down3(x, loc, None, H, W, self.pos_size, N_grid)
         # cls_tokens = self.cls_token.expand(B, -1, -1)
         # x = torch.cat((cls_tokens, x), dim=1)
         for blk in self.block4:
@@ -645,47 +692,6 @@ class MyPVT18(nn.Module):
         x = self.head(x)
 
         return x
-
-
-def show_tokens(x, out, N_grid=7*7):
-    import matplotlib.pyplot as plt
-    IMAGENET_DEFAULT_MEAN = torch.tensor([0.485, 0.456, 0.406], device=x.device)[None, :, None, None]
-    IMAGENET_DEFAULT_STD = torch.tensor([0.229, 0.224, 0.225], device=x.device)[None, :, None, None]
-    x = x * IMAGENET_DEFAULT_STD + IMAGENET_DEFAULT_MEAN
-    # for i in range(x.shape[0]):
-    for i in range(1):
-        img = x[i].permute(1, 2, 0).detach().cpu()
-        ax = plt.subplot(1, len(out)+2, 1)
-        ax.clear()
-        ax.imshow(img)
-        for lv in range(len(out)):
-            ax = plt.subplot(1, len(out)+2, lv+2+(lv > 0))
-            ax.clear()
-            ax.imshow(img, extent=[0, 1, 0, 1])
-            loc = out[lv][1][i].detach().cpu().numpy()
-
-            loc_grid = loc[:N_grid]
-            ax.scatter(loc_grid[:, 0], 1 - loc_grid[:, 1], c='blue', s=0.4 + lv * 0.1)
-            if lv > 0:
-                N = loc.shape[0]
-                loc_ada = loc[N_grid:N//2]
-                ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
-                loc_extra = loc[N//2:]
-                ax.scatter(loc_extra[:, 0], 1 - loc_extra[:, 1], c='yellow', s=0.4+lv*0.1)
-            else:
-                loc_ada = loc[N_grid:]
-                ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
-    return
-
-
-def show_conf(conf, loc):
-    H = int(conf.shape[1]**0.5)
-    conf = F.softmax(conf, dim=1)
-    conf_map = token2map(conf,  map_size=[H, H], loc=loc, kernel_size=3, sigma=2)
-    lv = 3
-    ax = plt.subplot(1, 6, lv)
-    ax.clear()
-    ax.imshow(conf_map[0, 0].detach().cpu())
 
 
 @register_model
@@ -1189,6 +1195,7 @@ class MyPVT19(nn.Module):
         x, loc = self.down_layers1(x, loc, self.pos_embed2, H, W, self.pos_size, N_grid)     # down sample
         H, W = H // 2, W // 2
         x_e, loc_e = self.extra_layer1(x, loc, img, self.pos_embed2, H, W, kernel_size=5)
+        # x_e, loc_e = x, loc
         for n, blk in enumerate(self.block2):
             if n == 0:
                 x = blk(x, x_e, loc_e, H, W)
@@ -1201,6 +1208,7 @@ class MyPVT19(nn.Module):
         x, loc = self.down_layers2(x, loc, self.pos_embed3, H, W, self.pos_size, N_grid)     # down sample
         H, W = H // 2, W // 2
         x_e, loc_e = self.extra_layer2(x, loc, img, self.pos_embed3, H, W, kernel_size=3)
+        # x_e, loc_e = x, loc
         for n, blk in enumerate(self.block3):
             if n == 0:
                 x = blk(x, x_e, loc_e, H, W)
@@ -1213,6 +1221,7 @@ class MyPVT19(nn.Module):
         x, loc = self.down_layers3(x, loc, self.pos_embed4, H, W, self.pos_size, N_grid)     # down sample
         H, W = H // 2, W // 2
         x_e, loc_e = self.extra_layer3(x, loc, img, self.pos_embed4, H, W, kernel_size=1)
+        # x_e, loc_e = x, loc
         for n, blk in enumerate(self.block4):
             if n == 0:
                 x = blk(x, x_e, loc_e, H, W)
