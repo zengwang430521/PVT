@@ -6,6 +6,7 @@ from functools import partial
 from pvt import (Block, DropPath, to_2tuple, trunc_normal_,register_model, _cfg)
 import math
 import matplotlib.pyplot as plt
+vis = False
 
 
 class Mlp_old(nn.Module):
@@ -84,9 +85,6 @@ class ExtraSampleLayer(nn.Module):
         x, loc = torch.cat([x, extra], dim=1), torch.cat([loc, loc_extra], dim=1)
         x = self.mlp(x)
         return x, loc
-
-
-vis = True
 
 
 class Mlp(nn.Module):
@@ -710,7 +708,6 @@ class MyPVT(nn.Module):
                 x = blk(x, x_e, loc, loc_e, H, W)
             else:
                 x = blk(x, x, loc, loc, H, W)
-
         x = self.norm2(x)
 
         # stage 3
@@ -825,7 +822,7 @@ def token2map(x, loc, map_size, kernel_size, sigma, return_mask=False):
                    source=torch.cat([x, x.new_ones(B, N, 1)], dim=-1).reshape(B*N, C+1))
     out = out.reshape(B, H, W, C+1).permute(0, 3, 1, 2)
     feature, mask = out[:, :-1], out[:, [-1]]
-    del out
+    # del out
 
     feature = feature / (mask + 1e-6)
     mask = (mask > 0).float()
