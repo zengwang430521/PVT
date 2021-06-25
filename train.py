@@ -26,6 +26,7 @@ import pvt
 import my_pvt
 import my_pvt_debug
 import pvt_impr1
+import pvt_impr8
 import pvt_cnn
 import my_pvt4
 import my_pvt5
@@ -54,6 +55,7 @@ import pvt5
 import pvt6
 import pvt7
 import pvt8
+
 import utils
 import collections
 import samplers

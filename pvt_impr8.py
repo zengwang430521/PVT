@@ -6,11 +6,8 @@ from functools import partial
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 from timm.models.registry import register_model
 from timm.models.vision_transformer import _cfg
-# from mmdet.models.builder import BACKBONES
-# from mmdet.utils import get_root_logger
-# from mmcv.runner import _load_checkpoint, load_state_dict
 import math
-import re
+
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
@@ -22,7 +19,6 @@ class Mlp(nn.Module):
         self.act = act_layer()
         self.fc2 = nn.Linear(hidden_features, out_features)
         self.drop = nn.Dropout(drop)
-        self.relu = nn.ReLU(inplace=True)
 
         self.apply(self._init_weights)
 
@@ -43,7 +39,6 @@ class Mlp(nn.Module):
 
     def forward(self, x, H, W):
         x = self.fc1(x)
-        x = self.relu(x)
         x = self.dwconv(x, H, W)
         x = self.act(x)
         x = self.drop(x)
@@ -69,12 +64,9 @@ class Attention(nn.Module):
         self.proj_drop = nn.Dropout(proj_drop)
 
         self.sr_ratio = sr_ratio
-        #if sr_ratio > 1:
-            # self.sr = nn.Conv2d(dim, dim, kernel_size=sr_ratio, stride=sr_ratio)
-        self.pool = nn.AdaptiveAvgPool2d(7)
-        self.sr = nn.Conv2d(dim, dim, kernel_size=1, stride=1)
-        self.norm = nn.LayerNorm(dim)
-        self.act = nn.GELU()
+        if sr_ratio > 1:
+            self.sr = nn.Conv2d(dim, dim, kernel_size=sr_ratio, stride=sr_ratio)
+            self.norm = nn.LayerNorm(dim)
 
         self.apply(self._init_weights)
 
@@ -97,14 +89,13 @@ class Attention(nn.Module):
         B, N, C = x.shape
         q = self.q(x).reshape(B, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
 
-        #if self.sr_ratio > 1:
-        x_ = x.permute(0, 2, 1).reshape(B, C, H, W)
-        x_ = self.sr(self.pool(x_)).reshape(B, C, -1).permute(0, 2, 1)
-        x_ = self.norm(x_)
-        x_ = self.act(x_)
-        kv = self.kv(x_).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
-        #else:
-        #    kv = self.kv(x).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        if self.sr_ratio > 1:
+            x_ = x.permute(0, 2, 1).reshape(B, C, H, W)
+            x_ = self.sr(x_).reshape(B, C, -1).permute(0, 2, 1)
+            x_ = self.norm(x_)
+            kv = self.kv(x_).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        else:
+            kv = self.kv(x).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         k, v = kv[0], kv[1]
 
         attn = (q @ k.transpose(-2, -1)) * self.scale
@@ -205,7 +196,7 @@ class PyramidVisionTransformerImpr(nn.Module):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
-                 depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], pretrained=None):
+                 depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1]):
         super().__init__()
         self.num_classes = num_classes
         self.depths = depths
@@ -255,10 +246,9 @@ class PyramidVisionTransformerImpr(nn.Module):
         self.norm4 = norm_layer(embed_dims[3])
 
         # classification head
-        # self.head = nn.Linear(embed_dims[3], num_classes) if num_classes > 0 else nn.Identity()
+        self.head = nn.Linear(embed_dims[3], num_classes) if num_classes > 0 else nn.Identity()
 
         self.apply(self._init_weights)
-        self.init_weights(pretrained=pretrained)
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -274,29 +264,6 @@ class PyramidVisionTransformerImpr(nn.Module):
             m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
             if m.bias is not None:
                 m.bias.data.zero_()
-
-    def init_weights(self, pretrained=None):
-        if isinstance(pretrained, str):
-            logger = get_root_logger()
-            #load_checkpoint(self, pretrained, map_location='cpu', strict=False, logger=logger)
-            revise_keys = [(r'^module\.', '')]
-            checkpoint = _load_checkpoint(pretrained, map_location='cpu', logger=logger)
-            # OrderedDict is a subclass of dict
-            if not isinstance(checkpoint, dict):
-                raise RuntimeError(
-                    f'No state_dict found in checkpoint file {pretrained}')
-            # get state_dict from checkpoint
-            if 'state_dict' in checkpoint:
-                state_dict = checkpoint['state_dict']
-            elif 'model' in checkpoint: # for our model
-                state_dict = checkpoint['model']
-            else:
-                state_dict = checkpoint
-            # strip prefix of state_dict
-            for p, r in revise_keys:
-                state_dict = {re.sub(p, r, k): v for k, v in state_dict.items()}
-            # load state_dict
-            load_state_dict(self, state_dict, strict=False, logger=logger)
 
     def reset_drop_path(self, drop_path_rate):
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(self.depths))]
@@ -329,6 +296,7 @@ class PyramidVisionTransformerImpr(nn.Module):
     def reset_classifier(self, num_classes, global_pool=''):
         self.num_classes = num_classes
         self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
+
     # def _get_pos_embed(self, pos_embed, patch_embed, H, W):
     #     if H * W == self.patch_embed1.num_patches:
     #         return pos_embed
@@ -339,7 +307,6 @@ class PyramidVisionTransformerImpr(nn.Module):
 
     def forward_features(self, x):
         B = x.shape[0]
-        outs = []
 
         # stage 1
         x, H, W = self.patch_embed1(x)
@@ -347,7 +314,6 @@ class PyramidVisionTransformerImpr(nn.Module):
             x = blk(x, H, W)
         x = self.norm1(x)
         x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-        # outs.append(x)
 
         # stage 2
         x, H, W = self.patch_embed2(x)
@@ -355,7 +321,6 @@ class PyramidVisionTransformerImpr(nn.Module):
             x = blk(x, H, W)
         x = self.norm2(x)
         x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-        # outs.append(x)
 
         # stage 3
         x, H, W = self.patch_embed3(x)
@@ -363,23 +328,18 @@ class PyramidVisionTransformerImpr(nn.Module):
             x = blk(x, H, W)
         x = self.norm3(x)
         x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-        # outs.append(x)
 
         # stage 4
         x, H, W = self.patch_embed4(x)
         for i, blk in enumerate(self.block4):
             x = blk(x, H, W)
         x = self.norm4(x)
-        x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-        # outs.append(x)
 
-        return outs
-
-        # return x.mean(dim=1)
+        return x.mean(dim=1)
 
     def forward(self, x):
         x = self.forward_features(x)
-        # x = self.head(x)
+        x = self.head(x)
 
         return x
 
@@ -409,73 +369,55 @@ def _conv_filter(state_dict, patch_size=16):
     return out_dict
 
 
-# @register_model
-# def pvt_nano_impr8_peg(pretrained=False, **kwargs):
-#     model = PyramidVisionTransformerImpr(
-#         patch_size=4, embed_dims=[32, 64, 160, 256], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
-#         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[2, 2, 2, 2], sr_ratios=[8, 4, 2, 1],
-#         **kwargs)
-#     model.default_cfg = _cfg()
-#
-#     return model
-#
-#
-# @register_model
-# def pvt_tiny_impr8_peg(pretrained=False, **kwargs):
-#     model = PyramidVisionTransformerImpr(
-#         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
-#         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[2, 2, 2, 2], sr_ratios=[8, 4, 2, 1],
-#         **kwargs)
-#     model.default_cfg = _cfg()
-#
-#     return model
-#
-#
-# @register_model
-# def pvt_small_impr8_peg(pretrained=False, **kwargs):
-#     model = PyramidVisionTransformerImpr(
-#         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
-#         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], **kwargs)
-#     model.default_cfg = _cfg()
-#
-#     return model
-#
-#
-# @register_model
-# def pvt_medium_impr8_peg(pretrained=False, **kwargs):
-#     model = PyramidVisionTransformerImpr(
-#         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
-#         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 18, 3], sr_ratios=[8, 4, 2, 1],
-#         **kwargs)
-#     model.default_cfg = _cfg()
-#
-#     return model
-#
-#
-# @register_model
-# def pvt_large_impr8_peg(pretrained=False, **kwargs):
-#     model = PyramidVisionTransformerImpr(
-#         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
-#         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 8, 27, 3], sr_ratios=[8, 4, 2, 1],
-#         **kwargs)
-#     model.default_cfg = _cfg()
-#
-#     return model
-
-# @BACKBONES.register_module()
 @register_model
-class pvt_small_impr8rk7_peg(PyramidVisionTransformerImpr):
-    def __init__(self, **kwargs):
-        super(pvt_small_impr8rk7_peg, self).__init__(
-            patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4],
-            qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
-            drop_rate=0.0, drop_path_rate=0.1, pretrained=kwargs["pretrained"])
+def pvt_nano_impr8_peg(pretrained=False, **kwargs):
+    model = PyramidVisionTransformerImpr(
+        patch_size=4, embed_dims=[32, 64, 160, 256], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[2, 2, 2, 2], sr_ratios=[8, 4, 2, 1],
+        **kwargs)
+    model.default_cfg = _cfg()
 
-# @BACKBONES.register_module()
+    return model
+
+
 @register_model
-class pvt_tiny_impr8rk7_peg(PyramidVisionTransformerImpr):
-    def __init__(self, **kwargs):
-        super(pvt_tiny_impr8rk7_peg, self).__init__(
-            patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
-            norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[2, 2, 2, 2], sr_ratios=[8, 4, 2, 1],
-            drop_rate=0.0, drop_path_rate=0.1, pretrained=kwargs["pretrained"])
+def pvt_tiny_impr8_peg(pretrained=False, **kwargs):
+    model = PyramidVisionTransformerImpr(
+        patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[2, 2, 2, 2], sr_ratios=[8, 4, 2, 1],
+        **kwargs)
+    model.default_cfg = _cfg()
+
+    return model
+
+
+@register_model
+def pvt_small_impr8_peg(pretrained=False, **kwargs):
+    model = PyramidVisionTransformerImpr(
+        patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], **kwargs)
+    model.default_cfg = _cfg()
+
+    return model
+
+
+@register_model
+def pvt_medium_impr8_peg(pretrained=False, **kwargs):
+    model = PyramidVisionTransformerImpr(
+        patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 18, 3], sr_ratios=[8, 4, 2, 1],
+        **kwargs)
+    model.default_cfg = _cfg()
+
+    return model
+
+
+@register_model
+def pvt_large_impr8_peg(pretrained=False, **kwargs):
+    model = PyramidVisionTransformerImpr(
+        patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 8, 27, 3], sr_ratios=[8, 4, 2, 1],
+        **kwargs)
+    model.default_cfg = _cfg()
+
+    return model
