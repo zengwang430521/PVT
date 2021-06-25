@@ -737,6 +737,7 @@ class MyPVT(nn.Module):
 
     def forward_features(self, x):
         # stage 1
+        x = F.interpolate(x, scale_factor=0.5)
         x, H, W = self.patch_embed1(x)
         for i, blk in enumerate(self.block1):
             x = blk(x, H, W)
