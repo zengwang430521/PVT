@@ -66,7 +66,6 @@ class ExtraSampleLayer(nn.Module):
         B, N, _ = loc.shape
         x = self.norm1(x)
         delta = self.delta_layer(x) * self.delta_factor
-        # delta = delta * 0.0 + delta.detach() * 1
 
         loc_extra = loc + delta
         loc_extra = loc_extra.clamp(0, 1)
@@ -560,7 +559,7 @@ class MyPVT(nn.Module):
                                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                             norm_layer=norm_layer, sr_ratio=sr_ratios[0])
                                       )
-        self.extra_layer1 = ExtraSampleLayer(embed_dim=embed_dims[1])
+        # self.extra_layer1 = ExtraSampleLayer(embed_dim=embed_dims[1])
         self.block2 = nn.ModuleList([MyBlock(
             dim=embed_dims[1], num_heads=num_heads[1], mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
@@ -575,7 +574,7 @@ class MyPVT(nn.Module):
                                             mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
                                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                             norm_layer=norm_layer, sr_ratio=sr_ratios[1]))
-        self.extra_layer2 = ExtraSampleLayer(embed_dim=embed_dims[2])
+        # self.extra_layer2 = ExtraSampleLayer(embed_dim=embed_dims[2])
         self.block3 = nn.ModuleList([MyBlock(
             dim=embed_dims[2], num_heads=num_heads[2], mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
@@ -590,7 +589,7 @@ class MyPVT(nn.Module):
                                             mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
                                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                             norm_layer=norm_layer, sr_ratio=sr_ratios[2]))
-        self.extra_layer3 = ExtraSampleLayer(embed_dim=embed_dims[3])
+        # self.extra_layer3 = ExtraSampleLayer(embed_dim=embed_dims[3])
         self.block4 = nn.ModuleList([MyBlock(
             dim=embed_dims[3], num_heads=num_heads[3], mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
@@ -702,7 +701,8 @@ class MyPVT(nn.Module):
         # stage 2
         x, loc = self.down_layers1(x, loc, H, W, N_grid)     # down sample
         H, W = H // 2, W // 2
-        x_e, loc_e = self.extra_layer1(x, loc, img, H, W, kernel_size=5)
+        # x_e, loc_e = self.extra_layer1(x, loc, img, H, W, kernel_size=5)
+        x_e, loc_e = x, loc
         for n, blk in enumerate(self.block2):
             if n == 0:
                 x = blk(x, x_e, loc, loc_e, H, W)
@@ -713,7 +713,8 @@ class MyPVT(nn.Module):
         # stage 3
         x, loc = self.down_layers2(x, loc, H, W, N_grid)     # down sample
         H, W = H // 2, W // 2
-        x_e, loc_e = self.extra_layer2(x, loc, img, H, W, kernel_size=3)
+        # x_e, loc_e = self.extra_layer2(x, loc, img, H, W, kernel_size=3)
+        x_e, loc_e = x, loc
         for n, blk in enumerate(self.block3):
             if n == 0:
                 x = blk(x, x_e, loc, loc_e, H, W)
@@ -723,7 +724,8 @@ class MyPVT(nn.Module):
         # stage 4
         x, loc = self.down_layers3(x, loc, H, W, N_grid)     # down sample
         H, W = H // 2, W // 2
-        x_e, loc_e = self.extra_layer3(x, loc, img, H, W, kernel_size=1)
+        # x_e, loc_e = self.extra_layer3(x, loc, img, H, W, kernel_size=1)
+        x_e, loc_e = x, loc
         for n, blk in enumerate(self.block4):
             if n == 0:
                 x = blk(x, x_e, loc, loc_e, H, W)
