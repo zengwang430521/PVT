@@ -687,53 +687,53 @@ class MyPVT(nn.Module):
         N_grid = x_grid.shape[1]
         return x, loc, N_grid
 
-    def forward_features(self, x):
-        img = x
-        x = F.interpolate(x, scale_factor=0.5)
-        # stage 1
-        x, H, W = self.patch_embed1(x)
-        for i, blk in enumerate(self.block1):
-            x = blk(x, H, W)
-        x = self.norm1(x)
-        # x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-        x, loc, N_grid = self.get_loc(x, H, W)
-
-        # stage 2
-        x, loc = self.down_layers1(x, loc, H, W, N_grid)     # down sample
-        H, W = H // 2, W // 2
-        # x_e, loc_e = self.extra_layer1(x, loc, img, H, W, kernel_size=5)
-        x_e, loc_e = x, loc
-        for n, blk in enumerate(self.block2):
-            if n == 0:
-                x = blk(x, x_e, loc, loc_e, H, W)
-            else:
-                x = blk(x, x, loc, loc, H, W)
-        x = self.norm2(x)
-
-        # stage 3
-        x, loc = self.down_layers2(x, loc, H, W, N_grid)     # down sample
-        H, W = H // 2, W // 2
-        # x_e, loc_e = self.extra_layer2(x, loc, img, H, W, kernel_size=3)
-        x_e, loc_e = x, loc
-        for n, blk in enumerate(self.block3):
-            if n == 0:
-                x = blk(x, x_e, loc, loc_e, H, W)
-            else:
-                x = blk(x, x, loc, loc, H, W)
-
-        # stage 4
-        x, loc = self.down_layers3(x, loc, H, W, N_grid)     # down sample
-        H, W = H // 2, W // 2
-        # x_e, loc_e = self.extra_layer3(x, loc, img, H, W, kernel_size=1)
-        x_e, loc_e = x, loc
-        for n, blk in enumerate(self.block4):
-            if n == 0:
-                x = blk(x, x_e, loc, loc_e, H, W)
-            else:
-                x = blk(x, x, loc, loc, H, W)
-        x = self.norm4(x)
-
-        return x.mean(dim=1)
+    # def forward_features(self, x):
+    #     img = x
+    #     x = F.interpolate(x, scale_factor=0.5)
+    #     # stage 1
+    #     x, H, W = self.patch_embed1(x)
+    #     for i, blk in enumerate(self.block1):
+    #         x = blk(x, H, W)
+    #     x = self.norm1(x)
+    #     # x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+    #     x, loc, N_grid = self.get_loc(x, H, W)
+    #
+    #     # stage 2
+    #     x, loc = self.down_layers1(x, loc, H, W, N_grid)     # down sample
+    #     H, W = H // 2, W // 2
+    #     # x_e, loc_e = self.extra_layer1(x, loc, img, H, W, kernel_size=5)
+    #     x_e, loc_e = x, loc
+    #     for n, blk in enumerate(self.block2):
+    #         if n == 0:
+    #             x = blk(x, x_e, loc, loc_e, H, W)
+    #         else:
+    #             x = blk(x, x, loc, loc, H, W)
+    #     x = self.norm2(x)
+    #
+    #     # stage 3
+    #     x, loc = self.down_layers2(x, loc, H, W, N_grid)     # down sample
+    #     H, W = H // 2, W // 2
+    #     # x_e, loc_e = self.extra_layer2(x, loc, img, H, W, kernel_size=3)
+    #     x_e, loc_e = x, loc
+    #     for n, blk in enumerate(self.block3):
+    #         if n == 0:
+    #             x = blk(x, x_e, loc, loc_e, H, W)
+    #         else:
+    #             x = blk(x, x, loc, loc, H, W)
+    #
+    #     # stage 4
+    #     x, loc = self.down_layers3(x, loc, H, W, N_grid)     # down sample
+    #     H, W = H // 2, W // 2
+    #     # x_e, loc_e = self.extra_layer3(x, loc, img, H, W, kernel_size=1)
+    #     x_e, loc_e = x, loc
+    #     for n, blk in enumerate(self.block4):
+    #         if n == 0:
+    #             x = blk(x, x_e, loc, loc_e, H, W)
+    #         else:
+    #             x = blk(x, x, loc, loc, H, W)
+    #     x = self.norm4(x)
+    #
+    #     return x.mean(dim=1)
 
     def forward_features(self, x):
         # stage 1
