@@ -743,7 +743,6 @@ class MyPVT(nn.Module):
         return x
 
 
-
 def gumble_top_k(x, k, dim, T=1, p_value=1e-6):
     # Noise
     noise = torch.rand_like(x)
@@ -826,6 +825,7 @@ def token2map(x, loc, map_size, kernel_size, sigma, return_mask=False):
                    source=torch.cat([x, x.new_ones(B, N, 1)], dim=-1).reshape(B*N, C+1))
     out = out.reshape(B, H, W, C+1).permute(0, 3, 1, 2)
     feature, mask = out[:, :-1], out[:, [-1]]
+    del out
 
     feature = feature / (mask + 1e-6)
     mask = (mask > 0).float()
