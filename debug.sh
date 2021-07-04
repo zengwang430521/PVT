@@ -271,6 +271,8 @@ srun -p pat_earth \
     --output_dir ./work_dirs/my23 --data-path data/imagenet \
     --input-size 448
 
+
+
     python -u train.py --model mypvt21_small --batch-size 64 --epochs 50 --num_workers 5  --cache_mode \
     --output_dir ./work_dirs/my21_fine --data-path data/imagenet \
     --finetune work_dirs/my20_s2/my20_300.pth --input-size 448

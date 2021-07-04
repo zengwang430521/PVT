@@ -498,7 +498,9 @@ class MyPVT(nn.Module):
             sr_ratio=sr_ratios[1],
             sample_ratio=0.25 if i == 0 else 1,
             extra_ratio=0 if i == 0 else 1,
-            use_local=True if i == 0 else False)
+            use_local=True,
+            # use_local=True if i == 1 else False
+        )
             for i in range(depths[1])])
         self.norm2 = norm_layer(embed_dims[1])
         cur += depths[1]
@@ -511,7 +513,9 @@ class MyPVT(nn.Module):
             sr_ratio=sr_ratios[2],
             sample_ratio=0.25 if i == 0 else 1,
             extra_ratio=0 if i == 0 else 1,
-            use_local=True if i == 0 else False)
+            use_local=True,
+            # use_local=True if i == 1 else False
+        )
             for i in range(depths[2])])
         self.norm3 = norm_layer(embed_dims[2])
         cur += depths[2]
@@ -524,7 +528,9 @@ class MyPVT(nn.Module):
             sr_ratio=sr_ratios[3],
             sample_ratio=0.25 if i == 0 else 1,
             extra_ratio=0 if i == 0 else 1,
-            use_local=True if i == 0 else False)
+            use_local=True,
+            # use_local=True if i == 1 else False
+        )
             for i in range(depths[3])])
         self.norm4 = norm_layer(embed_dims[3])
 
