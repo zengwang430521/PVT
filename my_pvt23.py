@@ -54,7 +54,7 @@ class ExtraSampleLayer(nn.Module):
         self.local_dim = local_dim
         self.delta_layer = nn.Linear(embed_dim, 2)
         self.delta_factor = delta_factor
-        self.local_conv = nn.Conv2d(src_dim, local_dim, kernel_size, stride=1)
+        self.local_conv = nn.Conv2d(src_dim, local_dim, kernel_size, stride)
         self.norm1 = nn.LayerNorm(embed_dim)
         self.norm2 = nn.LayerNorm(local_dim)
         self.kernel_size = kernel_size
@@ -890,6 +890,128 @@ def show_conf(conf, loc):
         ax = plt.subplot(1, 6, lv)
         ax.clear()
         ax.imshow(conf_map[0, 0].detach().cpu())
+
+
+class ExtraSampleLayer(nn.Module):
+    def __init__(self, embed_dim, src_dim=3, kernel_size=(5, 5), stride=4, delta_factor=0.01, mlp_ratio=1, local_dim=64):
+        super().__init__()
+        self.local_dim = local_dim
+        self.delta_layer = nn.Linear(embed_dim, 2)
+        self.delta_factor = delta_factor
+        self.local_conv = nn.Conv2d(src_dim, local_dim, kernel_size, stride)
+        self.norm1 = nn.LayerNorm(embed_dim)
+        self.norm2 = nn.LayerNorm(local_dim)
+        self.kernel_size = kernel_size
+        self.embed_dim = embed_dim
+        mlp_hidden_dim = int(embed_dim * mlp_ratio)
+        self.mlp = Mlp_old(in_features=embed_dim+local_dim, hidden_features=mlp_hidden_dim, out_features=embed_dim)
+
+    def forward(self, x, loc, src, H, W, kernel_size):
+        B, N, _ = loc.shape
+        x = self.norm1(x)
+        delta = self.delta_layer(x) * self.delta_factor
+
+        loc_extra = loc + delta
+        loc_extra = loc_extra.clamp(0, 1)
+        extra = extract_local_feature(src, loc_extra, self.kernel_size)
+        extra = self.local_conv(extra).squeeze(-1).squeeze(-1)
+        extra = extra.reshape(B, N, self.local_dim)
+        extra = self.norm2(extra)
+
+        x_local = token2map(extra, loc_extra, [H, W], kernel_size=kernel_size, sigma=2)
+        x_local = map2token(x_local, loc)
+        extra_global = token2map(x, loc, [H, W], kernel_size=kernel_size, sigma=2)
+        extra_global = map2token(extra_global, loc_extra)
+
+        extra = torch.cat([extra_global, extra], dim=-1)
+        x = torch.cat([x, x_local], dim=-1)
+        x, loc = torch.cat([x, extra], dim=1), torch.cat([loc, loc_extra], dim=1)
+        x = self.mlp(x)
+        return x, loc
+
+
+class ResampleLayer(nn.Module):
+    def __init__(self, block, sample_ratio, extra_ratio, embed_dim, dim_out, src_dim, local_dim, local_kernel, drop_rate,  delta_factor=0.001):
+        super().__init__()
+        self.block = block
+        self.sample_ratio = sample_ratio
+
+        # extra point delta
+        self.extra_ratio = min(int(extra_ratio), 0)
+        self.delta_factor = delta_factor
+        self.local_dim = local_dim
+        self.local_kernel = local_kernel
+        if self.extra_ratio > 0:
+            self.delta_layer = nn.Linear(embed_dim, 2)
+            self.local_conv = nn.Conv2d(src_dim, local_dim, , stride)
+
+        else:
+            self.delta_layer = None
+
+
+
+        self.norm1 = nn.LayerNorm(embed_dim)
+        self.norm2 = nn.LayerNorm(local_dim)
+        self.kernel_size = kernel_size
+        self.embed_dim = embed_dim
+        mlp_hidden_dim = int(embed_dim * mlp_ratio)
+        self.mlp = Mlp_old(in_features=embed_dim+local_dim, hidden_features=mlp_hidden_dim, out_features=embed_dim)
+
+        # self.sample_num = sample_num
+        self.dim_out = dim_out
+
+        self.block = down_block
+        # self.pos_drop = nn.Dropout(p=drop_rate)
+        # self.gumble_sigmoid = GumbelSigmoid()
+        # temperature of confidence weight
+        self.register_buffer('T', torch.tensor(1.0, dtype=torch.float))
+        self.T_min = 1
+        self.T_decay = 0.9998
+        self.conv = nn.Conv2d(embed_dim, dim_out, kernel_size=3, stride=1, padding=1)
+        # self.conv = PartialConv2d(embed_dim, self.block.dim_out, kernel_size=3, stride=1, padding=1)
+        self.norm = nn.LayerNorm(self.dim_out)
+        self.conf = nn.Linear(self.dim_out, 1)
+
+    def forward(self, x, pos, H, W, N_grid):
+        # x, mask = token2map(x, pos, [H, W], 1, 2, return_mask=True)
+        # x = self.conv(x, mask)
+
+        kernel_size = self.block.attn.sr_ratio + 1
+        x = token2map(x, pos, [H, W], kernel_size, 2)
+        x = self.conv(x)
+        x = map2token(x, pos)
+        B, N, C = x.shape
+        # sample_num = max(math.ceil(N * self.sample_ratio) - N_grid, 0)
+        sample_num = max(math.ceil(N * self.sample_ratio), 0)
+
+        x_grid = x[:, :N_grid]
+        x_ada = x[:, N_grid:]
+        pos_grid = pos[:, :N_grid]
+        pos_ada = pos[:, N_grid:]
+
+        conf = self.conf(self.norm(x))
+        conf_ada = conf[:, N_grid:]
+
+        # temperature
+        # T = self.T if self.training else self.T_min
+        T = self.T
+        self.T = (self.T * self.T_decay).clamp(self.T_min, 1.0)
+
+        # _, index_down = torch.topk(conf_ada, self.sample_num, 1)
+        index_down = gumble_top_k(conf_ada, sample_num, 1, T=T)
+        # conf = F.softmax(conf, dim=1) * N
+        # conf = F.sigmoid(conf)
+        # conf = self.gumble_sigmoid(conf)
+
+        x_down = torch.gather(x_ada, 1, index_down.expand([B, sample_num, C]))
+        pos_down = torch.gather(pos_ada, 1, index_down.expand([B, sample_num, 2]))
+
+        x_down = torch.cat([x_grid, x_down], 1)
+        pos_down = torch.cat([pos_grid, pos_down], 1)
+
+        x_down = self.block(x_down, x, pos_down, pos, H, W, conf)
+        return x_down, pos_down
+
 
 
 @register_model
