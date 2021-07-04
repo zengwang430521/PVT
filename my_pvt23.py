@@ -498,7 +498,7 @@ class MyPVT(nn.Module):
             sr_ratio=sr_ratios[1],
             sample_ratio=0.25 if i == 0 else 1,
             extra_ratio=0 if i == 0 else 1,
-            use_local=True,
+            use_local=False if i == 0 else True,
             # use_local=True if i == 1 else False
         )
             for i in range(depths[1])])
@@ -513,7 +513,7 @@ class MyPVT(nn.Module):
             sr_ratio=sr_ratios[2],
             sample_ratio=0.25 if i == 0 else 1,
             extra_ratio=0 if i == 0 else 1,
-            use_local=True,
+            use_local=False if i == 0 else True,
             # use_local=True if i == 1 else False
         )
             for i in range(depths[2])])
@@ -528,7 +528,7 @@ class MyPVT(nn.Module):
             sr_ratio=sr_ratios[3],
             sample_ratio=0.25 if i == 0 else 1,
             extra_ratio=0 if i == 0 else 1,
-            use_local=True,
+            use_local=False if i == 0 else True,
             # use_local=True if i == 1 else False
         )
             for i in range(depths[3])])
