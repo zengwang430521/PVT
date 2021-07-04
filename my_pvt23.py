@@ -472,16 +472,21 @@ class MyPVT(nn.Module):
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
         cur = 0
 
-        self.block1 = nn.ModuleList([ResampleBlock(
-            embed_dim=embed_dims[0], dim_out=embed_dims[0], inter_kernel=sr_ratios[0]+1, inter_sigma=2,
-            num_heads=num_heads[0], mlp_ratio=mlp_ratios[0], qkv_bias=qkv_bias, qk_scale=qk_scale,
+        # self.block1 = nn.ModuleList([ResampleBlock(
+        #     embed_dim=embed_dims[0], dim_out=embed_dims[0], inter_kernel=sr_ratios[0]+1, inter_sigma=2,
+        #     num_heads=num_heads[0], mlp_ratio=mlp_ratios[0], qkv_bias=qkv_bias, qk_scale=qk_scale,
+        #     drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
+        #     sr_ratio=sr_ratios[0],
+        #     sample_ratio=1,
+        #     extra_ratio=1,
+        #     use_local=False)
+        #     for i in range(depths[0])])
+        self.block1 = nn.ModuleList([Block(
+            dim=embed_dims[0], num_heads=num_heads[0], mlp_ratio=mlp_ratios[0], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
-            sr_ratio=sr_ratios[0],
-            sample_ratio=1,
-            extra_ratio=1,
-            use_local=False,
-        )
+            sr_ratio=sr_ratios[0])
             for i in range(depths[0])])
+
         self.norm1 = norm_layer(embed_dims[0])
         cur += depths[0]
 
@@ -606,13 +611,20 @@ class MyPVT(nn.Module):
     def forward_features(self, x):
         img = x
         x = F.interpolate(x, scale_factor=0.5)
+
+        # # stage 1
+        # x, H, W = self.patch_embed1(x)
+        # x, loc, N_grid = self.get_loc(x, H, W)
+        # for n, blk in enumerate(self.block1):
+        #     x, loc = blk(x, loc, img, H, W, N_grid)
+        # x = self.norm1(x)
+
         # stage 1
         x, H, W = self.patch_embed1(x)
-        x, loc, N_grid = self.get_loc(x, H, W)
-
-        for n, blk in enumerate(self.block1):
-            x, loc = blk(x, loc, img, H, W, N_grid)
+        for i, blk in enumerate(self.block1):
+            x = blk(x, H, W)
         x = self.norm1(x)
+        x, loc, N_grid = self.get_loc(x, H, W)
 
         # stage 2
         for n, blk in enumerate(self.block2):
