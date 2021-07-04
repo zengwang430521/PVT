@@ -338,7 +338,7 @@ class ResampleBlock(nn.Module):
             self.pre_conv = None
 
         # confidence based sampling
-        self.norm1 = nn.LayerNorm(self.dim_out)
+        self.conf_norm = nn.LayerNorm(self.dim_out)
         self.conf = nn.Linear(self.dim_out, 1)
 
         # extra sample point
@@ -348,7 +348,7 @@ class ResampleBlock(nn.Module):
             self.delta_layer = nn.Linear(dim_out, 2)
 
         # block
-        self.norm2 = norm_layer(dim_out)
+        self.norm1 = norm_layer(dim_out)
         self.attn = MyAttention(
             dim_out,
             num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale,
@@ -356,7 +356,7 @@ class ResampleBlock(nn.Module):
         # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
 
-        self.norm3 = norm_layer(dim_out)
+        self.norm2 = norm_layer(dim_out)
         mlp_hidden_dim = int(dim_out * mlp_ratio)
         self.mlp = MyMlp(in_features=dim_out, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
         self.apply(self._init_weights)
@@ -393,8 +393,7 @@ class ResampleBlock(nn.Module):
             x = map2token(x_map, loc)
 
         B, N, C = x.shape
-
-        x = self.norm1(x)
+        x = self.conf_norm(x)
 
         # confidence based sampling
         sample_num = max(math.ceil((N-N_grid) * self.sample_ratio), 0)
@@ -426,10 +425,10 @@ class ResampleBlock(nn.Module):
         # attention block
         x_down = torch.cat([x_grid, x_down], dim=1)
         loc_down = torch.cat([loc_grid, loc_down], dim=1)
-        x_down = self.norm2(x_down)
-
+        x_down = self.norm1(x_down)
         x_down = x_down + self.drop_path(self.attn(x_down, x, loc, H, W, conf))
-        x_down = self.norm3(x_down)
+
+        x_down = self.norm2(x_down)
         kernel_size = self.attn.sr_ratio + 1
         if self.sample_ratio <= 0.25:
             H, W = H // 2, W // 2
