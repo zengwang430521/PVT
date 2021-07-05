@@ -827,7 +827,7 @@ def map2token(feature_map, loc_xy, mode='bilinear', align_corners=False):
     B, N, _ = loc_xy.shape
     # B, C, H, W = feature_map.shape
     # loc_xy = loc_xy.type(feature_map.dtype) * 2 - 1
-    loc_xy = loc_xy.unsqueeze(1)
+    loc_xy = loc_xy.unsqueeze(1).type(feature_map.dtype)
     tokens = F.grid_sample(feature_map, loc_xy, mode=mode, align_corners=align_corners)
     tokens = tokens.permute(0, 2, 3, 1).squeeze(1).contiguous()
     return tokens
