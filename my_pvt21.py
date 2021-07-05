@@ -3,7 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from functools import partial
 
-from pvt import (Block, DropPath, to_2tuple, trunc_normal_,register_model, _cfg)
+from my_pvt_v2_ap import (Block, DropPath, to_2tuple, trunc_normal_,register_model, _cfg)
+
 import math
 import matplotlib.pyplot as plt
 vis = False

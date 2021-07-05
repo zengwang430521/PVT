@@ -223,6 +223,10 @@ spring.submit arun \
     -n 16 --gpu \
     --job-name=pvt \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 \
+    "python -u train.py --model mypvt23_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
+    --output_dir ./work_dirs/my23 --data-path data/imagenet \
+    --input-size 448"
+
     "python -u train.py --model mypvt21_small --batch-size 64 --epochs 50 --num_workers 5  --cache_mode \
     --output_dir ./work_dirs/my21_fine --data-path data/imagenet \
     --finetune work_dirs/my20_s2/my20_267.pth"
@@ -270,6 +274,7 @@ srun -p pat_earth \
     python -u train.py --model mypvt23_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
     --output_dir ./work_dirs/my23 --data-path data/imagenet \
     --input-size 448
+    --finetune work_dirs/my20_s2/my20_300_pre.pth
 
 
 
