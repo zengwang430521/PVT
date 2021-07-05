@@ -220,12 +220,13 @@ spring.submit arun -p spring_scheduler -n 1 --job-name=data unzip
 
 spring.submit arun \
     -p spring_scheduler \
-    -n 16 --gpu \
+    -n 8 --gpu \
     --job-name=pvt \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 \
     "python -u train.py --model mypvt23_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
     --output_dir ./work_dirs/my23 --data-path data/imagenet \
-    --input-size 448"
+    --input-size 448 --finetune work_dirs/my20_s2/my20_300_pre.pth \
+    --resume work_dirs/my23/checkpoint.pth "
 
     "python -u train.py --model mypvt21_small --batch-size 64 --epochs 50 --num_workers 5  --cache_mode \
     --output_dir ./work_dirs/my21_fine --data-path data/imagenet \
@@ -260,11 +261,12 @@ spring.submit arun \
 
 
 srun -p 3dv-share \
-    --job-name=test --ntasks=16 \
+    --job-name=test --ntasks=8 \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --model mypvt23_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
     --output_dir ./work_dirs/my23 --data-path data/imagenet \
-    --input-size 448
+    --input-size 448     --finetune work_dirs/my20_s2/my20_300_pre.pth
+
 
 
 srun -p pat_earth \
@@ -273,8 +275,7 @@ srun -p pat_earth \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --model mypvt23_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
     --output_dir ./work_dirs/my23 --data-path data/imagenet \
-    --input-size 448
-    --finetune work_dirs/my20_s2/my20_300_pre.pth
+    --input-size 448 --finetune work_dirs/my20_s2/my20_300_pre.pth
 
 
 

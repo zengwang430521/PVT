@@ -815,7 +815,7 @@ def token2map(x, loc, map_size, kernel_size, sigma, return_mask=False):
     return feature
 
 
-def map2token(feature_map, loc_xy, mode='bilinear', align_corners=False):
+def map2token(feature_map, loc_xy, mode='bilinear', align_corners=True):
     B, N, _ = loc_xy.shape
     # B, C, H, W = feature_map.shape
     loc_xy = loc_xy.type(feature_map.dtype) * 2 - 1
