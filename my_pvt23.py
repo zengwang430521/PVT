@@ -451,12 +451,16 @@ class ResampleBlock(nn.Module):
             loc_ada = torch.cat([loc_ada, loc_extra], dim=1)
             conf_map = token2map(conf, loc, [H, W], self.inter_kernel, self.inter_sigma)
             conf_extra = map2token(conf_map, loc_extra)
-            conf_ada = torch.cat([conf_ada, conf_extra], dim=1)
-            index_down = gumble_top_k(conf_ada, sample_num, dim=1, T=1)
-            loc_down = torch.gather(loc_ada, 1, index_down.expand([B, sample_num, 2]))
             if x_map is None:
                 x_map = token2map(x, loc, [H, W], self.inter_kernel, self.inter_sigma)
-            x_down = map2token(x_map, loc_down)
+                x_extra = map2token(x_map, loc_extra)
+
+            conf_ada = torch.cat([conf_ada, conf_extra], dim=1)
+            x_ada = torch.cat([x_ada, x_extra], dim=1)
+            index_down = gumble_top_k(conf_ada, sample_num, dim=1, T=1)
+            loc_down = torch.gather(loc_ada, 1, index_down.expand([B, sample_num, 2]))
+            x_down = torch.gather(x_ada, 1, index_down.expand([B, sample_num, C]))
+
         else:
             index_down = gumble_top_k(conf_ada, sample_num, dim=1, T=1)
             loc_down = torch.gather(loc_ada, 1, index_down.expand([B, sample_num, 2]))
@@ -626,34 +630,6 @@ class MyPVT(nn.Module):
         self.num_classes = num_classes
         self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
-    def get_loc(self, x, H, W):
-        B = x.shape[0]
-        device = x.device
-        y_map, x_map = torch.meshgrid(torch.arange(H, device=device).float() / (H - 1),
-                                      torch.arange(W, device=device).float() / (W - 1))
-        xy_map = torch.stack((x_map, y_map), dim=-1)
-        loc = xy_map.reshape(-1, 2)[None, ...].repeat([B, 1, 1])
-
-        # split into grid and adaptive tokens
-        pos = torch.arange(x.shape[1], dtype=torch.long, device=x.device)
-        tmp = pos.reshape([H, W])
-        grid_stride = self.grid_stride
-        pos_grid = tmp[grid_stride // 2:H:grid_stride, grid_stride // 2:W:grid_stride]
-        pos_grid = pos_grid.reshape([-1])
-        mask = torch.ones(pos.shape, dtype=torch.bool, device=pos.device)
-        mask[pos_grid] = 0
-        pos_ada = torch.masked_select(pos, mask)
-
-        x_grid = torch.index_select(x, 1, pos_grid)
-        x_ada = torch.index_select(x, 1, pos_ada)
-        loc_grid = torch.index_select(loc, 1, pos_grid)
-        loc_ada = torch.index_select(loc, 1, pos_ada)
-
-        x = torch.cat([x_grid, x_ada], 1)
-        loc = torch.cat([loc_grid, loc_ada], 1)
-        N_grid = x_grid.shape[1]
-        return x, loc, N_grid
-
     def forward_features(self, x):
         img = x
         x = F.interpolate(x, scale_factor=0.5)
@@ -666,11 +642,12 @@ class MyPVT(nn.Module):
         # x = self.norm1(x)
 
         # stage 1
+
         x, H, W = self.patch_embed1(x)
         for i, blk in enumerate(self.block1):
             x = blk(x, H, W)
         x = self.norm1(x)
-        x, loc, N_grid = self.get_loc(x, H, W)
+        x, loc, N_grid = get_loc(x, H, W, self.grid_stride)
 
         # stage 2
         for n, blk in enumerate(self.block2):
@@ -700,6 +677,37 @@ class MyPVT(nn.Module):
         x = self.head(x)
 
         return x
+
+
+def get_loc(x, H, W, grid_stride):
+        B = x.shape[0]
+        device = x.device
+        y_g, x_g = torch.arange(H, device=device).float(), torch.arange(W, device=device).float()
+        y_g = 2 * ((y_g + 0.5) / H) - 1
+        x_g = 2 * ((x_g + 0.5) / W) - 1
+        y_map, x_map = torch.meshgrid(y_g, x_g)
+        xy_map = torch.stack((x_map, y_map), dim=-1)
+
+        loc = xy_map.reshape(-1, 2)[None, ...].repeat([B, 1, 1])
+
+        # split into grid and adaptive tokens
+        pos = torch.arange(x.shape[1], dtype=torch.long, device=x.device)
+        tmp = pos.reshape([H, W])
+        pos_grid = tmp[grid_stride // 2:H:grid_stride, grid_stride // 2:W:grid_stride]
+        pos_grid = pos_grid.reshape([-1])
+        mask = torch.ones(pos.shape, dtype=torch.bool, device=pos.device)
+        mask[pos_grid] = 0
+        pos_ada = torch.masked_select(pos, mask)
+
+        x_grid = torch.index_select(x, 1, pos_grid)
+        x_ada = torch.index_select(x, 1, pos_ada)
+        loc_grid = torch.index_select(loc, 1, pos_grid)
+        loc_ada = torch.index_select(loc, 1, pos_ada)
+
+        x = torch.cat([x_grid, x_ada], 1)
+        loc = torch.cat([loc_grid, loc_ada], 1)
+        N_grid = x_grid.shape[1]
+        return x, loc, N_grid
 
 
 def extract_local_feature(src, loc, kernel_size=(3, 3)):
@@ -793,11 +801,11 @@ def reconstruct_feature(feature, mask, kernel_size, sigma):
 def token2map(x, loc, map_size, kernel_size, sigma, return_mask=False):
     H, W = map_size
     B, N, C = x.shape
-    loc = loc.clamp(0, 1)
-    loc = loc * torch.FloatTensor([W-1, H-1]).to(loc.device)[None, None, :]
+    loc = loc.clamp(-1, 1)
+    loc = 0.5 * (loc + 1) * torch.FloatTensor([W, H]).to(loc.device)[None, None, :] - 0.5
     loc = loc.round().long()
     idx = loc[..., 0] + loc[..., 1] * W
-    idx = idx + torch.arange(B)[:, None].to(loc.device) * H*W
+    idx = idx + torch.arange(B)[:, None].to(loc.device) * H * W
 
     out = x.new_zeros(B*H*W, C+1)
     out.index_add_(dim=0, index=idx.reshape(B*N),
@@ -815,10 +823,10 @@ def token2map(x, loc, map_size, kernel_size, sigma, return_mask=False):
     return feature
 
 
-def map2token(feature_map, loc_xy, mode='bilinear', align_corners=True):
+def map2token(feature_map, loc_xy, mode='bilinear', align_corners=False):
     B, N, _ = loc_xy.shape
     # B, C, H, W = feature_map.shape
-    loc_xy = loc_xy.type(feature_map.dtype) * 2 - 1
+    # loc_xy = loc_xy.type(feature_map.dtype) * 2 - 1
     loc_xy = loc_xy.unsqueeze(1)
     tokens = F.grid_sample(feature_map, loc_xy, mode=mode, align_corners=align_corners)
     tokens = tokens.permute(0, 2, 3, 1).squeeze(1).contiguous()
