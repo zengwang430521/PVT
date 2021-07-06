@@ -804,6 +804,8 @@ def token2map(x, loc, map_size, kernel_size, sigma, return_mask=False):
     loc = loc.clamp(-1, 1)
     loc = 0.5 * (loc + 1) * torch.FloatTensor([W, H]).to(loc.device)[None, None, :] - 0.5
     loc = loc.round().long()
+    loc[..., 0] = loc[..., 0].clamp(0, W-1)
+    loc[..., 1] = loc[..., 1].clamp(0, H-1)
     idx = loc[..., 0] + loc[..., 1] * W
     idx = idx + torch.arange(B)[:, None].to(loc.device) * H * W
 
@@ -941,7 +943,7 @@ class MyPVT23a(nn.Module):
             sr_ratio=sr_ratios[1],
             sample_ratio=0.25 if i == 0 else 1,
             extra_ratio=0 if i == 0 else 1,
-            use_local=False     #if i == 0 else True,
+            use_local=False     # if i == 0 else True,
             # use_local=True if i == 1 else False
         )
             for i in range(depths[1])])
