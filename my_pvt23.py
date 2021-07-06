@@ -811,7 +811,12 @@ def token2map(x, loc, map_size, kernel_size, sigma, return_mask=False):
     out.index_add_(dim=0, index=idx.reshape(B*N),
                    source=torch.cat([x, x.new_ones(B, N, 1)], dim=-1).reshape(B*N, C+1))
     out = out.reshape(B, H, W, C+1).permute(0, 3, 1, 2).contiguous()
-    feature, mask = out[:, :C], out[:, [C]]
+    assert out.shape[1] == C+1
+    try:
+        feature, mask = out[:, :C, :, :], out[:, [C], :, :]
+    except:
+        raise KeyError('out shape: ' + str(out.shape))
+
     # del out
 
     feature = feature / (mask + 1e-6)
@@ -1090,6 +1095,18 @@ def mypvt23a_small(pretrained=False, **kwargs):
 
 # For test
 if __name__ == '__main__':
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    model = mypvt23_small(drop_path_rate=0.1).to(device)
+    model.reset_drop_path(0.1)
+
+    empty_input = torch.rand([2, 3, 448, 448], device=device)
+    del device
+
+    output = model(empty_input)
+    tmp = output.sum()
+    print(tmp)
+
+
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     model = mypvt23a_small(drop_path_rate=0.1).to(device)
     model.reset_drop_path(0.1)
