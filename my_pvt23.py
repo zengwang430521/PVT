@@ -716,9 +716,9 @@ def extract_local_feature(src, loc, kernel_size=(3, 3)):
 
     h, w = kernel_size
     x = torch.arange(w, device=loc.device, dtype=loc.dtype)
-    x = (x - 0.5 * (w-1)) * 0.5 / W
+    x = (x - 0.5 * (w-1)) * 2 / W
     y = torch.arange(h, device=loc.device, dtype=loc.dtype)
-    y = (y - 0.5 * (h-1)) * 0.5 / H
+    y = (y - 0.5 * (h-1)) * 2 / H
     y, x = torch.meshgrid(y, x)
     grid = torch.stack([x, y], dim=-1)
     grid = loc[:, :, None, None, :] + grid[None, None, ...]     # (B, N, h, w, 2)
