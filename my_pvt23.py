@@ -813,8 +813,10 @@ def token2map(x, loc, map_size, kernel_size, sigma, return_mask=False):
     out = out.reshape(B, H, W, C+1).permute(0, 3, 1, 2).contiguous()
     assert out.shape[1] == C+1
     try:
-        feature, mask = out[:, :C, :, :], out[:, [C], :, :]
+        feature, mask = out[:, :C, :, :], out[:, C:, :, :]
     except:
+        print('out shape: ' + str(out.shape))
+        print('out shape: ' + str(out.shape))
         raise KeyError('out shape: ' + str(out.shape))
 
     # del out
@@ -838,16 +840,16 @@ def map2token(feature_map, loc_xy, mode='bilinear', align_corners=False):
     return tokens
 
 
-def get_pos_embed(pos_embed, loc_xy, pos_size=None):
-    _, H, W, C = pos_embed.shape
-    B, N, _ = loc_xy.shape
-    pos_embed = pos_embed.permute(0, 3, 1, 2).expand([B, C, H, W]).contiguous()
-    loc_xy = loc_xy * 2 - 1
-    loc_xy = loc_xy.unsqueeze(1)
-    pos_feature = F.grid_sample(pos_embed, loc_xy)
-    pos_feature = pos_feature.permute(0, 2, 3, 1).squeeze(1).contiguous()
-    # print('use interpolate pos embed.')
-    return pos_feature
+# def get_pos_embed(pos_embed, loc_xy, pos_size=None):
+#     _, H, W, C = pos_embed.shape
+#     B, N, _ = loc_xy.shape
+#     pos_embed = pos_embed.permute(0, 3, 1, 2).expand([B, C, H, W]).contiguous()
+#     loc_xy = loc_xy * 2 - 1
+#     loc_xy = loc_xy.unsqueeze(1)
+#     pos_feature = F.grid_sample(pos_embed, loc_xy)
+#     pos_feature = pos_feature.permute(0, 2, 3, 1).squeeze(1).contiguous()
+#     # print('use interpolate pos embed.')
+#     return pos_feature
 
 
 def show_tokens(x, out, N_grid=14*14):
