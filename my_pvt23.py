@@ -815,9 +815,10 @@ def token2map(x, loc, map_size, kernel_size, sigma, return_mask=False):
     try:
         feature, mask = out[:, :C, :, :], out[:, C:, :, :]
     except:
-        print('out shape: ' + str(out.shape))
-        print('out shape: ' + str(out.shape))
-        raise KeyError('out shape: ' + str(out.shape))
+        info = 'out shape: ' + str(out.shape) + ' C: ' + str(C)
+        print(info)
+        print(info)
+        raise KeyError(info)
 
     # del out
 
