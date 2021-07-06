@@ -75,9 +75,9 @@ class DWConv(nn.Module):
 
     def forward(self, x, H, W):
         B, N, C = x.shape
-        x = x.transpose(1, 2).view(B, C, H, W)
+        x = x.transpose(1, 2).view(B, C, H, W).contiguous()
         x = self.dwconv(x)
-        x = x.flatten(2).transpose(1, 2)
+        x = x.flatten(2).transpose(1, 2).contiguous()
 
         return x
 
@@ -246,20 +246,20 @@ class MyAttention(nn.Module):
 
     def forward(self, x, x_source, loc_source, H, W, conf_source=None):
         B, N, C = x.shape
-        q = self.q(x).reshape(B, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
+        q = self.q(x).reshape(B, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3).contiguous()
 
         h, w = H // self.sr_ratio, W // self.sr_ratio
         x_source = token2map(x_source, loc_source, [h, w], 1, 1)
         x_source = self.sr(x_source)
-        x_source = x_source.reshape(B, C, -1).permute(0, 2, 1)
+        x_source = x_source.reshape(B, C, -1).permute(0, 2, 1).contiguous()
         x_source = self.norm(x_source)
         x_source = self.act(x_source)
         if conf_source is not None:
             conf_source = token2map(conf_source, loc_source, [h, w], 1, 1)
-            conf_source = conf_source.reshape(B, 1, -1).permute(0, 2, 1)
+            conf_source = conf_source.reshape(B, 1, -1).permute(0, 2, 1).contiguous()
 
         _, Ns, _ = x_source.shape
-        kv = self.kv(x_source).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        kv = self.kv(x_source).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4).contiguous()
         k, v = kv[0], kv[1]
 
         attn = (q @ k.transpose(-2, -1)) * self.scale
@@ -445,9 +445,9 @@ class ResampleBlock(nn.Module):
         # extra points
         if self.extra_ratio > 0:
             extra_delta = self.delta_layer(x) * self.delta_factor
-            extra_delta = extra_delta.view(B, N, -1, 2)
+            extra_delta = extra_delta.view(B, N, -1, 2).contiguous()
             loc_extra = loc[:, :, None, :] + extra_delta
-            loc_extra = loc_extra.view(B, -1, 2)
+            loc_extra = loc_extra.view(B, -1, 2).contiguous()
             loc_ada = torch.cat([loc_ada, loc_extra], dim=1)
             conf_map = token2map(conf, loc, [H, W], self.inter_kernel, self.inter_sigma)
             conf_extra = map2token(conf_map, loc_extra)
@@ -726,7 +726,7 @@ def extract_local_feature(src, loc, kernel_size=(3, 3)):
     grid = grid * 2 - 1
     loc_feature = F.grid_sample(src, grid.flatten(2, 3))        # (B, C, N, h * w)
     loc_feature = loc_feature.reshape(B, C, N, h, w)            # (B, C, N, h, w)
-    loc_feature = loc_feature.permute(0, 2, 1, 3, 4)            # (B, N, C, h, w)
+    loc_feature = loc_feature.permute(0, 2, 1, 3, 4).contiguous()            # (B, N, C, h, w)
     return loc_feature.flatten(0, 1)                            # (B * N, C, h, w)
 
 
@@ -746,7 +746,7 @@ def guassian_filt(x, kernel_size=3, sigma=2):
 
     # Create a x, y coordinate grid of shape (kernel_size, kernel_size, 2)
     x_coord = torch.arange(kernel_size, device=x.device)
-    x_grid = x_coord.repeat(kernel_size).view(kernel_size, kernel_size)
+    x_grid = x_coord.repeat(kernel_size).view(kernel_size, kernel_size).contiguous()
     y_grid = x_grid.t()
     xy_grid = torch.stack([x_grid, y_grid], dim=-1).float()
 
@@ -766,7 +766,7 @@ def guassian_filt(x, kernel_size=3, sigma=2):
     gaussian_kernel = gaussian_kernel / torch.sum(gaussian_kernel)
 
     # Reshape to 2d depthwise convolutional weight
-    gaussian_kernel = gaussian_kernel.view(1, 1, kernel_size, kernel_size)
+    gaussian_kernel = gaussian_kernel.view(1, 1, kernel_size, kernel_size).contiguous()
     gaussian_kernel = gaussian_kernel.repeat(channels, 1, 1, 1)
 
     paddding = int((kernel_size - 1) // 2)
@@ -811,7 +811,7 @@ def token2map(x, loc, map_size, kernel_size, sigma, return_mask=False):
     out = x.new_zeros(B*H*W, C+1)
     out.index_add_(dim=0, index=idx.reshape(B*N),
                    source=torch.cat([x, x.new_ones(B, N, 1)], dim=-1).reshape(B*N, C+1))
-    out = out.reshape(B, H, W, C+1).permute(0, 3, 1, 2)
+    out = out.reshape(B, H, W, C+1).permute(0, 3, 1, 2).contiguous()
     assert out.shape[1] == C+1
     feature = out[:, :C, :, :]
     mask = out[:, C:, :, :]
@@ -841,8 +841,20 @@ def map2token(feature_map, loc_xy, mode='bilinear', align_corners=False):
     # loc_xy = loc_xy.type(feature_map.dtype) * 2 - 1
     loc_xy = loc_xy.unsqueeze(1).type(feature_map.dtype)
     tokens = F.grid_sample(feature_map, loc_xy, mode=mode, align_corners=align_corners)
-    tokens = tokens.permute(0, 2, 3, 1).squeeze(1)
+    tokens = tokens.permute(0, 2, 3, 1).squeeze(1).contiguous()
     return tokens
+
+
+# def get_pos_embed(pos_embed, loc_xy, pos_size=None):
+#     _, H, W, C = pos_embed.shape
+#     B, N, _ = loc_xy.shape
+#     pos_embed = pos_embed.permute(0, 3, 1, 2).expand([B, C, H, W]).contiguous()
+#     loc_xy = loc_xy * 2 - 1
+#     loc_xy = loc_xy.unsqueeze(1)
+#     pos_feature = F.grid_sample(pos_embed, loc_xy)
+#     pos_feature = pos_feature.permute(0, 2, 3, 1).squeeze(1).contiguous()
+#     # print('use interpolate pos embed.')
+#     return pos_feature
 
 
 def show_tokens(x, out, N_grid=14*14):
