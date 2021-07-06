@@ -261,11 +261,11 @@ spring.submit arun \
 
 
 srun -p 3dv-share \
-    --job-name=test --ntasks=8 \
+    --job-name=test --ntasks=16 \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --model mypvt23_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
-    --output_dir ./work_dirs/my23 --data-path data/imagenet \
-    --input-size 448     --finetune work_dirs/my20_s2/my20_300_pre.pth
+    --output_dir work_dirs/my23 --data-path data/imagenet \
+    --input-size 448 --resume work_dirs/my23/checkpoint.pth
 
 
 

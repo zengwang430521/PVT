@@ -812,13 +812,16 @@ def token2map(x, loc, map_size, kernel_size, sigma, return_mask=False):
                    source=torch.cat([x, x.new_ones(B, N, 1)], dim=-1).reshape(B*N, C+1))
     out = out.reshape(B, H, W, C+1).permute(0, 3, 1, 2).contiguous()
     assert out.shape[1] == C+1
-    try:
-        feature, mask = out[:, :C, :, :], out[:, C:, :, :]
-    except:
-        info = 'out shape: ' + str(out.shape) + ' C: ' + str(C)
-        print(info)
-        print(info)
-        raise KeyError(info)
+    feature = out[:, :C, :, :]
+    mask = out[:, C:, :, :]
+
+    # try:
+    #     feature, mask = out[:, :C, :, :], out[:, C:, :, :]
+    # except:
+    #     info = 'out shape: ' + str(out.shape) + ' C: ' + str(C)
+    #     print(info)
+    #     print(info)
+    #     raise KeyError(info)
 
     # del out
 
