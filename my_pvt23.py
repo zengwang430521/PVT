@@ -811,7 +811,7 @@ def token2map(x, loc, map_size, kernel_size, sigma, return_mask=False):
     out.index_add_(dim=0, index=idx.reshape(B*N),
                    source=torch.cat([x, x.new_ones(B, N, 1)], dim=-1).reshape(B*N, C+1))
     out = out.reshape(B, H, W, C+1).permute(0, 3, 1, 2).contiguous()
-    feature, mask = out[:, :-1], out[:, [-1]]
+    feature, mask = out[:, :C], out[:, [C]]
     # del out
 
     feature = feature / (mask + 1e-6)
