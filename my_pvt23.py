@@ -788,9 +788,10 @@ def reconstruct_feature(feature, mask, kernel_size, sigma):
     feature = feature * mask
     out = guassian_filt(torch.cat([feature, mask], dim=1),
                         kernel_size=kernel_size, sigma=sigma)
-    feature_inter = out[:, :-1]
-    mask_inter = out[:, [-1]]
-    tmp = mask_inter.min()
+    C = out.shape[1] - 1
+    feature_inter = out[:, :C]
+    mask_inter = out[:, C:]
+    # tmp = mask_inter.min()
     feature_inter = feature_inter / (mask_inter + 1e-6)
     mask_inter = (mask_inter > 0).float()
     feature_inter = feature_inter * mask_inter
