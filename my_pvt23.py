@@ -448,6 +448,7 @@ class ResampleBlock(nn.Module):
             extra_delta = extra_delta.view(B, N, -1, 2).contiguous()
             loc_extra = loc[:, :, None, :] + extra_delta
             loc_extra = loc_extra.view(B, -1, 2).contiguous()
+            loc_extra = loc_extra.clamp(-1, 1)
             loc_ada = torch.cat([loc_ada, loc_extra], dim=1)
             conf_map = token2map(conf, loc, [H, W], self.inter_kernel, self.inter_sigma)
             conf_extra = map2token(conf_map, loc_extra)

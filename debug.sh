@@ -279,7 +279,10 @@ srun -p pat_earth \
     --resume work_dirs/my23a/checkpoint.pth \
 
 
-
+srun -p pat_earth \
+    -x SH-IDC1-10-198-4-[100-103,116-119] \
+    --job-name=pvt --ntasks=16 \
+    --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --model mypvt23_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
     --output_dir work_dirs/my23 --data-path data/imagenet \
     --input-size 448 \
