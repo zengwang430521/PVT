@@ -8,7 +8,6 @@ import math
 import matplotlib.pyplot as plt
 vis = False
 
-
 class Mlp_old(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
         super().__init__()
@@ -365,13 +364,14 @@ class ResampleBlock(nn.Module):
                  drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, sr_ratio=1,
                  sample_ratio=1,
                  extra_ratio=0, delta_factor=0.001,
-                 use_local=False, src_dim=3, local_dim=64, local_kernel=(5, 5)):
+                 use_local=False, src_dim=3, local_dim=64, local_kernel=(5, 5),
+                 HR_res=(224, 224)):
         super().__init__()
         self.dim_out = dim_out
         self.inter_kernel = inter_kernel
         self.inter_sigma = inter_sigma
         self.sample_ratio = sample_ratio
-
+        self.HR_res = HR_res
         if dim_out != embed_dim:
             self.pre_conv = nn.Conv2d(embed_dim, dim_out, kernel_size=3, stride=1, padding=1)
         else:
@@ -444,23 +444,18 @@ class ResampleBlock(nn.Module):
 
         # extra points
         if self.extra_ratio > 0:
-            extra_delta = self.delta_layer(x) * self.delta_factor
-            extra_delta = extra_delta.view(B, N, -1, 2).contiguous()
-            loc_extra = loc[:, :, None, :] + extra_delta
-            loc_extra = loc_extra.view(B, -1, 2).contiguous()
-            loc_extra = loc_extra.clamp(-1, 1)
-            loc_ada = torch.cat([loc_ada, loc_extra], dim=1)
+            # high res grid
             conf_map = token2map(conf, loc, [H, W], self.inter_kernel, self.inter_sigma)
+            loc_extra = get_grid_loc(B, self.HR_res[0], self.HR_res[1], device=x.device)
             conf_extra = map2token(conf_map, loc_extra)
-            x_map = token2map(x, loc, [H, W], self.inter_kernel, self.inter_sigma)
-            x_extra = map2token(x_map, loc_extra)
 
+            loc_ada = torch.cat([loc_ada, loc_extra], dim=1)
             conf_ada = torch.cat([conf_ada, conf_extra], dim=1)
-            x_ada = torch.cat([x_ada, x_extra], dim=1)
+
             index_down = gumble_top_k(conf_ada, sample_num, dim=1, T=1)
             loc_down = torch.gather(loc_ada, 1, index_down.expand([B, sample_num, 2]))
-            x_down = torch.gather(x_ada, 1, index_down.expand([B, sample_num, C]))
-
+            x_map = token2map(x, loc, [H, W], self.inter_kernel, self.inter_sigma)
+            x_down = map2token(x_map, loc_down)
         else:
             index_down = gumble_top_k(conf_ada, sample_num, dim=1, T=1)
             loc_down = torch.gather(loc_ada, 1, index_down.expand([B, sample_num, 2]))
@@ -679,6 +674,17 @@ class MyPVT(nn.Module):
         return x
 
 
+def get_grid_loc(B, H, W, device):
+    y_g, x_g = torch.arange(H, device=device).float(), torch.arange(W, device=device).float()
+    y_g = 2 * ((y_g + 0.5) / H) - 1
+    x_g = 2 * ((x_g + 0.5) / W) - 1
+    y_map, x_map = torch.meshgrid(y_g, x_g)
+    xy_map = torch.stack((x_map, y_map), dim=-1)
+
+    loc = xy_map.reshape(-1, 2)[None, ...].repeat([B, 1, 1])
+    return loc
+
+
 def get_loc(x, H, W, grid_stride):
         B = x.shape[0]
         device = x.device
@@ -882,7 +888,7 @@ def show_conf(conf, loc):
 
 
 @register_model
-def mypvt23_small(pretrained=False, **kwargs):
+def mypvt24_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], **kwargs)
@@ -891,7 +897,7 @@ def mypvt23_small(pretrained=False, **kwargs):
     return model
 
 
-class MyPVT23a(nn.Module):
+class MyPVT24a(nn.Module):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
@@ -1080,8 +1086,8 @@ class MyPVT23a(nn.Module):
 
 
 @register_model
-def mypvt23a_small(pretrained=False, **kwargs):
-    model = MyPVT23a(
+def mypvt24a_small(pretrained=False, **kwargs):
+    model = MyPVT24a(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], **kwargs)
     model.default_cfg = _cfg()
@@ -1092,7 +1098,7 @@ def mypvt23a_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt23_small(drop_path_rate=0.1).to(device)
+    model = mypvt24_small(drop_path_rate=0.1).to(device)
     model.reset_drop_path(0.1)
 
     empty_input = torch.rand([2, 3, 448, 448], device=device)
@@ -1104,7 +1110,7 @@ if __name__ == '__main__':
 
 
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt23a_small(drop_path_rate=0.1).to(device)
+    model = mypvt24a_small(drop_path_rate=0.1).to(device)
     model.reset_drop_path(0.1)
 
     empty_input = torch.rand([2, 3, 448, 448], device=device)
