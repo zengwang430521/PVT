@@ -383,9 +383,9 @@ class ResampleBlock(nn.Module):
 
         # extra sample point
         self.extra_ratio = extra_ratio
-        self.delta_factor = delta_factor
-        if self.extra_ratio > 0:
-            self.delta_layer = nn.Linear(dim_out, 2)
+        # self.delta_factor = delta_factor
+        # if self.extra_ratio > 0:
+        #     self.delta_layer = nn.Linear(dim_out, 2)
 
         # block
         self.norm1 = norm_layer(dim_out)
