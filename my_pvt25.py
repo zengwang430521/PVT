@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 vis = False
 # vis = True
 
+
 class Mlp_old(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
         super().__init__()
@@ -436,10 +437,10 @@ class ResampleBlock(nn.Module):
         x = self.conf_norm(x)
 
         # confidence based sampling
+        conf = self.conf(x)
         sample_num = max(math.ceil((N-N_grid) * self.sample_ratio), 0)
         x_grid, loc_grid = x[:, :N_grid, :], loc[:, :N_grid, :]
         x_ada, loc_ada = x[:, N_grid:, :], loc[:, N_grid:, :]
-        conf = self.conf(x)
         conf_ada = conf[:, N_grid:, :]
 
         # extra points
@@ -449,8 +450,10 @@ class ResampleBlock(nn.Module):
             loc_extra = get_grid_loc(B, self.HR_res[0], self.HR_res[1], device=x.device)
             conf_extra = map2token(conf_map, loc_extra)
 
-            loc_ada = torch.cat([loc_ada, loc_extra], dim=1)
-            conf_ada = torch.cat([conf_ada, conf_extra], dim=1)
+            # loc_ada = torch.cat([loc_ada, loc_extra], dim=1)
+            # conf_ada = torch.cat([conf_ada, conf_extra], dim=1)
+            loc_ada = loc_extra
+            conf_ada = conf_extra
 
             index_down = gumble_top_k(conf_ada, sample_num, dim=1, T=1)
             loc_down = torch.gather(loc_ada, 1, index_down.expand([B, sample_num, 2]))
@@ -482,7 +485,6 @@ class ResampleBlock(nn.Module):
             x_cat = torch.cat([x_down, local], dim=-1)
             x_down = x_down + self.local_fc(x_cat)
 
-
         if vis:
             import matplotlib.pyplot as plt
             IMAGENET_DEFAULT_MEAN = torch.tensor([0.485, 0.456, 0.406], device=src.device)[None, :, None, None]
@@ -496,6 +498,8 @@ class ResampleBlock(nn.Module):
                 ax.clear()
                 conf_map = token2map(conf, loc, [H, W], self.inter_kernel, self.inter_sigma)
                 conf_map = F.interpolate(conf_map, self.HR_res, mode='bilinear')
+                # conf_map = token2map(conf, loc, self.HR_res, 1 + (self.inter_kernel-1) * self.HR_res[0] // H, self.inter_sigma)
+
                 ax.imshow(conf_map[i, 0].detach().cpu())
 
                 ax = plt.subplot(1, 3, 2)
@@ -926,7 +930,7 @@ def show_conf(conf, loc):
 
 
 @register_model
-def mypvt24_small(pretrained=False, **kwargs):
+def mypvt25_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], **kwargs)
@@ -935,7 +939,7 @@ def mypvt24_small(pretrained=False, **kwargs):
     return model
 
 
-class MyPVT24a(nn.Module):
+class MyPVT25a(nn.Module):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
@@ -1124,8 +1128,8 @@ class MyPVT24a(nn.Module):
 
 
 @register_model
-def mypvt24a_small(pretrained=False, **kwargs):
-    model = MyPVT24a(
+def mypvt25a_small(pretrained=False, **kwargs):
+    model = MyPVT25a(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], **kwargs)
     model.default_cfg = _cfg()
@@ -1136,7 +1140,7 @@ def mypvt24a_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt24_small(drop_path_rate=0.1).to(device)
+    model = mypvt25_small(drop_path_rate=0.1).to(device)
     model.reset_drop_path(0.1)
 
     empty_input = torch.rand([2, 3, 448, 448], device=device)
@@ -1148,7 +1152,7 @@ if __name__ == '__main__':
 
 
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt24a_small(drop_path_rate=0.1).to(device)
+    model = mypvt25a_small(drop_path_rate=0.1).to(device)
     model.reset_drop_path(0.1)
 
     empty_input = torch.rand([2, 3, 448, 448], device=device)

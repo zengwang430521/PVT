@@ -52,6 +52,7 @@ import my_pvt21
 import my_pvt22
 import my_pvt23
 import my_pvt24
+import my_pvt25
 import pvt2
 import pvt3
 import pvt4
@@ -65,6 +66,7 @@ import collections
 import samplers
 from torch.utils.data import DataLoader
 import os
+
 
 def get_args_parser():
     parser = argparse.ArgumentParser('PVT training and evaluation script', add_help=False)
