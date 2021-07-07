@@ -485,8 +485,8 @@ class ResampleBlock(nn.Module):
             local = self.local_conv(local).squeeze(-1).squeeze(-1)
             local = local.reshape(B, -1, self.local_dim)
             local = self.local_norm(local)
-            x_down = torch.cat([x_down, local], dim=-1)
-            x_down = self.local_fc(x_down)
+            x_cat = torch.cat([x_down, local], dim=-1)
+            x_down = x_down + self.local_fc(x_cat)
 
         return x_down, loc_down
 
