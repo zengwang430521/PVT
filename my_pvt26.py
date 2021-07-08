@@ -441,8 +441,8 @@ class ResampleBlock(nn.Module):
         conf_map = token2map(conf, loc, [H, W], self.inter_kernel, self.inter_sigma)
 
         if conf_old is not None:
-            conf = conf + map2token(conf_old, loc) * 0.5
-            conf_map = conf_map + F.interpolate(conf_old, [H, W], mode='bilinear') * 0.5
+            conf = conf + map2token(conf_old, loc)
+            conf_map = conf_map + F.interpolate(conf_old, [H, W], mode='bilinear')
 
         sample_num = max(math.ceil((N-N_grid) * self.sample_ratio), 0)
         x_grid, loc_grid = x[:, :N_grid, :], loc[:, :N_grid, :]
