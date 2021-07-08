@@ -263,10 +263,10 @@ spring.submit arun \
 srun -p 3dv-share \
     --job-name=test --ntasks=16 \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
-    python -u train.py --model mypvt25a_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
-    --output_dir work_dirs/my25a --data-path data/imagenet \
+    python -u train.py --model mypvt26a_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
+    --output_dir work_dirs/my26a --data-path data/imagenet \
     --input-size 448 \
-    --resume work_dirs/my25a/checkpoint.pth
+    --resume work_dirs/my26a/checkpoint.pth
 
 
 
@@ -274,10 +274,10 @@ srun -p pat_earth \
     -x SH-IDC1-10-198-4-[100-103,116-119] \
     --job-name=pvt --ntasks=16 \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
-    python -u train.py --model mypvt23a_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
-    --output_dir ./work_dirs/my23a --data-path data/imagenet \
+    python -u train.py --model mypvt26a_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
+    --output_dir work_dirs/my26a --data-path data/imagenet \
     --input-size 448 \
-    --resume work_dirs/my23a/checkpoint.pth
+    --resume work_dirs/my26a/checkpoint.pth
 
 
 srun -p pat_earth \
