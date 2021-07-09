@@ -263,7 +263,7 @@ spring.submit arun \
 srun -p 3dv-share \
     --job-name=test --ntasks=16 \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
-    python -u train.py --model mypvt26a_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
+    python -u train.py --model mypvt23__small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
     --output_dir work_dirs/my26a --data-path data/imagenet \
     --input-size 448 \
     --resume work_dirs/my26a/checkpoint.pth
@@ -276,8 +276,8 @@ srun -p pat_earth \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --model mypvt2320_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
     --output_dir work_dirs/my2320 --data-path data/imagenet \
-    --input-size 448 \
     --resume work_dirs/my2320/checkpoint.pth
+    --input-size 448 \
 
 
     python -u train.py --model mypvt26a_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
