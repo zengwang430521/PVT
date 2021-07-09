@@ -409,6 +409,7 @@ class ResampleBlock(nn.Module):
             self.local_conv = nn.Conv2d(src_dim, local_dim, local_kernel)
             self.local_norm = norm_layer(local_dim)
             self.local_fc = nn.Linear(dim_out + local_dim, dim_out)
+            # self.local_fc = Mlp_old(dim_out+local_dim, hidden_features=dim_out, out_features=dim_out)
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
