@@ -427,7 +427,7 @@ class ResampleBlock(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x, loc, src, H, W, N_grid):
-        x_map = None
+        # x_map = None
         if self.pre_conv is not None:
             x_map = token2map(x, loc, [H, W], self.inter_kernel, self.inter_sigma)
             x_map = self.pre_conv(x_map)
@@ -1281,7 +1281,7 @@ class MyPVT2320(nn.Module):
 
 @register_model
 def mypvt2320_small(pretrained=False, **kwargs):
-    model = MyPVT23a(
+    model = MyPVT2320(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], **kwargs)
     model.default_cfg = _cfg()
@@ -1293,7 +1293,7 @@ def mypvt2320_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt23_small(drop_path_rate=0.1).to(device)
+    model = mypvt2320_small(drop_path_rate=0.1).to(device)
     model.reset_drop_path(0.1)
 
     empty_input = torch.rand([2, 3, 448, 448], device=device)
@@ -1304,16 +1304,16 @@ if __name__ == '__main__':
     print(tmp)
 
 
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt23a_small(drop_path_rate=0.1).to(device)
-    model.reset_drop_path(0.1)
-
-    empty_input = torch.rand([2, 3, 448, 448], device=device)
-    del device
-
-    output = model(empty_input)
-    tmp = output.sum()
-    print(tmp)
+    # device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    # model = mypvt23a_small(drop_path_rate=0.1).to(device)
+    # model.reset_drop_path(0.1)
+    #
+    # empty_input = torch.rand([2, 3, 448, 448], device=device)
+    # del device
+    #
+    # output = model(empty_input)
+    # tmp = output.sum()
+    # print(tmp)
 
     print('Finish')
 
