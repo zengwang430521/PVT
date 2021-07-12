@@ -279,6 +279,10 @@ srun -p pat_earth \
     -x SH-IDC1-10-198-4-[100-103,116-119] \
     --job-name=pvt --ntasks=8 \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
+    python -u train.py --model mypvt2520_small --batch-size 64 --epochs 50 --num_workers 5  --cache_mode \
+    --output_dir work_dirs/my2520 --data-path data/imagenet  --input-size 448  \
+    --resume work_dirs/my2520/checkpoint.pth \
+
     python -u train.py --model mypvt2320_small --batch-size 64 --epochs 50 --num_workers 5  --cache_mode \
     --output_dir work_dirs/my2320f --data-path data/imagenet  --input-size 448  \
     --resume work_dirs/my2320f/checkpoint.pth \
