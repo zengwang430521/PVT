@@ -122,6 +122,9 @@ class MyMlp(nn.Module):
         return x
 
 
+'''
+use conv 1*10 to replace 3*3
+'''
 class MyDWConv2(nn.Module):
     def __init__(self, dim=768):
         super().__init__()

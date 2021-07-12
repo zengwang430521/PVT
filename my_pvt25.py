@@ -374,6 +374,9 @@ class Block(nn.Module):
         return x
 
 
+'''
+use HR grid as all candidates, don NOT cat them with ada points
+'''
 class ResampleBlock(nn.Module):
     def __init__(self,
                  embed_dim, dim_out, inter_kernel, inter_sigma,
