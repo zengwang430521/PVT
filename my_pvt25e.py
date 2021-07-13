@@ -461,8 +461,8 @@ class ResampleBlock(nn.Module):
                 norm_layer(local_dim),
                 act_layer()
             )
-
-            self.local_conv2 = DynamicConv(local_dim, dim_out, dim_out, True, 1)
+            groups = dim_out // 16
+            self.local_conv2 = DynamicConv(local_dim, dim_out, dim_out, True, groups)
             self.local_act2 = nn.Sequential(
                 norm_layer(dim_out),
                 act_layer()
