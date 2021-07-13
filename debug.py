@@ -1,6 +1,8 @@
 import torch
 import cv2
 from my_pvt23 import map2token, token2map, get_loc
+# from my_pvt20 import map2token, token2map, get_loc
+
 import matplotlib.pyplot as plt
 
 
@@ -35,7 +37,7 @@ loc2 = loc
 x2_o = x2
 for i in range(100):
     err = x2 - x2_o
-    x2_map = token2map(x2, loc2, [H, W], 3, 2)
+    x2_map = token2map(x2, loc2, [H*2, W*2], 3, 2)
     plt.subplot(l, c, n)
     plt.imshow(x2_map[0].permute(1, 2, 0))
     x2 = map2token(x2_map, loc2)

@@ -11,6 +11,35 @@ import matplotlib.pyplot as plt
 vis = False
 
 
+def get_loc(x, H, W, grid_stride):
+    B = x.shape[0]
+    device = x.device
+    y_map, x_map = torch.meshgrid(torch.arange(H, device=device).float() / (H - 1),
+                                  torch.arange(W, device=device).float() / (W - 1))
+    xy_map = torch.stack((x_map, y_map), dim=-1)
+    loc = xy_map.reshape(-1, 2)[None, ...].repeat([B, 1, 1])
+
+    # split into grid and adaptive tokens
+    pos = torch.arange(x.shape[1], dtype=torch.long, device=x.device)
+    tmp = pos.reshape([H, W])
+    grid_stride = grid_stride
+    pos_grid = tmp[grid_stride // 2:H:grid_stride, grid_stride // 2:W:grid_stride]
+    pos_grid = pos_grid.reshape([-1])
+    mask = torch.ones(pos.shape, dtype=torch.bool, device=pos.device)
+    mask[pos_grid] = 0
+    pos_ada = torch.masked_select(pos, mask)
+
+    x_grid = torch.index_select(x, 1, pos_grid)
+    x_ada = torch.index_select(x, 1, pos_ada)
+    loc_grid = torch.index_select(loc, 1, pos_grid)
+    loc_ada = torch.index_select(loc, 1, pos_ada)
+
+    x = torch.cat([x_grid, x_ada], 1)
+    loc = torch.cat([loc_grid, loc_ada], 1)
+    N_grid = x_grid.shape[1]
+    return x, loc, N_grid
+
+
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
         super().__init__()

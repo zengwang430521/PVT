@@ -57,6 +57,7 @@ import my_pvt25
 import my_pvt25b
 import my_pvt25c
 import my_pvt25d
+import my_pvt25e
 import my_pvt26
 import pvt2
 import pvt3
