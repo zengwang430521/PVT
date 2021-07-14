@@ -59,7 +59,7 @@ def inter_points(x_src, loc_src, loc_tar):
     dists, idx = dists.sort(dim=-1)
     dists, idx = dists[:, :, :3], idx[:, :, :3]     # [B, N, 3]
 
-    dist_recip = 1.0 / (dists * 10 + 1e-5)
+    dist_recip = 1.0 / (dists + 1e-8)
     # t = dist_recip.max()
     norm = torch.sum(dist_recip, dim=2, keepdim=True)
     weight = dist_recip / norm
@@ -433,7 +433,7 @@ class ResampleBlock(nn.Module):
                  sample_ratio=1,
                  extra_ratio=0, delta_factor=0.001,
                  use_local=False, src_dim=3, local_dim=64, local_kernel=(5, 5),
-                 HR_res=(224, 224)):
+                 HR_res=(112, 112)):
         super().__init__()
         self.dim_out = dim_out
         self.inter_kernel = inter_kernel
