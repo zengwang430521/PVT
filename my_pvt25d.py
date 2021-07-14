@@ -9,27 +9,42 @@ import matplotlib.pyplot as plt
 vis = False
 # vis = True
 
+# def square_distance(src, dst):
+#     """
+#     Calculate Euclid distance between each two points.
+#
+#     src^T * dst = xn * xm + yn * ym + zn * zm；
+#     sum(src^2, dim=-1) = xn*xn + yn*yn + zn*zn;
+#     sum(dst^2, dim=-1) = xm*xm + ym*ym + zm*zm;
+#     dist = (xn - xm)^2 + (yn - ym)^2 + (zn - zm)^2
+#          = sum(src**2,dim=-1)+sum(dst**2,dim=-1)-2*src^T*dst
+#
+#     Input:
+#         src: source points, [B, N, C]
+#         dst: target points, [B, M, C]
+#     Output:
+#         dist: per-point square distance, [B, N, M]
+#     """
+#     B, N, _ = src.shape
+#     _, M, _ = dst.shape
+#     dist = -2 * torch.matmul(src, dst.permute(0, 2, 1))
+#     dist += torch.sum(src ** 2, -1).view(B, N, 1)
+#     dist += torch.sum(dst ** 2, -1).view(B, 1, M)
+#     t = dist.min()
+#     return dist
+
+
 def square_distance(src, dst):
     """
     Calculate Euclid distance between each two points.
-
-    src^T * dst = xn * xm + yn * ym + zn * zm；
-    sum(src^2, dim=-1) = xn*xn + yn*yn + zn*zn;
-    sum(dst^2, dim=-1) = xm*xm + ym*ym + zm*zm;
-    dist = (xn - xm)^2 + (yn - ym)^2 + (zn - zm)^2
-         = sum(src**2,dim=-1)+sum(dst**2,dim=-1)-2*src^T*dst
-
     Input:
         src: source points, [B, N, C]
         dst: target points, [B, M, C]
     Output:
         dist: per-point square distance, [B, N, M]
     """
-    B, N, _ = src.shape
-    _, M, _ = dst.shape
-    dist = -2 * torch.matmul(src, dst.permute(0, 2, 1))
-    dist += torch.sum(src ** 2, -1).view(B, N, 1)
-    dist += torch.sum(dst ** 2, -1).view(B, 1, M)
+    dist = src.unsqueeze(2) - dst.unsqueeze(1)
+    dist = (dist**2).sum(dim=-1)
     return dist
 
 def index_points(points, idx):
@@ -59,8 +74,14 @@ def inter_points(x_src, loc_src, loc_tar):
     dists, idx = dists.sort(dim=-1)
     dists, idx = dists[:, :, :3], idx[:, :, :3]     # [B, N, 3]
 
-    dist_recip = 1.0 / (dists + 1e-8)
-    # t = dist_recip.max()
+    dist_recip = 1.0 / (dists + 1e-6)
+
+    one_mask = dists == 0
+    zero_mask = one_mask.sum(dim=-1) > 0
+    dist_recip[zero_mask, :] = 0
+    dist_recip[one_mask] = 1
+    # t = one_mask.max()
+
     norm = torch.sum(dist_recip, dim=2, keepdim=True)
     weight = dist_recip / norm
 
