@@ -59,7 +59,8 @@ def inter_points(x_src, loc_src, loc_tar):
     dists, idx = dists.sort(dim=-1)
     dists, idx = dists[:, :, :3], idx[:, :, :3]     # [B, N, 3]
 
-    dist_recip = 1.0 / (dists + 1e-6)
+    dist_recip = 1.0 / (dists * 10 + 1e-5)
+    # t = dist_recip.max()
     norm = torch.sum(dist_recip, dim=2, keepdim=True)
     weight = dist_recip / norm
 
@@ -528,7 +529,6 @@ class ResampleBlock(nn.Module):
             loc_down = torch.gather(loc_ada, 1, index_down.expand([B, sample_num, 2]))
             # x_map = token2map(x, loc, [H, W], self.inter_kernel, self.inter_sigma)
             # x_down = map2token(x_map, loc_down)
-            # x_down = inter_points(x, loc * 10, loc_down * 10)
             x_down = inter_points(x, loc, loc_down)
 
         else:
