@@ -528,7 +528,7 @@ class ResampleBlock(nn.Module):
             loc_down = torch.gather(loc_ada, 1, index_down.expand([B, sample_num, 2]))
             # x_map = token2map(x, loc, [H, W], self.inter_kernel, self.inter_sigma)
             # x_down = map2token(x_map, loc_down)
-            x_down = inter_points(x, loc, loc_down)
+            x_down = inter_points(x, loc * 100, loc_down * 100)
 
         else:
             index_down = gumble_top_k(conf_ada, sample_num, dim=1, T=1)
