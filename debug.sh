@@ -278,6 +278,12 @@ srun -p 3dv-share \
 srun -p pat_earth \
     --job-name=pvt --ntasks=16 \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
+    python -u train.py --model mypvt25d_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
+    --output_dir work_dirs/my25d --data-path data/imagenet \
+    --input-size 448 \
+    --resume work_dirs/my25d/checkpoint.pth
+
+
     python -u train.py --model mypvt25e_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
     --output_dir work_dirs/my25e --data-path data/imagenet  --input-size 448  \
     --resume work_dirs/my25e/checkpoint.pth
