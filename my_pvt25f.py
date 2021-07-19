@@ -550,7 +550,7 @@ class ResampleBlock(nn.Module):
             H, W = H // 2, W // 2
         x_down = x_down + self.drop_path(self.mlp(x_down, loc_down, H, W, kernel_size, 2))
 
-        if vis:
+        if vis and self.extra_ratio > 0:
             import matplotlib.pyplot as plt
             IMAGENET_DEFAULT_MEAN = torch.tensor([0.485, 0.456, 0.406], device=src.device)[None, :, None, None]
             IMAGENET_DEFAULT_STD = torch.tensor([0.229, 0.224, 0.225], device=src.device)[None, :, None, None]

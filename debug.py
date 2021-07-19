@@ -43,3 +43,4 @@ for i in range(100):
     x2 = map2token(x2_map, loc2)
 
 print('finish')
+
