@@ -269,11 +269,16 @@ spring.submit arun \
 srun -p 3dv-share  -w SH-IDC1-10-198-6-138,SH-IDC1-10-198-6-137 \
     --job-name=test --ntasks=16 \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
+    python -u train_finetune.py --model mypvt25f_small --batch-size 64 --epochs 50 --num_workers 5  --cache_mode \
+    --output_dir work_dirs/my25f_f2 --data-path data/imagenet \
+    --input-size 448 --resume work_dirs/my25f_f2/checkpoint.pth \
+    --lr 5e-5 --warmup-epochs 0 --cooldown-epochs 5 --fine_factor=1
+
+
     python -u train.py --model mypvt25f_small --batch-size 64 --epochs 50 --num_workers 5  --cache_mode \
     --output_dir work_dirs/my25f_f --data-path data/imagenet \
     --input-size 448 --resume work_dirs/my25f_f/checkpoint.pth \
     --lr 5e-5 --warmup-epochs 0 --cooldown-epochs 5
-
 
     python -u train.py --model mypvt23fcres_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
     --output_dir work_dirs/my23fcres --data-path data/imagenet \

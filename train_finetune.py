@@ -470,6 +470,10 @@ def main(args):
         if epoch == max_epoch_dp_warm_up:
             model_without_ddp.reset_drop_path(args.drop_path)
 
+        if epoch < args.warmup_epochs:
+            optimizer.param_groups[2]['lr'] = 0
+            optimizer.param_groups[3]['lr'] = 0
+
         if args.distributed:
             # data_loader_train.sampler.set_epoch(epoch)
             sampler_train.set_epoch(epoch)
