@@ -266,13 +266,43 @@ spring.submit arun \
 
 
 
-srun -p 3dv-share  -w SH-IDC1-10-198-6-138,SH-IDC1-10-198-6-137 \
+srun -p 3dv-share  -w SH-IDC1-10-198-6-129,SH-IDC1-10-198-6-130 \
     --job-name=test --ntasks=16 \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
+    python -u train.py --model mypvt2520_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
+    --output_dir work_dirs/my2520 --data-path data/imagenet  --input-size 448  \
+    --resume work_dirs/my2520/checkpoint.pth
+
+
+
+srun -p 3dv-share  -w SH-IDC1-10-198-6-137\
+    --job-name=debug --ntasks=1 \
+    --gres=gpu:1 --ntasks-per-node=4 --cpus-per-task=4 --kill-on-bad-exit=1 \
+    python -u train.py --model mypvt25f_small --batch-size 64 --epochs 50 --num_workers 5  \
+    --output_dir work_dirs/debug --data-path data/imagenet \
+    --input-size 448 --use-mcloader
+
+
+srun -p 3dv-share -w SH-IDC1-10-198-6-137 --gres=gpu:2 -n1 --ntasks-per-node=1 --job-name=pvts_c --kill-on-bad-exit=1 \
+--ntasks-per-node=1 --cpus-per-task=4 \
+sh dist_train.sh pvt_small 8 ./work_dirs/debug --data-path data/imagenet --use-mcloader
+
+
+srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
+srun -p 3dv-share  -w SH-IDC1-10-198-6-[130,138]\
+    --job-name=test --ntasks=16 \
+    --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=4 --kill-on-bad-exit=1 \
+    python -u train_finetune.py --model mypvt25f_small --batch-size 64 --epochs 50 --num_workers 5  --cache_mode \
+    --output_dir work_dirs/debug --data-path data/imagenet \
+    --input-size 448 --resume work_dirs/my25f_f2/checkpoint.pth \
+    --lr 5e-5 --warmup-epochs 1 --cooldown-epochs 5 --fine_factor=0.1 \
+    --finetune work_dirs/my2520/checkpoint.pth
+
     python -u train_finetune.py --model mypvt25f_small --batch-size 64 --epochs 50 --num_workers 5  --cache_mode \
     --output_dir work_dirs/my25f_f2 --data-path data/imagenet \
     --input-size 448 --resume work_dirs/my25f_f2/checkpoint.pth \
-    --lr 5e-5 --warmup-epochs 0 --cooldown-epochs 5 --fine_factor=1
+    --lr 5e-5 --warmup-epochs 1 --cooldown-epochs 5 --fine_factor=0.1 \
+    --finetune work_dirs/my2520/checkpoint.pth
 
 
     python -u train.py --model mypvt25f_small --batch-size 64 --epochs 50 --num_workers 5  --cache_mode \

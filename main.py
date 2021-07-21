@@ -25,7 +25,7 @@ from samplers import RASampler
 import pvt
 import utils
 import collections
-
+import train
 
 def get_args_parser():
     parser = argparse.ArgumentParser('PVT training and evaluation script', add_help=False)

@@ -1,3 +1,6 @@
+import sys
+sys.path.append('/mnt/lustre/share/pymc/py3')
+
 import io
 from PIL import Image
 try:
