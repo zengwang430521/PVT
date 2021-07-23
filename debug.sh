@@ -293,9 +293,9 @@ srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
 srun -p 3dv-share  -w SH-IDC1-10-198-6-138\
     --job-name=test --ntasks=8 \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=4 --kill-on-bad-exit=1 \
-    python -u train.py --model mypvt25g_small --batch-size 64 --epochs 50 --num_workers 5 \
-    --output_dir work_dirs/debug --data-path data/imagenet \
-    --input-size 448 --resume work_dirs/my2520/checkpoint.pth --eval --use-mcloader
+    python -u train.py --model mypvt2520g_small --batch-size 64 --epochs 300 --num_workers 5 \
+    --output_dir work_dirs/my2520g_2 --data-path data/imagenet \
+    --input-size 448 --resume work_dirs/my2520g_2/checkpoint.pth --use-mcloader
 
 
     python -u train_finetune.py --model mypvt25g_small --batch-size 64 --epochs 50 --num_workers 5 \
