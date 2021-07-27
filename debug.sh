@@ -289,13 +289,24 @@ sh dist_train.sh pvt_small 8 ./work_dirs/debug --data-path data/imagenet --use-m
 
 
 
-srun -p 3dv-share  -w SH-IDC1-10-198-6-138\
 srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
-    --job-name=test --ntasks=8 \
+srun -p 3dv-share  -w SH-IDC1-10-198-6-129\
+    --job-name=pvt --ntasks=8 \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=4 --kill-on-bad-exit=1 \
-    python -u train_finetune.py --model mypvt2520_3_small --batch-size 64 --epochs 30 --num_workers 5 \
+    python -u train.py --model mypvt20_2_small --batch-size 64 --epochs 30 --num_workers 5 \
+    --output_dir work_dirs/debug --data-path data/imagenet \
+    --input-size 224 --resume work_dirs/my20_s2/checkpoint.pth --eval --use_mc
+
+    python -u train_finetune.py --model mypvt25g_small --batch-size 64 --epochs 30 --num_workers 5 \
+    --output_dir work_dirs/my25g_f --data-path data/imagenet \
+    --input-size 448 --resume work_dirs/my25g_f/checkpoint.pth \
+    --warmup-epochs 1 --cooldown-epochs 5 --fine_factor=0.1 \
+    --finetune work_dirs/my2520/checkpoint.pth --cache_mode
+
+
+    python -u train_finetune.py --model mypvt20_small --batch-size 64 --epochs 30 --num_workers 5 \
     --output_dir work_dirs/my20_f --data-path data/imagenet \
-    --input-size 448 --resume work_dirs/my20_f/checkpoint.pth \
+    --input-size 224 --resume work_dirs/my20_f/checkpoint.pth \
     --warmup-epochs 0 --cooldown-epochs 5 --fine_factor=0.1 \
     --finetune work_dirs/my20_s2/my20_300.pth --cache_mode
 

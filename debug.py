@@ -1,6 +1,17 @@
+# from my_pvt_v2_ap import pvt_small_impr8rk7_peg
+# from my_pvt25c import mypvt2520_small
+#
+# model1 = pvt_small_impr8rk7_peg(pretrained=None)
+# n1 = sum(param.numel() for param in model1.parameters())
+#
+# model2 = mypvt2520_small()
+# n2 = sum(param.numel() for param in model2.parameters())
+#
+# t = 0
+
 import torch
 import cv2
-from my_pvt23 import map2token, token2map, get_loc
+from my_pvt25 import map2token, token2map, get_loc
 # from my_pvt20 import map2token, token2map, get_loc
 
 import matplotlib.pyplot as plt
