@@ -9,10 +9,8 @@ import matplotlib.pyplot as plt
 vis = False
 # vis = True
 
-
-
 '''
-SKIP - CONV + CONF in every Block
+CONF IN EVERY BLOCK
 '''
 
 class Mlp_old(nn.Module):
@@ -134,20 +132,18 @@ class MyDWConv(nn.Module):
     def __init__(self, dim=768):
         super().__init__()
         self.dwconv = nn.Conv2d(dim, dim, 3, 1, 1, bias=True, groups=dim)
-        self.dwconv2 = nn.Conv1d(dim, dim, 1, 1, 0, bias=False, groups=dim)
+        # self.dwconv2 = nn.Conv1d(dim, dim, 1, 1, 0, bias=False, groups=dim)
 
     def forward(self, x, loc, H, W, kernel_size, sigma):
         B, N, C = x.shape
         x1 = token2map(x, loc, [H, W], kernel_size=kernel_size, sigma=sigma)
         x1 = self.dwconv(x1)
         x1 = map2token(x1, loc)
-        x = x.flatten(0, 1).unsqueeze(-1)
-        x = self.dwconv2(x).squeeze(-1)
-        x = x.reshape(B, N, C)
-        x = x + x1
-
-        # x = x1
-
+        # x = x.flatten(0, 1).unsqueeze(-1)
+        # x = self.dwconv2(x).squeeze(-1)
+        # x = x.reshape(B, N, C)
+        # x = x + x1
+        x = x1
         return x
 
 
@@ -392,7 +388,7 @@ class ResampleBlock(nn.Module):
         self.HR_res = HR_res
         if dim_out != embed_dim:
             self.pre_conv = nn.Conv2d(embed_dim, dim_out, kernel_size=3, stride=1, padding=1)
-            self.pre_conv2 = nn.Linear(embed_dim, dim_out, bias=False)
+            # self.pre_conv2 = nn.Linear(embed_dim, dim_out, bias=False)
         else:
             self.pre_conv = None
 
@@ -403,7 +399,6 @@ class ResampleBlock(nn.Module):
         #     self.use_conf = True
         # else:
         #     self.use_conf = False
-
         self.conf_norm = nn.LayerNorm(self.dim_out)
         self.conf = nn.Linear(self.dim_out, 1)
         self.use_conf = True
@@ -457,10 +452,10 @@ class ResampleBlock(nn.Module):
         if self.pre_conv is not None:
             x_map = token2map(x, loc, [H, W], self.inter_kernel, self.inter_sigma)
             x_map = self.pre_conv(x_map)
-            # x = map2token(x_map, loc)
-            x1 = map2token(x_map, loc)
-            x = self.pre_conv2(x)
-            x = x + x1
+            x = map2token(x_map, loc)
+            # x1 = map2token(x_map, loc)
+            # x = self.pre_conv2(x)
+            # x = x + x1
 
         B, N, C = x.shape
 

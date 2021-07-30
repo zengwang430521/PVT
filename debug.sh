@@ -297,7 +297,7 @@ srun -p 3dv-share  -w SH-IDC1-10-198-6-129\
     --output_dir work_dirs/my2520_6_f --data-path data/imagenet \
     --input-size 448 --resume work_dirs/my2520_6_f/checkpoint.pth \
     --warmup-epochs 1 --cooldown-epochs 2 --fine_factor=0.1 --lr=5e-5 \
-    --finetune work_dirs/my20_s2/checkpoint.pth --cache_mode
+    --finetune work_dirs/my20_s2/checkpoint.pth --cache_mode --use-mcloader
 
     python -u train_finetune.py --model mypvt2520_5_small --batch-size 64 --epochs 30 --num_workers 5 \
     --output_dir work_dirs/my2520_5_f --data-path data/imagenet \
