@@ -453,7 +453,9 @@ class ResampleBlock(nn.Module):
 
         B, N, C = x.shape
 
-        sample_num = max(math.ceil((N-N_grid) * self.sample_ratio), 0)
+        # sample_num = max(math.ceil((N-N_grid) * self.sample_ratio), 0)
+        sample_num = max(math.ceil(N * self.sample_ratio), 0) if self.sample_ratio < 1 else N-N_grid
+
         x_grid, loc_grid = x[:, :N_grid, :], loc[:, :N_grid, :]
         x_ada, loc_ada = x[:, N_grid:, :], loc[:, N_grid:, :]
 
@@ -483,6 +485,8 @@ class ResampleBlock(nn.Module):
         else:
             if self.sample_ratio < 1:
                 index_down = gumble_top_k(conf_ada, sample_num, dim=1, T=1)
+                # print('debug'); index_down = gumble_top_k(conf_ada, sample_num, 1, T=1e-6)
+
                 loc_down = torch.gather(loc_ada, 1, index_down.expand([B, sample_num, 2]))
                 x_down = torch.gather(x_ada, 1, index_down.expand([B, sample_num, C]))
             else:
@@ -492,15 +496,12 @@ class ResampleBlock(nn.Module):
         x_down = torch.cat([x_grid, x_down], dim=1)
         loc_down = torch.cat([loc_grid, loc_down], dim=1)
 
-        x_down = self.norm1(x_down)
-        x = self.norm1(x)
-        x_down = x_down + self.drop_path(self.attn(x_down, x, loc, H, W, conf))
+        x_down = x_down + self.drop_path(self.attn(self.norm1(x_down), self.norm1(x), loc, H, W, conf))
 
-        x_down = self.norm2(x_down)
         kernel_size = self.attn.sr_ratio + 1
-        if self.sample_ratio <= 0.25:
-            H, W = H // 2, W // 2
-        x_down = x_down + self.drop_path(self.mlp(x_down, loc_down, H, W, kernel_size, 2))
+        # if self.sample_ratio <= 0.25:
+        #     H, W = H // 2, W // 2
+        x_down = x_down + self.drop_path(self.mlp(self.norm2(x_down), loc_down, H, W, kernel_size, 2))
 
         # extra local feature
         if self.use_local:
