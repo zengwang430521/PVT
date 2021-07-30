@@ -926,7 +926,8 @@ class MyPVT2520_4(nn.Module):
 
     def forward_features(self, x):
         img = x
-        x = F.interpolate(x, scale_factor=0.5)
+        # x = F.interpolate(x, scale_factor=0.5)
+        x = F.avg_pool2d(x, kernel_size=2)
 
         # # stage 1
         # x, H, W = self.patch_embed1(x)
