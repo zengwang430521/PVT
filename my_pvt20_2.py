@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 vis = False
 
 
-
 def get_grid_loc(B, H, W, device):
     y_g, x_g = torch.arange(H, device=device).float(), torch.arange(W, device=device).float()
     y_g = 2 * ((y_g + 0.5) / H) - 1
