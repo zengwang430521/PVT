@@ -485,7 +485,6 @@ class ResampleBlock(nn.Module):
         else:
             if self.sample_ratio < 1:
                 index_down = gumble_top_k(conf_ada, sample_num, dim=1, T=1)
-                # print('debug'); index_down = gumble_top_k(conf_ada, sample_num, 1, T=1e-6)
 
                 loc_down = torch.gather(loc_ada, 1, index_down.expand([B, sample_num, 2]))
                 x_down = torch.gather(x_ada, 1, index_down.expand([B, sample_num, C]))
@@ -636,7 +635,7 @@ def gumble_top_k(x, k, dim, T=1, p_value=1e-6):
     noise = -1 * (noise + p_value).log()
     noise = -1 * (noise + p_value).log()
     # add
-    x = x / T + noise
+    x = x / T + noise   # * 0; print('debug')
     _, index_k = torch.topk(x, k, dim)
     return index_k
 

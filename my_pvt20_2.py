@@ -95,7 +95,7 @@ def gumble_top_k(x, k, dim, T=1, p_value=1e-6):
     noise = -1 * (noise + p_value).log()
     noise = -1 * (noise + p_value).log()
     # add
-    x = x / T + noise
+    x = x / T + noise   # * 0; print('debug')
     _, index_k = torch.topk(x, k, dim)
     return index_k
 
@@ -667,7 +667,6 @@ class DownLayer(nn.Module):
 
         # _, index_down = torch.topk(conf_ada, self.sample_num, 1)
         index_down = gumble_top_k(conf_ada, sample_num, 1, T=T)
-        # print('debug'); index_down = gumble_top_k(conf_ada, sample_num, 1, T=1e-6)
 
         # conf = F.softmax(conf, dim=1) * N
         # conf = F.sigmoid(conf)
