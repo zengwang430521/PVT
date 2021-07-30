@@ -827,7 +827,9 @@ class MyPVT2520_4(nn.Module):
 
         self.block2 = nn.ModuleList([ResampleBlock(
             embed_dim=embed_dims[0] if i == 0 else embed_dims[1],
-            dim_out=embed_dims[1], inter_kernel=sr_ratios[1]+1, inter_sigma=2,
+            dim_out=embed_dims[1],
+            inter_kernel=sr_ratios[0]+1 if i == 0 else sr_ratios[1]+1,
+            inter_sigma=2,
             num_heads=num_heads[1], mlp_ratio=mlp_ratios[1], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[0] if i == 0 else sr_ratios[1],
@@ -841,7 +843,9 @@ class MyPVT2520_4(nn.Module):
 
         self.block3 = nn.ModuleList([ResampleBlock(
             embed_dim=embed_dims[1] if i == 0 else embed_dims[2],
-            dim_out=embed_dims[2], inter_kernel=sr_ratios[2]+1, inter_sigma=2,
+            dim_out=embed_dims[2],
+            inter_kernel=sr_ratios[1] + 1 if i == 0 else sr_ratios[2] + 1,
+            inter_sigma=2,
             num_heads=num_heads[2], mlp_ratio=mlp_ratios[2], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[1] if i == 0 else sr_ratios[2],
@@ -855,7 +859,9 @@ class MyPVT2520_4(nn.Module):
 
         self.block4 = nn.ModuleList([ResampleBlock(
             embed_dim=embed_dims[2] if i == 0 else embed_dims[3],
-            dim_out=embed_dims[3], inter_kernel=sr_ratios[3]+1, inter_sigma=2,
+            dim_out=embed_dims[3],
+            inter_kernel=sr_ratios[2] + 1 if i == 0 else sr_ratios[3] + 1,
+            inter_sigma=2,
             num_heads=num_heads[3], mlp_ratio=mlp_ratios[3], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[2] if i == 0 else sr_ratios[3],
@@ -980,15 +986,13 @@ def mypvt2520_4_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt2520_4_small(drop_path_rate=0.1).to(device)
-    model.reset_drop_path(0.1)
 
-    empty_input = torch.rand([2, 3, 448, 448], device=device)
-    del device
+    model1 = mypvt2520_4_small(drop_path_rate=0.0).to(device)
+    model1.reset_drop_path(0.)
+    pre_dict = torch.load('work_dirs/my20_s2/my20_300_pre.pth')['model']
+    model1.load_state_dict(pre_dict)
 
-    output = model(empty_input)
-    tmp = output.sum()
-    print(tmp)
-
+    x = torch.ones([1, 3, 448, 448]).to(device)
+    tmp = model1.forward(x)
     print('Finish')
 

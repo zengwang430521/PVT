@@ -295,7 +295,7 @@ srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=4 --kill-on-bad-exit=1 \
     python -u train.py --model mypvt2520_4_small --batch-size 64 --epochs 30 --num_workers 5 \
     --output_dir work_dirs/debug --data-path data/imagenet \
-    --input-size 448 --resume work_dirs/my20_s2/my20_300_pre.pth --eval  --use-mcloader
+    --input-size 448 --resume work_dirs/my20_s2/my20_300_pre.pth --eval
 
     python -u train_f.py --model mypvt20_2_small --batch-size 64 --epochs 30 --num_workers 5 --lr 5e-5\
     --output_dir work_dirs/my20_2_f2 --data-path data/imagenet \

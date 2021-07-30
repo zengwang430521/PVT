@@ -40,6 +40,25 @@ for key in keys:
 
     new_model[key_new] = model[key]
 
+del new_model['down_layers1.T']
+del new_model['down_layers2.T']
+del new_model['down_layers3.T']
+
 new_ck = {}
 new_ck['model'] = new_model
 torch.save(new_ck, tar_file)
+
+
+####
+# src_file = '/home/SENSETIME/zengwang/codes/PVT/work_dirs/my20_s2/my20_300_pre.pth'
+# tar_file = '/home/SENSETIME/zengwang/codes/PVT/work_dirs/my20_s2/my20_300_pre.pth'
+#
+# checkpoint = torch.load(src_file)
+# model = checkpoint['model']
+# for key in model.keys():
+#     if 'down_layer' in key:
+#         del model[key]
+#
+# new_ck = {}
+# new_ck['model'] = model
+# torch.save(new_ck, tar_file)
