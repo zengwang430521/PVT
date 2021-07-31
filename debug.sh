@@ -60,6 +60,12 @@ srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
 srun -p 3dv-share \
     --job-name=pvt --ntasks=8 \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=4 --kill-on-bad-exit=1 \
+    python -u train_finetune.py --model mypvt2520_9_small --batch-size 64 --epochs 30 --num_workers 5 \
+    --output_dir work_dirs/my2520_9_f --data-path data/imagenet \
+    --input-size 448 --resume work_dirs/my2520_9_f/checkpoint.pth \
+    --warmup-epochs 1 --cooldown-epochs 2 --fine_factor=0.1 --lr=5e-5 \
+    --finetune work_dirs/my20_s2/my20_300_pre.pth --use-mcloader
+
     python -u train_finetune.py --model mypvt2520_7_small --batch-size 64 --epochs 30 --num_workers 5 \
     --output_dir work_dirs/my2520_7_f --data-path data/imagenet \
     --input-size 448 --resume work_dirs/my2520_7_f/checkpoint.pth \
