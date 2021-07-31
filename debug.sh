@@ -220,9 +220,15 @@ spring.submit arun -p spring_scheduler -n 1 --job-name=data unzip
 
 spring.submit arun \
     -p spring_scheduler \
-    -n 8 --gpu \
+    -n 16 --gpu \
     --job-name=pvt \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 \
+    "python -u train_finetune.py --model mypvt2520_6_small --batch-size 64 --epochs 30 --num_workers 5 \
+    --output_dir work_dirs/my2520_6_f --data-path data/imagenet \
+    --input-size 448 --resume work_dirs/my2520_6_f/checkpoint.pth \
+    --warmup-epochs 1 --cooldown-epochs 2 --fine_factor=0.1 --lr=5e-5 \
+    --finetune work_dirs/my20_s2/my20_300_pre.pth --cache_mode --use-mcloader"
+
     "    python -u train.py --model mypvt25f_small --batch-size 64 --epochs 50 --num_workers 5  --cache_mode \
     --output_dir work_dirs/my25f_f --data-path data/imagenet \
     --input-size 448 --resume work_dirs/my25f_f/checkpoint.pth \
@@ -289,21 +295,24 @@ sh dist_train.sh pvt_small 8 ./work_dirs/debug --data-path data/imagenet --use-m
 
 
 
-srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
 srun -p 3dv-share  -w SH-IDC1-10-198-6-129\
-    --job-name=pvt --ntasks=8 \
+srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
+srun -p 3dv-share \
+    --job-name=pvt --ntasks=16 \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=4 --kill-on-bad-exit=1 \
+     python -u train_finetune.py --model mypvt2520_5_small --batch-size 64 --epochs 30 --num_workers 5 \
+    --output_dir work_dirs/my2520_5_f --data-path data/imagenet \
+    --input-size 448 --resume work_dirs/my2520_5_f/checkpoint.pth \
+    --warmup-epochs 1 --cooldown-epochs 2 --fine_factor=0.1 --lr=5e-5 \
+    --finetune work_dirs/my20_s2/my20_300_pre.pth --use-mcloader
+
     python -u train_finetune.py --model mypvt2520_6_small --batch-size 64 --epochs 30 --num_workers 5 \
     --output_dir work_dirs/my2520_6_f --data-path data/imagenet \
     --input-size 448 --resume work_dirs/my2520_6_f/checkpoint.pth \
     --warmup-epochs 1 --cooldown-epochs 2 --fine_factor=0.1 --lr=5e-5 \
-    --finetune work_dirs/my20_s2/checkpoint.pth --cache_mode --use-mcloader
+    --finetune work_dirs/my20_s2/my20_300_pre.pth --cache_mode --use-mcloader
 
-    python -u train_finetune.py --model mypvt2520_5_small --batch-size 64 --epochs 30 --num_workers 5 \
-    --output_dir work_dirs/my2520_5_f --data-path data/imagenet \
-    --input-size 448 --resume work_dirs/my2520_5_f/checkpoint.pth \
-    --warmup-epochs 1 --cooldown-epochs 2 --fine_factor=0.1 --lr=5e-5 \
-    --finetune work_dirs/my20_s2/checkpoint.pth --cache_mode
+
 
     python -u train.py --model mypvt2520_4_small --batch-size 64 --epochs 30 --num_workers 5 \
     --output_dir work_dirs/debug --data-path data/imagenet \
