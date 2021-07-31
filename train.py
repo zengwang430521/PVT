@@ -66,6 +66,7 @@ import my_pvt2520_4
 import my_pvt2520_5
 import my_pvt2520_6
 import my_pvt2520_7
+import my_pvt2520_8
 import my_pvt26
 import pvt2
 import pvt3
