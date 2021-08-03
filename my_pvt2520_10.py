@@ -9,6 +9,9 @@ import matplotlib.pyplot as plt
 vis = False
 # vis = True
 
+'''
+EXTRA HR FEATURE
+'''
 
 class Mlp_old(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
@@ -466,30 +469,41 @@ class ResampleBlock(nn.Module):
         else:
             conf = None
 
-        # extra points
+        # sample points
+        if self.sample_ratio < 1:
+            index_down = gumble_top_k(conf_ada, sample_num, dim=1, T=1)
+
+            loc_down = torch.gather(loc_ada, 1, index_down.expand([B, sample_num, 2]))
+            x_down = torch.gather(x_ada, 1, index_down.expand([B, sample_num, C]))
+        else:
+            x_down, loc_down = x_ada, loc_ada
+
+        # extra points for low-level feature
         if self.extra_ratio > 0:
             # high res grid
             conf_map = token2map(conf, loc, [H, W], self.inter_kernel, self.inter_sigma)
             loc_extra = get_grid_loc(B, self.HR_res[0], self.HR_res[1], device=x.device)
             conf_extra = map2token(conf_map, loc_extra)
 
-            # loc_ada = torch.cat([loc_ada, loc_extra], dim=1)
-            # conf_ada = torch.cat([conf_ada, conf_extra], dim=1)
-            loc_ada = loc_extra
-            conf_ada = conf_extra
+            extra_num = int(N * self.extra_ratio)
+            index_extra = gumble_top_k(conf_extra, extra_num, dim=1, T=1)
+            loc_extra = torch.gather(loc_extra, 1, index_extra.expand([B, extra_num, 2]))
+            x_extra = inter_points(x, loc, loc_extra)
+            conf_extra = inter_points(conf, loc, loc_extra)
 
-            index_down = gumble_top_k(conf_ada, sample_num, dim=1, T=1)
-            loc_down = torch.gather(loc_ada, 1, index_down.expand([B, sample_num, 2]))
-            x_map = token2map(x, loc, [H, W], self.inter_kernel, self.inter_sigma)
-            x_down = map2token(x_map, loc_down)
-        else:
-            if self.sample_ratio < 1:
-                index_down = gumble_top_k(conf_ada, sample_num, dim=1, T=1)
+            # extra local feature
+            if self.use_local:
+                local = extract_local_feature(src, loc_extra, self.local_kernel)
+                local = self.local_conv(local).squeeze(-1).squeeze(-1)
+                local = local.reshape(B, -1, self.local_dim)
+                local = self.local_norm(local)
+                x_cat = torch.cat([x_extra, local], dim=-1)
+                x_extra = x_extra + self.local_fc(x_cat)
 
-                loc_down = torch.gather(loc_ada, 1, index_down.expand([B, sample_num, 2]))
-                x_down = torch.gather(x_ada, 1, index_down.expand([B, sample_num, C]))
-            else:
-                x_down, loc_down = x_ada, loc_ada
+            x = torch.cat([x, x_extra], dim=1)
+            loc = torch.cat([loc, loc_extra], dim=1)
+            conf = torch.cat([conf, conf_extra], dim=1)
+
 
         # attention block
         x_down = torch.cat([x_grid, x_down], dim=1)
@@ -781,7 +795,63 @@ def show_conf(conf, loc):
         ax.imshow(conf_map[0, 0].detach().cpu())
 
 
-class MyPVT2520_4(nn.Module):
+def square_distance(src, dst):
+    """
+    Calculate Euclid distance between each two points.
+    Input:
+        src: source points, [B, N, C]
+        dst: target points, [B, M, C]
+    Output:
+        dist: per-point square distance, [B, N, M]
+    """
+    dist = src.unsqueeze(2) - dst.unsqueeze(1)
+    dist = (dist**2).sum(dim=-1)
+    return dist
+
+
+def index_points(points, idx):
+    """
+
+    Input:
+        points: input points data, [B, N, C]
+        idx: sample index data, [B, S]
+    Return:
+        new_points:, indexed points data, [B, S, C]
+    """
+    device = points.device
+    B = points.shape[0]
+    view_shape = list(idx.shape)
+    view_shape[1:] = [1] * (len(view_shape) - 1)
+    repeat_shape = list(idx.shape)
+    repeat_shape[0] = 1
+    batch_indices = torch.arange(B, dtype=torch.long).to(device).view(view_shape).repeat(repeat_shape)
+    new_points = points[batch_indices, idx, :]
+    return new_points
+
+
+def inter_points(x_src, loc_src, loc_tar):
+    B, N, _ = loc_tar.shape
+
+    dists = square_distance(loc_tar, loc_src)
+    dists, idx = dists.sort(dim=-1)
+    dists, idx = dists[:, :, :3], idx[:, :, :3]     # [B, N, 3]
+
+    dist_recip = 1.0 / (dists + 1e-6)
+
+    one_mask = dists == 0
+    zero_mask = one_mask.sum(dim=-1) > 0
+    dist_recip[zero_mask, :] = 0
+    dist_recip[one_mask] = 1
+    # t = one_mask.max()
+
+    norm = torch.sum(dist_recip, dim=2, keepdim=True)
+    weight = dist_recip / norm
+
+    x_tar = torch.sum(index_points(x_src, idx) * weight.view(B, N, 3, 1), dim=2)
+    return x_tar
+
+
+class MyPVT2520_10(nn.Module):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
@@ -834,8 +904,8 @@ class MyPVT2520_4(nn.Module):
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[0] if i == 0 else sr_ratios[1],
             sample_ratio=0.25 if i == 0 else 1,
-            extra_ratio=0,
-            use_local=False
+            extra_ratio=1 if i == 1 else 0,
+            use_local=True if i == 1 else False
         )
             for i in range(depths[1])])
         self.norm2 = norm_layer(embed_dims[1])
@@ -850,8 +920,8 @@ class MyPVT2520_4(nn.Module):
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[1] if i == 0 else sr_ratios[2],
             sample_ratio=0.25 if i == 0 else 1,
-            extra_ratio=0,
-            use_local=False
+            extra_ratio=1 if i == 1 else 0,
+            use_local=True if i == 1 else False
         )
             for i in range(depths[2])])
         self.norm3 = norm_layer(embed_dims[2])
@@ -866,8 +936,8 @@ class MyPVT2520_4(nn.Module):
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[2] if i == 0 else sr_ratios[3],
             sample_ratio=0.25 if i == 0 else 1,
-            extra_ratio=0,
-            use_local=False
+            extra_ratio=1 if i == 1 else 0,
+            use_local=True if i == 1 else False
         )
             for i in range(depths[3])])
         self.norm4 = norm_layer(embed_dims[3])
@@ -975,8 +1045,8 @@ class MyPVT2520_4(nn.Module):
 
 
 @register_model
-def mypvt2520_4_small(pretrained=False, **kwargs):
-    model = MyPVT2520_4(
+def mypvt2520_10_small(pretrained=False, **kwargs):
+    model = MyPVT2520_10(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], **kwargs)
     model.default_cfg = _cfg()
@@ -988,12 +1058,12 @@ def mypvt2520_4_small(pretrained=False, **kwargs):
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
-    model1 = mypvt2520_4_small(drop_path_rate=0.0).to(device)
+    model1 = mypvt2520_10_small(drop_path_rate=0.0).to(device)
     model1.reset_drop_path(0.)
-    pre_dict = torch.load('work_dirs/my20_s2/my20_300_pre.pth')['model']
-    model1.load_state_dict(pre_dict)
+    # pre_dict = torch.load('work_dirs/my20_s2/my20_300_pre.pth')['model']
+    # model1.load_state_dict(pre_dict)
 
-    x = torch.zeros([1, 3, 448, 448]).to(device)
+    x = torch.ones([1, 3, 448, 448]).to(device)
     tmp = model1.forward(x)
     print('Finish')
 

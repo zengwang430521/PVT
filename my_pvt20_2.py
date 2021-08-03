@@ -881,8 +881,8 @@ if __name__ == '__main__':
     model.reset_drop_path(0.)
     pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
     model.load_state_dict(pre_dict)
-    x = torch.ones([1, 3, 448, 448]).to(device)
-    x = F.interpolate(x, scale_factor=0.5)
+    x = torch.zeros([1, 3, 448, 448]).to(device)
+    x = F.avg_pool2d(x, kernel_size=2)
     tmp = model.forward(x)
     print('Finish')
 
