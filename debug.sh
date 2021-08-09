@@ -57,7 +57,7 @@ spring.submit arun \
 srun -p 3dv-share -x SH-IDC1-10-198-6-[132-135] \
   --job-name=pvt --ntasks=4 \
   --gres=gpu:4 --ntasks-per-node=4 --cpus-per-task=4 --kill-on-bad-exit=1 \
-  python -u train_finetune.py --model mypvt2520_10_small --batch-size 64 --epochs 30 --num_workers 5 \
+  python -u train_finetune.py --model mypvt2520_11_small --batch-size 64 --epochs 30 --num_workers 5 \
   --output_dir work_dirs/debug --data-path data/imagenet \
   --input-size 448 --finetune work_dirs/my20_s2/my20_300_pre.pth --eval --use-mcloader
 
