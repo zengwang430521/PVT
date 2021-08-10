@@ -395,7 +395,7 @@ class ResampleBlock(nn.Module):
             self.pre_conv = None
 
         # confidence based sampling
-        if extra_ratio > 0 or sample_ratio < 1:
+        if sample_ratio < 1:
             self.conf_norm = nn.LayerNorm(self.dim_out)
             self.conf = nn.Linear(self.dim_out, 1)
             self.use_conf = True
@@ -832,7 +832,7 @@ def inter_points(x_src, loc_src, loc_tar):
     return x_tar
 
 
-class MyPVT2520_11(nn.Module):
+class MyPVT2520_11_2(nn.Module):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
@@ -885,7 +885,7 @@ class MyPVT2520_11(nn.Module):
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[0] if i == 0 else sr_ratios[1],
             sample_ratio=0.25 if i == 0 else 1,
-            extra_ratio=1 if i == 1 else 0,
+            extra_ratio=1, delta_factor=0.05,
             # use_local=True if i == 1 else False
             use_local=False
         )
@@ -902,7 +902,7 @@ class MyPVT2520_11(nn.Module):
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[1] if i == 0 else sr_ratios[2],
             sample_ratio=0.25 if i == 0 else 1,
-            extra_ratio=1 if i == 1 else 0,
+            extra_ratio=1, delta_factor=0.05,
             # use_local=True if i == 1 else False
             use_local=False
         )
@@ -919,7 +919,7 @@ class MyPVT2520_11(nn.Module):
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[2] if i == 0 else sr_ratios[3],
             sample_ratio=0.25 if i == 0 else 1,
-            extra_ratio=1 if i == 1 else 0,
+            extra_ratio=1, delta_factor=0.05,
             # use_local=True if i == 1 else False
             use_local=False
         )
@@ -1029,8 +1029,8 @@ class MyPVT2520_11(nn.Module):
 
 
 @register_model
-def mypvt2520_11_small(pretrained=False, **kwargs):
-    model = MyPVT2520_11(
+def mypvt2520_11_2_small(pretrained=False, **kwargs):
+    model = MyPVT2520_11_2(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], **kwargs)
     model.default_cfg = _cfg()
@@ -1042,7 +1042,7 @@ def mypvt2520_11_small(pretrained=False, **kwargs):
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
-    model1 = mypvt2520_11_small(drop_path_rate=0.0).to(device)
+    model1 = mypvt2520_11_2_small(drop_path_rate=0.0).to(device)
     model1.reset_drop_path(0.)
     # pre_dict = torch.load('work_dirs/my20_s2/my20_300_pre.pth')['model']
     # model1.load_state_dict(pre_dict)

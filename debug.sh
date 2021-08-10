@@ -66,10 +66,10 @@ srun -p 3dv-share  -w SH-IDC1-10-198-6-129\
 srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
     --job-name=pvt --ntasks=16 \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=4 --kill-on-bad-exit=1 \
-    python -u train.py --model mypvt2520_11_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
-    --output_dir work_dirs/my2520_11 --data-path data/imagenet \
+    python -u train.py --model mypvt2520_11_2_small --batch-size 64 --epochs 300 --num_workers 5  --cache_mode \
+    --output_dir work_dirs/my2520_11_2 --data-path data/imagenet \
     --input-size 448 \
-    --resume work_dirs/my2520_11/checkpoint.pth
+    --resume work_dirs/my2520_11_2/checkpoint.pth
 
     python -u train_finetune.py --model mypvt2520_10_small --batch-size 64 --epochs 30 --num_workers 5 \
     --output_dir work_dirs/debug --data-path data/imagenet \

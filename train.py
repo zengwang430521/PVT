@@ -71,6 +71,7 @@ import my_pvt2520_9
 import my_pvt2520_10
 import my_pvt2520_10_2
 import my_pvt2520_11
+import my_pvt2520_11_2
 import my_pvt26
 import pvt2
 import pvt3
