@@ -70,7 +70,16 @@ import my_pvt2520_8
 import my_pvt2520_9
 import my_pvt2520_10
 import my_pvt2520_10_2
-import my_pvt2520_11
+import my_pvt2520_11srun -p 3dv-share -w SH-IDC1-10-198-6-129\
+    --ntasks 8 --job-name=mesh \
+    --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=4 --kill-on-bad-exit=1 \
+    python -u main.py --dataset=spin \
+    --batch_size=32 --num_workers=4 --num_epochs=100 --summary_steps=100 \
+    --name=hmr_opt --run_smplify --iter_smplify=100 \
+    --model=hmr --opt=adamw --lr=5e-5 --wd=1e-4 --lr_drop=90 \
+    --lam_mesh=0 --lam_key2d=300 --lam_key3d=300 --lam_smpl_pose=60 --lam_smpl_beta=0.060 --lam_camera=60 \
+    --resume_from=logs/hmr_opt/checkpoints/checkpoint_latest.pth     --img_res=224 \
+    --use_mc
 import my_pvt26
 import pvt2
 import pvt3
