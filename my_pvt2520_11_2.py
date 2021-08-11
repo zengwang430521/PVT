@@ -885,7 +885,7 @@ class MyPVT2520_11_2(nn.Module):
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[0] if i == 0 else sr_ratios[1],
             sample_ratio=0.25 if i == 0 else 1,
-            extra_ratio=1, delta_factor=0.05,
+            extra_ratio=1, delta_factor=0.01,
             # use_local=True if i == 1 else False
             use_local=False
         )
@@ -902,7 +902,7 @@ class MyPVT2520_11_2(nn.Module):
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[1] if i == 0 else sr_ratios[2],
             sample_ratio=0.25 if i == 0 else 1,
-            extra_ratio=1, delta_factor=0.05,
+            extra_ratio=1, delta_factor=0.01,
             # use_local=True if i == 1 else False
             use_local=False
         )
@@ -919,7 +919,7 @@ class MyPVT2520_11_2(nn.Module):
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
             sr_ratio=sr_ratios[2] if i == 0 else sr_ratios[3],
             sample_ratio=0.25 if i == 0 else 1,
-            extra_ratio=1, delta_factor=0.05,
+            extra_ratio=1, delta_factor=0.01,
             # use_local=True if i == 1 else False
             use_local=False
         )
