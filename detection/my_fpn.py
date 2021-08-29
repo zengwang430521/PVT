@@ -7,6 +7,7 @@ from mmcv.cnn import ConvModule, initialize
 from mmcv.runner import BaseModule, auto_fp16
 from mmdet.models.builder import NECKS
 # from mmdet.models.necks import FPN
+from mmdet.models.detectors import retinanet
 
 def token2map(x, loc, map_size, kernel_size, sigma):
     H, W = map_size

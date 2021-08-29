@@ -12,13 +12,15 @@ from mmcv.runner import get_dist_info, init_dist
 from mmcv.utils import get_git_hash
 
 from mmdet import __version__
-from mmdet.apis import set_random_seed, train_detector
-from mmdet.datasets import build_dataset
+# from mmdet.apis import set_random_seed, train_detector
+# from mmdet.datasets import build_dataset
 from mmdet.models import build_detector
 from mmdet.utils import collect_env, get_root_logger
 import pvt
 import my_pvt
 import my_fpn
+import my_pvt20_2
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a detector')

@@ -4,10 +4,11 @@ _base_ = [
 ]
 model = dict(
     pretrained='pretrained/my20_2_330.pth',
-    # pretrained=None,
     backbone=dict(
         type='mypvt20_2_small',
-        style='pytorch'),
+        style='pytorch',
+        pretrained='pretrained/my20_2_330.pth'
+    ),
     neck=dict(
         type='TokenFPN',
         in_channels=[64, 128, 320, 512],

@@ -26,8 +26,9 @@ python -u train.py configs/mypvt2_s_5.py --work-dir=work_dirs/mypvt2_s_d5 --laun
 
 
 srun -p pat_earth \
-    --job-name=pvt --ntasks=8 \
-    --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
+    -x SH-IDC1-10-198-4-[100-103,116-119] \
+    --ntasks 1 --job-name=det \
+    --gres=gpu:1 --ntasks-per-node=1 --cpus-per-task=4 --kill-on-bad-exit=1 \
     python -u train.py configs/my20_2.py --work-dir=work_dirs/my20_2_d1 --launcher="slurm"
 
 
