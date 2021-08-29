@@ -1060,7 +1060,7 @@ class TokenFPN(BaseModule):
         # build top-down path tokens
         used_backbone_levels = len(laterals)
         for i in range(used_backbone_levels - 1, 0, -1):
-            laterals[i-1] += inter_points(laterals[i], locs[i], locs[i-1])
+            laterals[i-1] += inter_points(laterals[i], locs[i+self.start_level], locs[i-1+self.start_level])
 
         # tokens to feature map
         for i in range(used_backbone_levels - 1, -1, -1):
@@ -1178,4 +1178,16 @@ def inter_points(x_src, loc_src, loc_tar):
 
 
 if __name__ == '__main__':
-    test_token2map()
+    # test_token2map()
+    from my_pvt20_2 import mypvt20_2_small
+    backbone = mypvt20_2_small()
+    model = TokenFPN(in_channels=[64, 128, 320, 512],
+        out_channels=256,
+        start_level=1,
+        kernel_size=[1, 5, 3, 1],
+        sigma=[2, 2, 2, 2],
+        add_extra_convs='on_input',
+        num_outs=5)
+    input = torch.zeros(1,3,112,112)
+    x = backbone(input)
+    x = model(x)
