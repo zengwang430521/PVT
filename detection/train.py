@@ -19,7 +19,7 @@ from mmdet.utils import collect_env, get_root_logger
 import pvt
 import my_pvt
 import my_fpn
-
+import my_pvt20_2
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a detector')
