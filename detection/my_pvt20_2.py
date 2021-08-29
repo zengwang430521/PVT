@@ -4,9 +4,11 @@ import torch.nn.functional as F
 from functools import partial
 from mmdet.models.builder import BACKBONES
 # from pvt import (Mlp, Attention, PatchEmbed, Block, DropPath, to_2tuple, trunc_normal_, _cfg)
-from mmcv.runner import _load_checkpoint, load_state_dict
 from pvt_v2_ap import (Block, DropPath, to_2tuple, trunc_normal_, _cfg)
-
+from mmdet.utils import get_root_logger
+from mmcv.runner import _load_checkpoint, load_state_dict
+import math
+import re
 
 import math
 import matplotlib.pyplot as plt
