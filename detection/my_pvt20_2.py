@@ -925,7 +925,7 @@ class mypvt20_2t_small(MyPVT):
         # x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         x, loc, N_grid = get_loc(x, H, W, self.grid_stride)
         # outs.append((x, loc, [H, W]))
-        outs.append(token2map(x, loc, [H, W], 1))
+        outs.append(token2map(x, loc, [H, W], 1, 2))
 
         # stage 2
         x, loc = self.down_layers1(x, loc, H, W, N_grid)     # down sample
@@ -934,7 +934,7 @@ class mypvt20_2t_small(MyPVT):
             x = blk(x, x, loc, loc, H, W)
         x = self.norm2(x)
         # outs.append((x, loc, [H, W]))
-        outs.append(token2map(x, loc, [H, W], 5))
+        outs.append(token2map(x, loc, [H, W], 5, 2))
 
         # stage 3
         x, loc = self.down_layers2(x, loc, H, W, N_grid)     # down sample
@@ -943,7 +943,7 @@ class mypvt20_2t_small(MyPVT):
             x = blk(x, x, loc, loc, H, W)
         x = self.norm3(x)
         # outs.append((x, loc, [H, W]))
-        outs.append(token2map(x, loc, [H, W], 3))
+        outs.append(token2map(x, loc, [H, W], 3, 2))
 
         # stage 4
         x, loc = self.down_layers3(x, loc, H, W, N_grid)     # down sample
@@ -952,7 +952,7 @@ class mypvt20_2t_small(MyPVT):
             x = blk(x, x, loc, loc, H, W)
         x = self.norm4(x)
         # outs.append((x, loc, [H, W]))
-        outs.append(token2map(x, loc, [H, W], 1))
+        outs.append(token2map(x, loc, [H, W], 1, 2))
 
         if vis:
             show_tokens(img, outs, N_grid)
