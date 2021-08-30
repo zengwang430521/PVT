@@ -904,6 +904,63 @@ class mypvt20_2_small(MyPVT):
             drop_rate=0.0, drop_path_rate=0.1, pretrained=kwargs['pretrained'])
 
 
+
+@BACKBONES.register_module()
+class mypvt20_2t_small(MyPVT):
+    def __init__(self, **kwargs):
+        super().__init__(
+            patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4],
+            qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
+            drop_rate=0.0, drop_path_rate=0.1, pretrained=kwargs['pretrained'])
+
+    def forward_features(self, x):
+        outs = []
+        img = x
+
+        # stage 1
+        x, H, W = self.patch_embed1(x)
+        for i, blk in enumerate(self.block1):
+            x = blk(x, H, W)
+        x = self.norm1(x)
+        # x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+        x, loc, N_grid = get_loc(x, H, W, self.grid_stride)
+        # outs.append((x, loc, [H, W]))
+        outs.append(token2map(x, loc, [H, W], 1))
+
+        # stage 2
+        x, loc = self.down_layers1(x, loc, H, W, N_grid)     # down sample
+        H, W = H // 2, W // 2
+        for blk in self.block2:
+            x = blk(x, x, loc, loc, H, W)
+        x = self.norm2(x)
+        # outs.append((x, loc, [H, W]))
+        outs.append(token2map(x, loc, [H, W], 5))
+
+        # stage 3
+        x, loc = self.down_layers2(x, loc, H, W, N_grid)     # down sample
+        H, W = H // 2, W // 2
+        for blk in self.block3:
+            x = blk(x, x, loc, loc, H, W)
+        x = self.norm3(x)
+        # outs.append((x, loc, [H, W]))
+        outs.append(token2map(x, loc, [H, W], 3))
+
+        # stage 4
+        x, loc = self.down_layers3(x, loc, H, W, N_grid)     # down sample
+        H, W = H // 2, W // 2
+        for blk in self.block4:
+            x = blk(x, x, loc, loc, H, W)
+        x = self.norm4(x)
+        # outs.append((x, loc, [H, W]))
+        outs.append(token2map(x, loc, [H, W], 1))
+
+        if vis:
+            show_tokens(img, outs, N_grid)
+
+        # return x.mean(dim=1)
+        return outs
+
+
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
