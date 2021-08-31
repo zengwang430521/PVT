@@ -160,6 +160,7 @@ def main():
 
     model = build_detector(
         cfg.model, train_cfg=cfg.train_cfg, test_cfg=cfg.test_cfg)
+    model.init_weights()
 
     '''load the init params for the bug in SH1984, I don't know why '''
     init_path = getattr(cfg, 'load_from', os.path.join(cfg.work_dir, 'epoch_0.pth'))

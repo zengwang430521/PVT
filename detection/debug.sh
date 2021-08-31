@@ -1,7 +1,6 @@
 conda install pytorch==1.6.0 torchvision==0.7.0 cudatoolkit=10.1 -c pytorch
 srun -p 3dv-share --gres=gpu:1 -n1 --ntasks-per-node=1 --cpus-per-task=1 --job-name=env --kill-on-bad-exit=1 \
-pip install mmcv-full -f https://download.openmmlab.com/mmcv/dist/cu101/torch1.6.0/index.html
-conda install pytorch==1.6.0 torchvision==0.7.0 cudatoolkit=10.1 -c pytorch
+pip install mmcv-full=1.3.3 -f https://download.openmmlab.com/mmcv/dist/cu101/torch1.6.0/index.html
 srun -p 3dv-share --gres=gpu:1 -n1 --ntasks-per-node=1 --cpus-per-task=1 --job-name=env --kill-on-bad-exit=1 \
 pip install mmdet==2.13
 pip install dataclasses
@@ -9,7 +8,7 @@ pip install dataclasses
 
 srun -p 3dv-share -w SH-IDC1-10-198-6-130 --ntasks 1 --job-name=det \
     --gres=gpu:1 --ntasks-per-node=1 --cpus-per-task=5 --kill-on-bad-exit=1 \
-    python -u train.py configs/retinanet_pvt_s_fpn_1x_coco_640.py --work-dir=work_dirs/pvt_s_d --launcher="slurm"
+    python -u train.py configs/debug_cfg.py  --launcher="slurm"
 
 
 srun -p pat_earth \
@@ -17,7 +16,7 @@ srun -p pat_earth \
     --ntasks 8 --job-name=det \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
 
-    python -u train.py configs/retinanet_pvt_s_fpn_1x_coco_640.py --work-dir=work_dirs/pvt_s_d --launcher="slurm"
+    python -u train.py configs/debug_cfg.py --work-dir=work_dirs/pvt_s_d --launcher="slurm"
     python -u train.py configs/my20_2_3.py --work-dir=work_dirs/my20_2_d3 --launcher="slurm"
     python -u train.py configs/my20_2_2.py --work-dir=work_dirs/my20_2_d2 --launcher="slurm"
     python -u train.py configs/my20_2.py --work-dir=work_dirs/my20_2_d1 --launcher="slurm"
