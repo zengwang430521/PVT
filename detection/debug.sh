@@ -13,11 +13,12 @@ srun -p 3dv-share -w SH-IDC1-10-198-6-130 --ntasks 1 --job-name=det \
 srun -p pat_earth \
     -x SH-IDC1-10-198-4-[100-103,116-119] --ntasks 8 --job-name=det \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
+    python -u train.py configs/my20_2_2.py --launcher="slurm"
+
     python -u train.py configs/my20_2.py  --launcher="slurm"
     python -u train.py configs/debug_cfg.py  --launcher="slurm"
 
     python -u train.py configs/my20_2_3.py --work-dir=work_dirs/my20_2_d3 --launcher="slurm"
-    python -u train.py configs/my20_2_2.py --work-dir=work_dirs/my20_2_d2 --launcher="slurm"
 
 
 
