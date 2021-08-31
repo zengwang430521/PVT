@@ -85,4 +85,4 @@ evaluation = dict(interval=1, metric='bbox')
 # find_unused_parameters = True
 
 work_dir = 'work_dirs/my20_2_d0'
-load_from = 'work_dirs/my20_2_d0/epoch_0.pth'
+# load_from = 'work_dirs/my20_2_d0/epoch_0.pth'

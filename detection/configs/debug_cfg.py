@@ -76,4 +76,4 @@ data = dict(
 evaluation = dict(interval=1, metric='bbox')
 
 work_dir = 'work_dirs/pvt_s_d'
-load_from = 'work_dirs/pvt_s_d/latest.pth'
+# load_from = 'work_dirs/pvt_s_d/epoch_0.pth'
