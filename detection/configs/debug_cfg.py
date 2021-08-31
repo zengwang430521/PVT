@@ -2,14 +2,6 @@ _base_ = [
     '../configs/_base_/models/retinanet_r50_fpn.py',
     '../configs/_base_/default_runtime.py'
 ]
-
-log_config = dict(
-    interval=1,
-    hooks=[
-        dict(type='TextLoggerHook'),
-        # dict(type='TensorboardLoggerHook')
-    ])
-
 model = dict(
     pretrained='pretrained/pvt_small.pth',
     backbone=dict(
@@ -68,8 +60,8 @@ data = dict(
     workers_per_gpu=2,
     train=dict(
         type=dataset_type,
-        ann_file=data_root + 'annotations/instances_val2017.json',
-        img_prefix=data_root + 'val2017/',
+        ann_file=data_root + 'annotations/instances_train2017.json',
+        img_prefix=data_root + 'train2017/',
         pipeline=train_pipeline),
     val=dict(
         type=dataset_type,
@@ -82,3 +74,5 @@ data = dict(
         img_prefix=data_root + 'val2017/',
         pipeline=test_pipeline))
 evaluation = dict(interval=1, metric='bbox')
+
+load_from = 'work_dirs/pvt_s_d/latest.pth.'
