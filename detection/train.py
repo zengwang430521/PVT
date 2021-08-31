@@ -168,6 +168,11 @@ def main():
             'state_dict': model.state_dict(),
         }
         torch.save(save_state, init_path)
+        print('save at ' + init_path)
+        print('save at ' + init_path)
+    else:
+        print('exists ' + init_path)
+        print('exists ' + init_path)
 
     # empty_input = torch.zeros([2,3,224,224])
     # output = model.extract_feat(empty_input)

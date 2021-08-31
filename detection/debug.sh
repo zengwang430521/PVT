@@ -27,7 +27,7 @@ pip install mmcv-full -f https://download.openmmlab.com/mmcv/dist/cu101/torch1.6
 
 srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] --ntasks 1 --job-name=det \
     --gres=gpu:1 --ntasks-per-node=1 --cpus-per-task=1 --kill-on-bad-exit=1 \
-    python -u train.py configs/debug_cfg.py --work-dir=work_dirs/pvt_s_d --launcher="slurm"
+    python -u train.py configs/my20_2.py --launcher="slurm"
 
 srun -p 3dv-share -w SH-IDC1-10-198-6-130 --ntasks 1 --job-name=det \
     --gres=gpu:1 --ntasks-per-node=1 --cpus-per-task=5 --kill-on-bad-exit=1 \
