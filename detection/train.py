@@ -161,6 +161,14 @@ def main():
     model = build_detector(
         cfg.model, train_cfg=cfg.train_cfg, test_cfg=cfg.test_cfg)
 
+    '''load the init params for the bug in SH1984, I don't know why '''
+    init_path = getattr(cfg, 'load_from', os.path.join(cfg.work_dir, 'epoch_0.pth'))
+    if not os.path.exists(init_path):
+        save_state = {
+            'state_dict': model.state_dict(),
+        }
+        torch.save(save_state, init_path)
+
     # empty_input = torch.zeros([2,3,224,224])
     # output = model.extract_feat(empty_input)
 
