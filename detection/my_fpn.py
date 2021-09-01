@@ -10,33 +10,12 @@ from mmdet.models.necks import FPN
 # from mmdet.models.detectors import retinanet
 
 
-def token2map(x, loc, map_size, kernel_size, sigma):
-    H, W = map_size
-    B, N, C = x.shape
-    loc = loc.clamp(0, 1)
-    loc = loc * torch.FloatTensor([W-1, H-1]).to(loc.device)[None, None, :]
-    loc = loc.round().long()
-    idx = loc[..., 0] + loc[..., 1] * W
-    idx = idx + torch.arange(B)[:, None].to(loc.device) * H*W
-
-    out = x.new_zeros(B*H*W, C+1)
-    out.index_add_(dim=0, index=idx.reshape(B*N),
-                   source=torch.cat([x, x.new_ones(B, N, 1)], dim=-1).reshape(B*N, C+1))
-    out = out.reshape(B, H, W, C+1).permute(0, 3, 1, 2)
-    feature, mask = out[:, :-1], out[:, [-1]]
-
-    feature = feature / (mask + 1e-8)
-    mask = (mask > 0).float()
-    feature = reconstruct_feature(feature, mask, kernel_size, sigma)
-    return feature
-
-
 def guassian_filt(x, kernel_size=3, sigma=2):
     channels = x.shape[1]
 
     # Create a x, y coordinate grid of shape (kernel_size, kernel_size, 2)
     x_coord = torch.arange(kernel_size, device=x.device)
-    x_grid = x_coord.repeat(kernel_size).view(kernel_size, kernel_size)
+    x_grid = x_coord.repeat(kernel_size).view(kernel_size, kernel_size).contiguous()
     y_grid = x_grid.t()
     xy_grid = torch.stack([x_grid, y_grid], dim=-1).float()
 
@@ -56,7 +35,7 @@ def guassian_filt(x, kernel_size=3, sigma=2):
     gaussian_kernel = gaussian_kernel / torch.sum(gaussian_kernel)
 
     # Reshape to 2d depthwise convolutional weight
-    gaussian_kernel = gaussian_kernel.view(1, 1, kernel_size, kernel_size)
+    gaussian_kernel = gaussian_kernel.view(1, 1, kernel_size, kernel_size).contiguous()
     gaussian_kernel = gaussian_kernel.repeat(channels, 1, 1, 1)
 
     paddding = int((kernel_size - 1) // 2)
@@ -73,14 +52,68 @@ def guassian_filt(x, kernel_size=3, sigma=2):
 
 
 def reconstruct_feature(feature, mask, kernel_size, sigma):
-    if kernel_size <= 1:
+    if kernel_size < 3:
         return feature
     feature = feature * mask
     out = guassian_filt(torch.cat([feature, mask], dim=1),
                         kernel_size=kernel_size, sigma=sigma)
-    feature_inter = out[:, :-1] / (out[:, [-1]] + 1e-8)
+    C = out.shape[1] - 1
+    feature_inter = out[:, :C]
+    mask_inter = out[:, C:]
+    # tmp = mask_inter.min()
+    feature_inter = feature_inter / (mask_inter + 1e-6)
+    mask_inter = (mask_inter > 0).float()
+    feature_inter = feature_inter * mask_inter
     out = feature + (1 - mask) * feature_inter
     return out
+
+
+def token2map(x, loc, map_size, kernel_size, sigma, return_mask=False):
+    H, W = map_size
+    B, N, C = x.shape
+    loc = loc.clamp(-1, 1)
+    loc = 0.5 * (loc + 1) * torch.FloatTensor([W, H]).to(loc.device)[None, None, :] - 0.5
+    loc = loc.round().long()
+    loc[..., 0] = loc[..., 0].clamp(0, W-1)
+    loc[..., 1] = loc[..., 1].clamp(0, H-1)
+    idx = loc[..., 0] + loc[..., 1] * W
+    idx = idx + torch.arange(B)[:, None].to(loc.device) * H * W
+
+    out = x.new_zeros(B*H*W, C+1)
+    out.index_add_(dim=0, index=idx.reshape(B*N),
+                   source=torch.cat([x, x.new_ones(B, N, 1)], dim=-1).reshape(B*N, C+1))
+    out = out.reshape(B, H, W, C+1).permute(0, 3, 1, 2).contiguous()
+    assert out.shape[1] == C+1
+    feature = out[:, :C, :, :]
+    mask = out[:, C:, :, :]
+
+    # try:
+    #     feature, mask = out[:, :C, :, :], out[:, C:, :, :]
+    # except:
+    #     info = 'out shape: ' + str(out.shape) + ' C: ' + str(C)
+    #     print(info)
+    #     print(info)
+    #     raise KeyError(info)
+
+    # del out
+
+    feature = feature / (mask + 1e-6)
+    mask = (mask > 0).float()
+    feature = feature * mask
+    feature = reconstruct_feature(feature, mask, kernel_size, sigma)
+    if return_mask:
+        return feature, mask
+    return feature
+
+
+def map2token(feature_map, loc_xy, mode='bilinear', align_corners=False):
+    B, N, _ = loc_xy.shape
+    # B, C, H, W = feature_map.shape
+    # loc_xy = loc_xy.type(feature_map.dtype) * 2 - 1
+    loc_xy = loc_xy.unsqueeze(1).type(feature_map.dtype)
+    tokens = F.grid_sample(feature_map, loc_xy, mode=mode, align_corners=align_corners)
+    tokens = tokens.permute(0, 2, 3, 1).squeeze(1).contiguous()
+    return tokens
 
 
 def test_token2map():
