@@ -922,9 +922,9 @@ class TokenFPN(FPN):
     """
 
     def __init__(self, **kwargs):
-        self.num_heads = kwargs.pop['num_heads']
-        self.kernel_size = kwargs.pop['kernel_size']
-        self.sigma = kwargs.pop['sigma']
+        self.num_heads = kwargs.pop('num_heads')
+        self.kernel_size = kwargs.pop('kernel_size')
+        self.sigma = kwargs.pop('sigma')
         super(TokenFPN, self).__init__(**kwargs)
 
     @auto_fp16()
