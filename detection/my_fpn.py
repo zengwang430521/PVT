@@ -925,7 +925,7 @@ class TokenFPN(FPN):
         self.num_heads = kwargs.pop['num_heads']
         self.kernel_size = kwargs.pop['kernel_size']
         self.sigma = kwargs.pop['sigma']
-        super.__init__(**kwargs)
+        super().__init__(**kwargs)
 
     @auto_fp16()
     def forward(self, inputs):
