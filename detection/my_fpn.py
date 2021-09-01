@@ -925,7 +925,7 @@ class TokenFPN(FPN):
         self.num_heads = kwargs.pop['num_heads']
         self.kernel_size = kwargs.pop['kernel_size']
         self.sigma = kwargs.pop['sigma']
-        super().__init__(**kwargs)
+        super(TokenFPN, self).__init__(**kwargs)
 
     @auto_fp16()
     def forward(self, inputs):
@@ -998,6 +998,7 @@ class TokenFPN(FPN):
 '''token fpn with token2map'''
 @NECKS.register_module()
 class TokenFPN2(TokenFPN):
+
     @auto_fp16()
     def forward(self, inputs):
         """Forward function."""
