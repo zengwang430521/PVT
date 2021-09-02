@@ -49,6 +49,7 @@ import my_pvt16
 import my_pvt18
 import my_pvt20
 import my_pvt20_2
+import my_pvt20_2g
 import my_pvt21
 import my_pvt22
 import my_pvt23

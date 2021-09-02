@@ -1147,6 +1147,30 @@ def index_points(points, idx):
     return new_points
 
 
+def inter_points2(x_src, loc_src, loc_tar):
+    B, N, _ = loc_tar.shape
+
+    dists = square_distance(loc_tar, loc_src)
+    dists, idx = dists.sort(dim=-1)
+    dists, idx = dists[:, :, :3], idx[:, :, :3]     # [B, N, 3]
+
+    dist_recip = 1.0 / (dists + 1e-6)
+
+    one_mask = dists == 0
+    zero_mask = one_mask.sum(dim=-1) > 0
+    dist_recip[zero_mask, :] = 0
+    dist_recip[one_mask] = 1
+    # t = one_mask.max()
+
+    norm = torch.sum(dist_recip, dim=2, keepdim=True)
+    weight = dist_recip / norm
+
+    A = torch.sparse.Tensor
+
+    x_tar = torch.sum(index_points(x_src, idx) * weight.view(B, N, 3, 1), dim=2)
+    return x_tar
+
+
 def inter_points(x_src, loc_src, loc_tar):
     B, N, _ = loc_tar.shape
 
