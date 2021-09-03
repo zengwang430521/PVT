@@ -871,8 +871,8 @@ class MyPVT(nn.Module):
             outs.append((x, loc, [H, W]))
             show_tokens(img, outs, N_grid)
 
-        if self.head_type == 'tcmr':
-            return x
+        # if self.head_type == 'tcmr':
+        #     return x
         return x.mean(dim=1)
 
     def forward(self, x):
@@ -880,6 +880,7 @@ class MyPVT(nn.Module):
         x = self.head(x)
 
         return x
+
 
 '''No SR'''
 @register_model
