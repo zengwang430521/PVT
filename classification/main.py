@@ -32,10 +32,13 @@ import collections
 
 def get_args_parser():
     parser = argparse.ArgumentParser('PVT training and evaluation script', add_help=False)
+    parser.add_argument('--cache_mode', default=False, action='store_true',
+                        help='whether to cache images on memory, useful when mc is not available')
+
     parser.add_argument('--fp32-resume', action='store_true', default=False)
     parser.add_argument('--batch-size', default=128, type=int)
     parser.add_argument('--epochs', default=300, type=int)
-    parser.add_argument('--config', required=True, type=str, help='config')
+    parser.add_argument('--config', default='configs/empty.py', type=str, help='config')
 
     # Model parameters
     parser.add_argument('--model', default='pvt_small', type=str, metavar='MODEL',
