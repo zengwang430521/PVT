@@ -144,8 +144,6 @@ class MyAttention(nn.Module):
         return x
 
 
-
-
 class MyBlock(nn.Module):
 
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
@@ -256,7 +254,7 @@ class MyPVT(nn.Module):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
-                 depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], pretrained=None):
+                 depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], linear=False, pretrained=None):
         super().__init__()
         self.num_classes = num_classes
         self.depths = depths
@@ -278,7 +276,7 @@ class MyPVT(nn.Module):
         self.block1 = nn.ModuleList([Block(
             dim=embed_dims[0], num_heads=num_heads[0], mlp_ratio=mlp_ratios[0], qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + i], norm_layer=norm_layer,
-            sr_ratio=sr_ratios[0])
+            sr_ratio=sr_ratios[0], linear=linear)
             for i in range(depths[0])])
         self.norm1 = norm_layer(embed_dims[0])
         cur += depths[0]
@@ -439,7 +437,7 @@ class MyPVT(nn.Module):
 def mypvt20_2_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], **kwargs)
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], linear=True,  **kwargs)
     model.default_cfg = _cfg()
 
     return model
