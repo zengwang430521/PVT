@@ -433,6 +433,7 @@ class MyPVT(nn.Module):
         return x
 
 
+'''Actually, this is modified from pvt_v2_b2_li '''
 @register_model
 def mypvt20_2_small(pretrained=False, **kwargs):
     model = MyPVT(
