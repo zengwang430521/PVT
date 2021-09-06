@@ -218,7 +218,7 @@ class DownLayer(nn.Module):
         self.register_buffer('T', torch.tensor(1.0, dtype=torch.float))
         self.T_min = 1
         self.T_decay = 0.9998
-        self.conv = nn.Conv2d(embed_dim, dim_out, kernel_size=3, stride=1, padding=1)
+        self.conv = nn.Conv2d(embed_dim, dim_out, kernel_size=3, stride=2, padding=1)
         # self.conv = PartialConv2d(embed_dim, self.block.dim_out, kernel_size=3, stride=1, padding=1)
         self.norm = nn.LayerNorm(self.dim_out)
         self.conf = nn.Linear(self.dim_out, 1)
@@ -227,11 +227,13 @@ class DownLayer(nn.Module):
         # x, mask = token2map(x, pos, [H, W], 1, 2, return_mask=True)
         # x = self.conv(x, mask)
 
-        kernel_size = self.block.attn.sr_ratio + 1
+        kernel_size = (self.block.attn.sr_ratio * 2) + 1
         x = token2map(x, pos, [H, W], kernel_size, 2)
         x = self.conv(x)
+        H, W = H // 2,  W // 2
         x = map2token(x, pos)
         B, N, C = x.shape
+
         # sample_num = max(math.ceil(N * self.sample_ratio) - N_grid, 0)
         sample_num = max(math.ceil(N * self.sample_ratio), 0)
 
@@ -262,7 +264,6 @@ class DownLayer(nn.Module):
         x_down = torch.cat([x_grid, x_down], 1)
         pos_down = torch.cat([pos_grid, pos_down], 1)
 
-        H, W = H // 2, W // 2
         x_down = self.block(x_down, x, pos_down, pos, H, W, conf)
         return x_down, pos_down
 
