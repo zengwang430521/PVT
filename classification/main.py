@@ -24,6 +24,8 @@ from samplers import RASampler
 # import models
 import pvt
 import pvt_v2
+import pvt_v2_20_2
+import pvt_v2_20_2g
 import utils
 import collections
 
