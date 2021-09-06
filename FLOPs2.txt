@@ -1,0 +1,529 @@
+MyPVT(
+  22.554 M, 100.000% Params, 5.374 GFLOPs, 100.000% FLOPs,
+  (patch_embed1): OverlapPatchEmbed(
+    0.01 M, 0.043% Params, 0.03 GFLOPs, 0.560% FLOPs,
+    (proj): Conv2d(0.009 M, 0.042% Params, 0.03 GFLOPs, 0.553% FLOPs, 3, 64, kernel_size=(7, 7), stride=(4, 4), padding=(3, 3))
+    (norm): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.007% FLOPs, (64,), eps=1e-05, elementwise_affine=True)
+  )
+  (block1): ModuleList(
+    0.277 M, 1.229% Params, 0.751 GFLOPs, 13.982% FLOPs,
+    (0): Block(
+      0.092 M, 0.410% Params, 0.25 GFLOPs, 4.661% FLOPs,
+      (norm1): LayerN282orm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.007% FLOPs, (64,), eps=1e-06, elementwise_affine=True)
+      (attn): Attention(
+        0.021 M, 0.093% Params, 0.027 GFLOPs, 0.493% FLOPs,
+        (q): Linear(0.004 M, 0.018% Params, 0.013 GFLOPs, 0.239% FLOPs, in_features=64, out_features=64, bias=True)
+        (kv): Linear(0.008 M, 0.037% Params, 0.0 GFLOPs, 0.007% FLOPs, in_features=64, out_features=128, bias=True)
+        (attn_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (proj): Linear(0.004 M, 0.018% Params, 0.013 GFLOPs, 0.239% FLOPs, in_features=64, out_features=64, bias=True)
+        (proj_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (pool): AdaptiveAvgPool2d(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.004% FLOPs, output_size=7)
+        (sr): Conv2d(0.004 M, 0.018% Params, 0.0 GFLOPs, 0.004% FLOPs, 64, 64, kernel_size=(1, 1), stride=(1, 1))
+        (norm): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.000% FLOPs, (64,), eps=1e-05, elementwise_affine=True)
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      )
+      (drop_path): Identity(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      (norm2): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.007% FLOPs, (64,), eps=1e-06, elementwise_affine=True)
+      (mlp): Mlp(
+        0.071 M, 0.316% Params, 0.223 GFLOPs, 4.153% FLOPs,
+        (fc1): Linear(0.033 M, 0.148% Params, 0.103 GFLOPs, 1.912% FLOPs, in_features=64, out_features=512, bias=True)
+        (dwconv): DWConv(
+          0.005 M, 0.023% Params, 0.016 GFLOPs, 0.299% FLOPs,
+          (dwconv): Conv2d(0.005 M, 0.023% Params, 0.016 GFLOPs, 0.299% FLOPs, 512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=512)
+        )
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+        (fc2): Linear(0.033 M, 0.146% Params, 0.103 GFLOPs, 1.912% FLOPs, in_features=512, out_features=64, bias=True)
+        (drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (relu): ReLU(0.0 M, 0.000% Params, 0.002 GFLOPs, 0.030% FLOPs, inplace=True)
+      )
+    )
+    (1): Block(
+      0.092 M, 0.410% Params, 0.25 GFLOPs, 4.661% FLOPs,
+      (norm1): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.007% FLOPs, (64,), eps=1e-06, elementwise_affine=True)
+      (attn): Attention(
+        0.021 M, 0.093% Params, 0.027 GFLOPs, 0.493% FLOPs,
+        (q): Linear(0.004 M, 0.018% Params, 0.013 GFLOPs, 0.239% FLOPs, in_features=64, out_features=64, bias=True)
+        (kv): Linear(0.008 M, 0.037% Params, 0.0 GFLOPs, 0.007% FLOPs, in_features=64, out_features=128, bias=True)
+        (attn_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (proj): Linear(0.004 M, 0.018% Params, 0.013 GFLOPs, 0.239% FLOPs, in_features=64, out_features=64, bias=True)
+        (proj_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (pool): AdaptiveAvgPool2d(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.004% FLOPs, output_size=7)
+        (sr): Conv2d(0.004 M, 0.018% Params, 0.0 GFLOPs, 0.004% FLOPs, 64, 64, kernel_size=(1, 1), stride=(1, 1))
+        (norm): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.000% FLOPs, (64,), eps=1e-05, elementwise_affine=True)
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      )
+      (drop_path): Identity(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      (norm2): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.007% FLOPs, (64,), eps=1e-06, elementwise_affine=True)
+      (mlp): Mlp(
+        0.071 M, 0.316% Params, 0.223 GFLOPs, 4.153% FLOPs,
+        (fc1): Linear(0.033 M, 0.148% Params, 0.103 GFLOPs, 1.912% FLOPs, in_features=64, out_features=512, bias=True)
+        (dwconv): DWConv(
+          0.005 M, 0.023% Params, 0.016 GFLOPs, 0.299% FLOPs,
+          (dwconv): Conv2d(0.005 M, 0.023% Params, 0.016 GFLOPs, 0.299% FLOPs, 512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=512)
+        )
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+        (fc2): Linear(0.033 M, 0.146% Params, 0.103 GFLOPs, 1.912% FLOPs, in_features=512, out_features=64, bias=True)
+        (drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (relu): ReLU(0.0 M, 0.000% Params, 0.002 GFLOPs, 0.030% FLOPs, inplace=True)
+      )
+    )
+    (2): Block(
+      0.092 M, 0.410% Params, 0.25 GFLOPs, 4.661% FLOPs,
+      (norm1): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.007% FLOPs, (64,), eps=1e-06, elementwise_affine=True)
+      (attn): Attention(
+        0.021 M, 0.093% Params, 0.027 GFLOPs, 0.493% FLOPs,
+        (q): Linear(0.004 M, 0.018% Params, 0.013 GFLOPs, 0.239% FLOPs, in_features=64, out_features=64, bias=True)
+        (kv): Linear(0.008 M, 0.037% Params, 0.0 GFLOPs, 0.007% FLOPs, in_features=64, out_features=128, bias=True)
+        (attn_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (proj): Linear(0.004 M, 0.018% Params, 0.013 GFLOPs, 0.239% FLOPs, in_features=64, out_features=64, bias=True)
+        (proj_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (pool): AdaptiveAvgPool2d(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.004% FLOPs, output_size=7)
+        (sr): Conv2d(0.004 M, 0.018% Params, 0.0 GFLOPs, 0.004% FLOPs, 64, 64, kernel_size=(1, 1), stride=(1, 1))
+        (norm): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.000% FLOPs, (64,), eps=1e-05, elementwise_affine=True)
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      )
+      (drop_path): Identity(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      (norm2): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.007% FLOPs, (64,), eps=1e-06, elementwise_affine=True)
+      (mlp): Mlp(
+        0.071 M, 0.316% Params, 0.223 GFLOPs, 4.153% FLOPs,
+        (fc1): Linear(0.033 M, 0.148% Params, 0.103 GFLOPs, 1.912% FLOPs, in_features=64, out_features=512, bias=True)
+        (dwconv): DWConv(
+          0.005 M, 0.023% Params, 0.016 GFLOPs, 0.299% FLOPs,
+          (dwconv): Conv2d(0.005 M, 0.023% Params, 0.016 GFLOPs, 0.299% FLOPs, 512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=512)
+        )
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+        (fc2): Linear(0.033 M, 0.146% Params, 0.103 GFLOPs, 1.912% FLOPs, in_features=512, out_features=64, bias=True)
+        (drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (relu): ReLU(0.0 M, 0.000% Params, 0.002 GFLOPs, 0.030% FLOPs, inplace=True)
+      )
+    )
+  )
+  (norm1): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.007% FLOPs, (64,), eps=1e-06, elementwise_affine=True)
+  (down_layers1): DownLayer(
+    0.431 M, 1.911% Params, 0.515 GFLOPs, 9.584% FLOPs,
+    (block): MyBlock(
+      0.357 M, 1.582% Params, 0.282 GFLOPs, 5.252% FLOPs,
+      (norm1): LayerNorm(0.0 M, 0.001% Params, 0.001 GFLOPs, 0.019% FLOPs, (128,), eps=1e-06, elementwise_affine=True)
+      (attn): MyAttention(
+        0.083 M, 0.367% Params, 0.03 GFLOPs, 0.553% FLOPs,
+        (q): Linear(0.017 M, 0.073% Params, 0.014 GFLOPs, 0.254% FLOPs, in_features=128, out_features=128, bias=True)
+        (kv): Linear(0.033 M, 0.146% Params, 0.002 GFLOPs, 0.030% FLOPs, in_features=128, out_features=256, bias=True)
+        (attn_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (proj): Linear(0.017 M, 0.073% Params, 0.014 GFLOPs, 0.254% FLOPs, in_features=128, out_features=128, bias=True)
+        (proj_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (pool): AdaptiveAvgPool2d(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, output_size=7)
+        (sr): Conv2d(0.017 M, 0.073% Params, 0.001 GFLOPs, 0.015% FLOPs, 128, 128, kernel_size=(1, 1), stride=(1, 1))
+        (norm): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.000% FLOPs, (128,), eps=1e-05, elementwise_affine=True)
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      )
+      (drop_path): Identity(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      (norm2): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.004% FLOPs, (128,), eps=1e-06, elementwise_affine=True)
+      (mlp): MyMlp(
+        0.274 M, 1.213% Params, 0.251 GFLOPs, 4.676% FLOPs,
+        (fc1): Linear(0.132 M, 0.586% Params, 0.109 GFLOPs, 2.032% FLOPs, in_features=128, out_features=1024, bias=True)
+        (dwconv): MyDWConv(
+          0.01 M, 0.045% Params, 0.032 GFLOPs, 0.598% FLOPs,
+          (dwconv): Conv2d(0.01 M, 0.045% Params, 0.032 GFLOPs, 0.598% FLOPs, 1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024)
+        )
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+        (fc2): Linear(0.131 M, 0.582% Params, 0.109 GFLOPs, 2.032% FLOPs, in_features=1024, out_features=128, bias=True)
+        (drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (relu): ReLU(0.0 M, 0.000% Params, 0.001 GFLOPs, 0.016% FLOPs, inplace=True)
+      )
+    )
+    (conv): Conv2d(0.074 M, 0.327% Params, 0.232 GFLOPs, 4.310% FLOPs, 64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (norm): LayerNorm(0.0 M, 0.001% Params, 0.001 GFLOPs, 0.015% FLOPs, (128,), eps=1e-05, elementwise_affine=True)
+    (conf): Linear(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.007% FLOPs, in_features=128, out_features=1, bias=True)
+  )
+  (block2): ModuleList(
+    1.071 M, 4.747% Params, 0.773 GFLOPs, 14.380% FLOPs,
+    (0): MyBlock(
+      0.357 M, 1.582% Params, 0.258 GFLOPs, 4.793% FLOPs,
+      (norm1): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.008% FLOPs, (128,), eps=1e-06, elementwise_affine=True)
+      (attn): MyAttention(
+        0.083 M, 0.367% Params, 0.03 GFLOPs, 0.553% FLOPs,
+        (q): Linear(0.017 M, 0.073% Params, 0.014 GFLOPs, 0.254% FLOPs, in_features=128, out_features=128, bias=True)
+        (kv): Linear(0.033 M, 0.146% Params, 0.002 GFLOPs, 0.030% FLOPs, in_features=128, out_features=256, bias=True)
+        (attn_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (proj): Linear(0.017 M, 0.073% Params, 0.014 GFLOPs, 0.254% FLOPs, in_features=128, out_features=128, bias=True)
+        (proj_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (pool): AdaptiveAvgPool2d(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, output_size=7)
+        (sr): Conv2d(0.017 M, 0.073% Params, 0.001 GFLOPs, 0.015% FLOPs, 128, 128, kernel_size=(1, 1), stride=(1, 1))
+        (norm): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.000% FLOPs, (128,), eps=1e-05, elementwise_affine=True)
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      )
+      (drop_path): Identity(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      (norm2): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.004% FLOPs, (128,), eps=1e-06, elementwise_affine=True)
+      (mlp): MyMlp(
+        0.274 M, 1.213% Params, 0.227 GFLOPs, 4.228% FLOPs,
+        (fc1): Linear(0.132 M, 0.586% Params, 0.109 GFLOPs, 2.032% FLOPs, in_features=128, out_features=1024, bias=True)
+        (dwconv): MyDWConv(
+          0.01 M, 0.045% Params, 0.008 GFLOPs, 0.149% FLOPs,
+          (dwconv): Conv2d(0.01 M, 0.045% Params, 0.008 GFLOPs, 0.149% FLOPs, 1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024)
+        )
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+        (fc2): Linear(0.131 M, 0.582% Params, 0.109 GFLOPs, 2.032% FLOPs, in_features=1024, out_features=128, bias=True)
+        (drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (relu): ReLU(0.0 M, 0.000% Params, 0.001 GFLOPs, 0.016% FLOPs, inplace=True)
+      )
+    )
+    (1): MyBlock(
+      0.357 M, 1.582% Params, 0.258 GFLOPs, 4.793% FLOPs,
+      (norm1): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.008% FLOPs, (128,), eps=1e-06, elementwise_affine=True)
+      (attn): MyAttention(
+        0.083 M, 0.367% Params, 0.03 GFLOPs, 0.553% FLOPs,
+        (q): Linear(0.017 M, 0.073% Params, 0.014 GFLOPs, 0.254% FLOPs, in_features=128, out_features=128, bias=True)
+        (kv): Linear(0.033 M, 0.146% Params, 0.002 GFLOPs, 0.030% FLOPs, in_features=128, out_features=256, bias=True)
+        (attn_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (proj): Linear(0.017 M, 0.073% Params, 0.014 GFLOPs, 0.254% FLOPs, in_features=128, out_features=128, bias=True)
+        (proj_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (pool): AdaptiveAvgPool2d(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, output_size=7)
+        (sr): Conv2d(0.017 M, 0.073% Params, 0.001 GFLOPs, 0.015% FLOPs, 128, 128, kernel_size=(1, 1), stride=(1, 1))
+        (norm): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.000% FLOPs, (128,), eps=1e-05, elementwise_affine=True)
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      )
+      (drop_path): Identity(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      (norm2): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.004% FLOPs, (128,), eps=1e-06, elementwise_affine=True)
+      (mlp): MyMlp(
+        0.274 M, 1.213% Params, 0.227 GFLOPs, 4.228% FLOPs,
+        (fc1): Linear(0.132 M, 0.586% Params, 0.109 GFLOPs, 2.032% FLOPs, in_features=128, out_features=1024, bias=True)
+        (dwconv): MyDWConv(
+          0.01 M, 0.045% Params, 0.008 GFLOPs, 0.149% FLOPs,
+          (dwconv): Conv2d(0.01 M, 0.045% Params, 0.008 GFLOPs, 0.149% FLOPs, 1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024)
+        )
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+        (fc2): Linear(0.131 M, 0.582% Params, 0.109 GFLOPs, 2.032% FLOPs, in_features=1024, out_features=128, bias=True)
+        (drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (relu): ReLU(0.0 M, 0.000% Params, 0.001 GFLOPs, 0.016% FLOPs, inplace=True)
+      )
+    )
+    (2): MyBlock(
+      0.357 M, 1.582% Params, 0.258 GFLOPs, 4.793% FLOPs,
+      (norm1): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.008% FLOPs, (128,), eps=1e-06, elementwise_affine=True)
+      (attn): MyAttention(
+        0.083 M, 0.367% Params, 0.03 GFLOPs, 0.553% FLOPs,
+        (q): Linear(0.017 M, 0.073% Params, 0.014 GFLOPs, 0.254% FLOPs, in_features=128, out_features=128, bias=True)
+        (kv): Linear(0.033 M, 0.146% Params, 0.002 GFLOPs, 0.030% FLOPs, in_features=128, out_features=256, bias=True)
+        (attn_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (proj): Linear(0.017 M, 0.073% Params, 0.014 GFLOPs, 0.254% FLOPs, in_features=128, out_features=128, bias=True)
+        (proj_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (pool): AdaptiveAvgPool2d(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, output_size=7)
+        (sr): Conv2d(0.017 M, 0.073% Params, 0.001 GFLOPs, 0.015% FLOPs, 128, 128, kernel_size=(1, 1), stride=(1, 1))
+        (norm): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.000% FLOPs, (128,), eps=1e-05, elementwise_affine=True)
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      )
+      (drop_path): Identity(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      (norm2): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.004% FLOPs, (128,), eps=1e-06, elementwise_affine=True)
+      (mlp): MyMlp(
+        0.274 M, 1.213% Params, 0.227 GFLOPs, 4.228% FLOPs,
+        (fc1): Linear(0.132 M, 0.586% Params, 0.109 GFLOPs, 2.032% FLOPs, in_features=128, out_features=1024, bias=True)
+        (dwconv): MyDWConv(
+          0.01 M, 0.045% Params, 0.008 GFLOPs, 0.149% FLOPs,
+          (dwconv): Conv2d(0.01 M, 0.045% Params, 0.008 GFLOPs, 0.149% FLOPs, 1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024)
+        )
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+        (fc2): Linear(0.131 M, 0.582% Params, 0.109 GFLOPs, 2.032% FLOPs, in_features=1024, out_features=128, bias=True)
+        (drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (relu): ReLU(0.0 M, 0.000% Params, 0.001 GFLOPs, 0.016% FLOPs, inplace=True)
+      )
+    )
+  )
+  (norm2): LayerNorm(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.004% FLOPs, (128,), eps=1e-06, elementwise_affine=True)
+  (down_layers2): DownLayer(
+    1.719 M, 7.622% Params, 0.581 GFLOPs, 10.803% FLOPs,
+    (block): MyBlock(
+      1.349 M, 5.982% Params, 0.291 GFLOPs, 5.406% FLOPs,
+      (norm1): LayerNorm(0.001 M, 0.003% Params, 0.001 GFLOPs, 0.013% FLOPs, (320,), eps=1e-06, elementwise_affine=True)
+      (attn): MyAttention(
+        0.514 M, 2.280% Params, 0.068 GFLOPs, 1.264% FLOPs,
+        (q): Linear(0.103 M, 0.455% Params, 0.026 GFLOPs, 0.492% FLOPs, in_features=320, out_features=320, bias=True)
+        (kv): Linear(0.205 M, 0.911% Params, 0.01 GFLOPs, 0.187% FLOPs, in_features=320, out_features=640, bias=True)
+        (attn_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (proj): Linear(0.103 M, 0.455% Params, 0.026 GFLOPs, 0.492% FLOPs, in_features=320, out_features=320, bias=True)
+        (proj_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (pool): AdaptiveAvgPool2d(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, output_size=7)
+        (sr): Conv2d(0.103 M, 0.455% Params, 0.005 GFLOPs, 0.094% FLOPs, 320, 320, kernel_size=(1, 1), stride=(1, 1))
+        (norm): LayerNorm(0.001 M, 0.003% Params, 0.0 GFLOPs, 0.001% FLOPs, (320,), eps=1e-05, elementwise_affine=True)
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      )
+      (drop_path): Identity(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      (norm2): LayerNorm(0.001 M, 0.003% Params, 0.0 GFLOPs, 0.003% FLOPs, (320,), eps=1e-06, elementwise_affine=True)
+      (mlp): MyMlp(
+        0.834 M, 3.696% Params, 0.222 GFLOPs, 4.125% FLOPs,
+        (fc1): Linear(0.411 M, 1.822% Params, 0.106 GFLOPs, 1.966% FLOPs, in_features=320, out_features=1280, bias=True)
+        (dwconv): MyDWConv(
+          0.013 M, 0.057% Params, 0.01 GFLOPs, 0.187% FLOPs,
+          (dwconv): Conv2d(0.013 M, 0.057% Params, 0.01 GFLOPs, 0.187% FLOPs, 1280, 1280, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1280)
+        )
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+        (fc2): Linear(0.41 M, 1.817% Params, 0.106 GFLOPs, 1.966% FLOPs, in_features=1280, out_features=320, bias=True)
+        (drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (relu): ReLU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.006% FLOPs, inplace=True)
+      )
+    )
+    (conv): Conv2d(0.369 M, 1.636% Params, 0.289 GFLOPs, 5.382% FLOPs, 128, 320, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (norm): LayerNorm(0.001 M, 0.003% Params, 0.001 GFLOPs, 0.010% FLOPs, (320,), eps=1e-05, elementwise_affine=True)
+    (conf): Linear(0.0 M, 0.001% Params, 0.0 GFLOPs, 0.005% FLOPs, in_features=320, out_features=1, bias=True)
+  )
+  (block3): ModuleList(
+    6.746 M, 29.908% Params, 1.413 GFLOPs, 26.294% FLOPs,
+    (0): MyBlock(
+      1.349 M, 5.982% Params, 0.283 GFLOPs, 5.259% FLOPs,
+      (norm1): LayerNorm(0.001 M, 0.003% Params, 0.0 GFLOPs, 0.006% FLOPs, (320,), eps=1e-06, elementwise_affine=True)
+      (attn): MyAttention(
+        0.514 M, 2.280% Params, 0.068 GFLOPs, 1.264% FLOPs,
+        (q): Linear(0.103 M, 0.455% Params, 0.026 GFLOPs, 0.492% FLOPs, in_features=320, out_features=320, bias=True)
+        (kv): Linear(0.205 M, 0.911% Params, 0.01 GFLOPs, 0.187% FLOPs, in_features=320, out_features=640, bias=True)
+        (attn_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (proj): Linear(0.103 M, 0.455% Params, 0.026 GFLOPs, 0.492% FLOPs, in_features=320, out_features=320, bias=True)
+        (proj_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (pool): AdaptiveAvgPool2d(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, output_size=7)
+        (sr): Conv2d(0.103 M, 0.455% Params, 0.005 GFLOPs, 0.094% FLOPs, 320, 320, kernel_size=(1, 1), stride=(1, 1))
+        (norm): LayerNorm(0.001 M, 0.003% Params, 0.0 GFLOPs, 0.001% FLOPs, (320,), eps=1e-05, elementwise_affine=True)
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      )
+      (drop_path): Identity(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      (norm2): LayerNorm(0.001 M, 0.003% Params, 0.0 GFLOPs, 0.003% FLOPs, (320,), eps=1e-06, elementwise_affine=True)
+      (mlp): MyMlp(
+        0.834 M, 3.696% Params, 0.214 GFLOPs, 3.985% FLOPs,
+        (fc1): Linear(0.411 M, 1.822% Params, 0.106 GFLOPs, 1.966% FLOPs, in_features=320, out_features=1280, bias=True)
+        (dwconv): MyDWConv(
+          0.013 M, 0.057% Params, 0.003 GFLOPs, 0.047% FLOPs,
+          (dwconv): Conv2d(0.013 M, 0.057% Params, 0.003 GFLOPs, 0.047% FLOPs, 1280, 1280, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1280)
+        )
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+        (fc2): Linear(0.41 M, 1.817% Params, 0.106 GFLOPs, 1.966% FLOPs, in_features=1280, out_features=320, bias=True)
+        (drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (relu): ReLU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.006% FLOPs, inplace=True)
+      )
+    )
+    (1): MyBlock(
+      1.349 M, 5.982% Params, 0.283 GFLOPs, 5.259% FLOPs,
+      (norm1): LayerNorm(0.001 M, 0.003% Params, 0.0 GFLOPs, 0.006% FLOPs, (320,), eps=1e-06, elementwise_affine=True)
+      (attn): MyAttention(
+        0.514 M, 2.280% Params, 0.068 GFLOPs, 1.264% FLOPs,
+        (q): Linear(0.103 M, 0.455% Params, 0.026 GFLOPs, 0.492% FLOPs, in_features=320, out_features=320, bias=True)
+        (kv): Linear(0.205 M, 0.911% Params, 0.01 GFLOPs, 0.187% FLOPs, in_features=320, out_features=640, bias=True)
+        (attn_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (proj): Linear(0.103 M, 0.455% Params, 0.026 GFLOPs, 0.492% FLOPs, in_features=320, out_features=320, bias=True)
+        (proj_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (pool): AdaptiveAvgPool2d(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, output_size=7)
+        (sr): Conv2d(0.103 M, 0.455% Params, 0.005 GFLOPs, 0.094% FLOPs, 320, 320, kernel_size=(1, 1), stride=(1, 1))
+        (norm): LayerNorm(0.001 M, 0.003% Params, 0.0 GFLOPs, 0.001% FLOPs, (320,), eps=1e-05, elementwise_affine=True)
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      )
+      (drop_path): Identity(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      (norm2): LayerNorm(0.001 M, 0.003% Params, 0.0 GFLOPs, 0.003% FLOPs, (320,), eps=1e-06, elementwise_affine=True)
+      (mlp): MyMlp(
+        0.834 M, 3.696% Params, 0.214 GFLOPs, 3.985% FLOPs,
+        (fc1): Linear(0.411 M, 1.822% Params, 0.106 GFLOPs, 1.966% FLOPs, in_features=320, out_features=1280, bias=True)
+        (dwconv): MyDWConv(
+          0.013 M, 0.057% Params, 0.003 GFLOPs, 0.047% FLOPs,
+          (dwconv): Conv2d(0.013 M, 0.057% Params, 0.003 GFLOPs, 0.047% FLOPs, 1280, 1280, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1280)
+        )
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+        (fc2): Linear(0.41 M, 1.817% Params, 0.106 GFLOPs, 1.966% FLOPs, in_features=1280, out_features=320, bias=True)
+        (drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (relu): ReLU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.006% FLOPs, inplace=True)
+      )
+    )
+    (2): MyBlock(
+      1.349 M, 5.982% Params, 0.283 GFLOPs, 5.259% FLOPs,
+      (norm1): LayerNorm(0.001 M, 0.003% Params, 0.0 GFLOPs, 0.006% FLOPs, (320,), eps=1e-06, elementwise_affine=True)
+      (attn): MyAttention(
+        0.514 M, 2.280% Params, 0.068 GFLOPs, 1.264% FLOPs,
+        (q): Linear(0.103 M, 0.455% Params, 0.026 GFLOPs, 0.492% FLOPs, in_features=320, out_features=320, bias=True)
+        (kv): Linear(0.205 M, 0.911% Params, 0.01 GFLOPs, 0.187% FLOPs, in_features=320, out_features=640, bias=True)
+        (attn_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (proj): Linear(0.103 M, 0.455% Params, 0.026 GFLOPs, 0.492% FLOPs, in_features=320, out_features=320, bias=True)
+        (proj_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (pool): AdaptiveAvgPool2d(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, output_size=7)
+        (sr): Conv2d(0.103 M, 0.455% Params, 0.005 GFLOPs, 0.094% FLOPs, 320, 320, kernel_size=(1, 1), stride=(1, 1))
+        (norm): LayerNorm(0.001 M, 0.003% Params, 0.0 GFLOPs, 0.001% FLOPs, (320,), eps=1e-05, elementwise_affine=True)
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      )
+      (drop_path): Identity(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      (norm2): LayerNorm(0.001 M, 0.003% Params, 0.0 GFLOPs, 0.003% FLOPs, (320,), eps=1e-06, elementwise_affine=True)
+      (mlp): MyMlp(
+        0.834 M, 3.696% Params, 0.214 GFLOPs, 3.985% FLOPs,
+        (fc1): Linear(0.411 M, 1.822% Params, 0.106 GFLOPs, 1.966% FLOPs, in_features=320, out_features=1280, bias=True)
+        (dwconv): MyDWConv(
+          0.013 M, 0.057% Params, 0.003 GFLOPs, 0.047% FLOPs,
+          (dwconv): Conv2d(0.013 M, 0.057% Params, 0.003 GFLOPs, 0.047% FLOPs, 1280, 1280, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1280)
+        )
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+        (fc2): Linear(0.41 M, 1.817% Params, 0.106 GFLOPs, 1.966% FLOPs, in_features=1280, out_features=320, bias=True)
+        (drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (relu): ReLU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.006% FLOPs, inplace=True)
+      )
+    )
+    (3): MyBlock(
+      1.349 M, 5.982% Params, 0.283 GFLOPs, 5.259% FLOPs,
+      (norm1): LayerNorm(0.001 M, 0.003% Params, 0.0 GFLOPs, 0.006% FLOPs, (320,), eps=1e-06, elementwise_affine=True)
+      (attn): MyAttention(
+        0.514 M, 2.280% Params, 0.068 GFLOPs, 1.264% FLOPs,
+        (q): Linear(0.103 M, 0.455% Params, 0.026 GFLOPs, 0.492% FLOPs, in_features=320, out_features=320, bias=True)
+        (kv): Linear(0.205 M, 0.911% Params, 0.01 GFLOPs, 0.187% FLOPs, in_features=320, out_features=640, bias=True)
+        (attn_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (proj): Linear(0.103 M, 0.455% Params, 0.026 GFLOPs, 0.492% FLOPs, in_features=320, out_features=320, bias=True)
+        (proj_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (pool): AdaptiveAvgPool2d(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, output_size=7)
+        (sr): Conv2d(0.103 M, 0.455% Params, 0.005 GFLOPs, 0.094% FLOPs, 320, 320, kernel_size=(1, 1), stride=(1, 1))
+        (norm): LayerNorm(0.001 M, 0.003% Params, 0.0 GFLOPs, 0.001% FLOPs, (320,), eps=1e-05, elementwise_affine=True)
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      )
+      (drop_path): Identity(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      (norm2): LayerNorm(0.001 M, 0.003% Params, 0.0 GFLOPs, 0.003% FLOPs, (320,), eps=1e-06, elementwise_affine=True)
+      (mlp): MyMlp(
+        0.834 M, 3.696% Params, 0.214 GFLOPs, 3.985% FLOPs,
+        (fc1): Linear(0.411 M, 1.822% Params, 0.106 GFLOPs, 1.966% FLOPs, in_features=320, out_features=1280, bias=True)
+        (dwconv): MyDWConv(
+          0.013 M, 0.057% Params, 0.003 GFLOPs, 0.047% FLOPs,
+          (dwconv): Conv2d(0.013 M, 0.057% Params, 0.003 GFLOPs, 0.047% FLOPs, 1280, 1280, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1280)
+        )
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+        (fc2): Linear(0.41 M, 1.817% Params, 0.106 GFLOPs, 1.966% FLOPs, in_features=1280, out_features=320, bias=True)
+        (drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (relu): ReLU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.006% FLOPs, inplace=True)
+      )
+    )
+    (4): MyBlock(
+      1.349 M, 5.982% Params, 0.283 GFLOPs, 5.259% FLOPs,
+      (norm1): LayerNorm(0.001 M, 0.003% Params, 0.0 GFLOPs, 0.006% FLOPs, (320,), eps=1e-06, elementwise_affine=True)
+      (attn): MyAttention(
+        0.514 M, 2.280% Params, 0.068 GFLOPs, 1.264% FLOPs,
+        (q): Linear(0.103 M, 0.455% Params, 0.026 GFLOPs, 0.492% FLOPs, in_features=320, out_features=320, bias=True)
+        (kv): Linear(0.205 M, 0.911% Params, 0.01 GFLOPs, 0.187% FLOPs, in_features=320, out_features=640, bias=True)
+        (attn_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (proj): Linear(0.103 M, 0.455% Params, 0.026 GFLOPs, 0.492% FLOPs, in_features=320, out_features=320, bias=True)
+        (proj_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (pool): AdaptiveAvgPool2d(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, output_size=7)
+        (sr): Conv2d(0.103 M, 0.455% Params, 0.005 GFLOPs, 0.094% FLOPs, 320, 320, kernel_size=(1, 1), stride=(1, 1))
+        (norm): LayerNorm(0.001 M, 0.003% Params, 0.0 GFLOPs, 0.001% FLOPs, (320,), eps=1e-05, elementwise_affine=True)
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      )
+      (drop_path): Identity(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      (norm2): LayerNorm(0.001 M, 0.003% Params, 0.0 GFLOPs, 0.003% FLOPs, (320,), eps=1e-06, elementwise_affine=True)
+      (mlp): MyMlp(
+        0.834 M, 3.696% Params, 0.214 GFLOPs, 3.985% FLOPs,
+        (fc1): Linear(0.411 M, 1.822% Params, 0.106 GFLOPs, 1.966% FLOPs, in_features=320, out_features=1280, bias=True)
+        (dwconv): MyDWConv(
+          0.013 M, 0.057% Params, 0.003 GFLOPs, 0.047% FLOPs,
+          (dwconv): Conv2d(0.013 M, 0.057% Params, 0.003 GFLOPs, 0.047% FLOPs, 1280, 1280, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1280)
+        )
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+        (fc2): Linear(0.41 M, 1.817% Params, 0.106 GFLOPs, 1.966% FLOPs, in_features=1280, out_features=320, bias=True)
+        (drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (relu): ReLU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.006% FLOPs, inplace=True)
+      )
+    )
+  )
+  (norm3): LayerNorm(0.001 M, 0.003% Params, 0.0 GFLOPs, 0.003% FLOPs, (320,), eps=1e-06, elementwise_affine=True)
+  (down_layers3): DownLayer(
+    4.913 M, 21.783% Params, 0.632 GFLOPs, 11.754% FLOPs,
+    (block): MyBlock(
+      3.437 M, 15.237% Params, 0.342 GFLOPs, 6.367% FLOPs,
+      (norm1): LayerNorm(0.001 M, 0.005% Params, 0.0 GFLOPs, 0.007% FLOPs, (512,), eps=1e-06, elementwise_affine=True)
+      (attn): MyAttention(
+        1.314 M, 5.827% Params, 0.098 GFLOPs, 1.831% FLOPs,
+        (q): Linear(0.263 M, 1.165% Params, 0.03 GFLOPs, 0.556% FLOPs, in_features=512, out_features=512, bias=True)
+        (kv): Linear(0.525 M, 2.329% Params, 0.026 GFLOPs, 0.478% FLOPs, in_features=512, out_features=1024, bias=True)
+        (attn_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (proj): Linear(0.263 M, 1.165% Params, 0.03 GFLOPs, 0.556% FLOPs, in_features=512, out_features=512, bias=True)
+        (proj_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (pool): AdaptiveAvgPool2d(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, output_size=7)
+        (sr): Conv2d(0.263 M, 1.165% Params, 0.013 GFLOPs, 0.239% FLOPs, 512, 512, kernel_size=(1, 1), stride=(1, 1))
+        (norm): LayerNorm(0.001 M, 0.005% Params, 0.0 GFLOPs, 0.001% FLOPs, (512,), eps=1e-05, elementwise_affine=True)
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      )
+      (drop_path): Identity(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      (norm2): LayerNorm(0.001 M, 0.005% Params, 0.0 GFLOPs, 0.002% FLOPs, (512,), eps=1e-06, elementwise_affine=True)
+      (mlp): MyMlp(
+        2.12 M, 9.400% Params, 0.243 GFLOPs, 4.527% FLOPs,
+        (fc1): Linear(1.051 M, 4.658% Params, 0.12 GFLOPs, 2.224% FLOPs, in_features=512, out_features=2048, bias=True)
+        (dwconv): MyDWConv(
+          0.02 M, 0.091% Params, 0.004 GFLOPs, 0.075% FLOPs,
+          (dwconv): Conv2d(0.02 M, 0.091% Params, 0.004 GFLOPs, 0.075% FLOPs, 2048, 2048, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=2048)
+        )
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+        (fc2): Linear(1.049 M, 4.651% Params, 0.12 GFLOPs, 2.224% FLOPs, in_features=2048, out_features=512, bias=True)
+        (drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (relu): ReLU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.004% FLOPs, inplace=True)
+      )
+    )
+    (conv): Conv2d(1.475 M, 6.540% Params, 0.289 GFLOPs, 5.379% FLOPs, 320, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (norm): LayerNorm(0.001 M, 0.005% Params, 0.0 GFLOPs, 0.005% FLOPs, (512,), eps=1e-05, elementwise_affine=True)
+    (conf): Linear(0.001 M, 0.002% Params, 0.0 GFLOPs, 0.002% FLOPs, in_features=512, out_features=1, bias=True)
+  )
+  (block4): ModuleList(
+    6.873 M, 30.473% Params, 0.678 GFLOPs, 12.617% FLOPs,
+    (0): MyBlock(
+      3.437 M, 15.237% Params, 0.339 GFLOPs, 6.308% FLOPs,
+      (norm1): LayerNorm(0.001 M, 0.005% Params, 0.0 GFLOPs, 0.004% FLOPs, (512,), eps=1e-06, elementwise_affine=True)
+      (attn): MyAttention(
+        1.314 M, 5.827% Params, 0.098 GFLOPs, 1.831% FLOPs,
+        (q): Linear(0.263 M, 1.165% Params, 0.03 GFLOPs, 0.556% FLOPs, in_features=512, out_features=512, bias=True)
+        (kv): Linear(0.525 M, 2.329% Params, 0.026 GFLOPs, 0.478% FLOPs, in_features=512, out_features=1024, bias=True)
+        (attn_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (proj): Linear(0.263 M, 1.165% Params, 0.03 GFLOPs, 0.556% FLOPs, in_features=512, out_features=512, bias=True)
+        (proj_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (pool): AdaptiveAvgPool2d(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, output_size=7)
+        (sr): Conv2d(0.263 M, 1.165% Params, 0.013 GFLOPs, 0.239% FLOPs, 512, 512, kernel_size=(1, 1), stride=(1, 1))
+        (norm): LayerNorm(0.001 M, 0.005% Params, 0.0 GFLOPs, 0.001% FLOPs, (512,), eps=1e-05, elementwise_affine=True)
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      )
+      (drop_path): Identity(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      (norm2): LayerNorm(0.001 M, 0.005% Params, 0.0 GFLOPs, 0.002% FLOPs, (512,), eps=1e-06, elementwise_affine=True)
+      (mlp): MyMlp(
+        2.12 M, 9.400% Params, 0.24 GFLOPs, 4.471% FLOPs,
+        (fc1): Linear(1.051 M, 4.658% Params, 0.12 GFLOPs, 2.224% FLOPs, in_features=512, out_features=2048, bias=True)
+        (dwconv): MyDWConv(
+          0.02 M, 0.091% Params, 0.001 GFLOPs, 0.019% FLOPs,
+          (dwconv): Conv2d(0.02 M, 0.091% Params, 0.001 GFLOPs, 0.019% FLOPs, 2048, 2048, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=2048)
+        )
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+        (fc2): Linear(1.049 M, 4.651% Params, 0.12 GFLOPs, 2.224% FLOPs, in_features=2048, out_features=512, bias=True)
+        (drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (relu): ReLU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.004% FLOPs, inplace=True)
+      )
+    )
+    (1): MyBlock(
+      3.437 M, 15.237% Params, 0.339 GFLOPs, 6.308% FLOPs,
+      (norm1): LayerNorm(0.001 M, 0.005% Params, 0.0 GFLOPs, 0.004% FLOPs, (512,), eps=1e-06, elementwise_affine=True)
+      (attn): MyAttention(
+        1.314 M, 5.827% Params, 0.098 GFLOPs, 1.831% FLOPs,
+        (q): Linear(0.263 M, 1.165% Params, 0.03 GFLOPs, 0.556% FLOPs, in_features=512, out_features=512, bias=True)
+        (kv): Linear(0.525 M, 2.329% Params, 0.026 GFLOPs, 0.478% FLOPs, in_features=512, out_features=1024, bias=True)
+        (attn_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (proj): Linear(0.263 M, 1.165% Params, 0.03 GFLOPs, 0.556% FLOPs, in_features=512, out_features=512, bias=True)
+        (proj_drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (pool): AdaptiveAvgPool2d(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, output_size=7)
+        (sr): Conv2d(0.263 M, 1.165% Params, 0.013 GFLOPs, 0.239% FLOPs, 512, 512, kernel_size=(1, 1), stride=(1, 1))
+        (norm): LayerNorm(0.001 M, 0.005% Params, 0.0 GFLOPs, 0.001% FLOPs, (512,), eps=1e-05, elementwise_affine=True)
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      )
+      (drop_path): Identity(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+      (norm2): LayerNorm(0.001 M, 0.005% Params, 0.0 GFLOPs, 0.002% FLOPs, (512,), eps=1e-06, elementwise_affine=True)
+      (mlp): MyMlp(
+        2.12 M, 9.400% Params, 0.24 GFLOPs, 4.471% FLOPs,
+        (fc1): Linear(1.051 M, 4.658% Params, 0.12 GFLOPs, 2.224% FLOPs, in_features=512, out_features=2048, bias=True)
+        (dwconv): MyDWConv(
+          0.02 M, 0.091% Params, 0.001 GFLOPs, 0.019% FLOPs,
+          (dwconv): Conv2d(0.02 M, 0.091% Params, 0.001 GFLOPs, 0.019% FLOPs, 2048, 2048, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=2048)
+        )
+        (act): GELU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, )
+        (fc2): Linear(1.049 M, 4.651% Params, 0.12 GFLOPs, 2.224% FLOPs, in_features=2048, out_features=512, bias=True)
+        (drop): Dropout(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.000% FLOPs, p=0.0, inplace=False)
+        (relu): ReLU(0.0 M, 0.000% Params, 0.0 GFLOPs, 0.004% FLOPs, inplace=True)
+      )
+    )
+  )
+  (norm4): LayerNorm(0.001 M, 0.005% Params, 0.0 GFLOPs, 0.002% FLOPs, (512,), eps=1e-06, elementwise_affine=True)
+  (head): Linear(0.513 M, 2.274% Params, 0.001 GFLOPs, 0.010% FLOPs, in_features=512, out_features=1000, bias=True)
+)
+257072098.0
+==============================
+Input shape: (3, 224, 224)
+Flops: 5.63 GFLOPs
+Params: 22.55 M
+==============================
