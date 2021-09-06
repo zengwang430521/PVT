@@ -124,7 +124,8 @@ class MyAttention(nn.Module):
 
         if not self.linear:
             if self.sr_ratio > 1:
-                x_source = token2map(x_source, loc_source, [H, W], 1, 1)
+                kernel = self.sr_ratio + 1
+                x_source = token2map(x_source, loc_source, [H, W], kernel_size=kernel, sigma=2)
                 x_source = self.sr(x_source).reshape(B, C, -1).permute(0, 2, 1)
                 x_source = self.norm(x_source)
                 if conf_source is not None:
@@ -261,6 +262,7 @@ class DownLayer(nn.Module):
         x_down = torch.cat([x_grid, x_down], 1)
         pos_down = torch.cat([pos_grid, pos_down], 1)
 
+        H, W = H // 2, W // 2
         x_down = self.block(x_down, x, pos_down, pos, H, W, conf)
         return x_down, pos_down
 
@@ -385,8 +387,6 @@ class MyPVT(nn.Module):
             outs = []
             img = x
 
-        B = x.shape[0]
-
         # stage 1
         i = 0
         patch_embed = getattr(self, f"patch_embed{i + 1}")
@@ -423,7 +423,7 @@ class MyPVT(nn.Module):
 def mypvt3_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], linear=True,  **kwargs)
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],  **kwargs)
     model.default_cfg = _cfg()
 
     return model
@@ -432,7 +432,7 @@ def mypvt3_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt20_3_small(drop_path_rate=0.).to(device)
+    model = mypvt3_small(drop_path_rate=0.).to(device)
     model.reset_drop_path(0.)
     # pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
     # model.load_state_dict(pre_dict)
