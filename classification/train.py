@@ -27,6 +27,7 @@ import pvt_v2
 import pvt_v2_20_2
 import pvt_v2_20_2g
 import pvt_v2_3
+import pvt_v2_4
 
 import utils
 import collections
