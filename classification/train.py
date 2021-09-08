@@ -326,7 +326,8 @@ def main(args):
         loss_scaler._scaler = torch.cuda.amp.GradScaler(enabled=not args.fp32_resume)
 
         if args.distributed:
-            data_loader_train.sampler.set_epoch(epoch)
+            # data_loader_train.sampler.set_epoch(epoch)
+            sampler_train.set_epoch(epoch)
 
         train_stats = train_one_epoch(
             model, criterion, data_loader_train,
