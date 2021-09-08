@@ -431,19 +431,23 @@ class MyPVT(nn.Module):
 
         ##############
         # resample
-        conf = self.conf(x)
-        conf_hr = conf.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-        conf_hr = F.interpolate(conf_hr, scale_factor=2)
-        conf_hr = conf_hr.reshape(B, 1, -1).permute(0, 2, 1)
-        conf_hr, loc_hr, N_grid = get_loc(conf_hr, H * 2, W * 2, self.grid_stride * 2)
+        # conf = self.conf(x)
+        # conf_hr = conf.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+        # conf_hr = F.interpolate(conf_hr, scale_factor=2)
+        # conf_hr = conf_hr.reshape(B, 1, -1).permute(0, 2, 1)
+        # conf_hr, loc_hr, N_grid = get_loc(conf_hr, H * 2, W * 2, self.grid_stride * 2)
+        #
+        # sample_num = x.shape[1] - N_grid
+        # conf_ada = conf_hr[:, N_grid:]
+        # loc_grid = loc_hr[:, :N_grid]
+        # loc_ada = loc_hr[:, N_grid:]
+        # index_re = gumble_top_k(conf_ada, sample_num, 1, T=1)
+        # loc_re = torch.gather(loc_ada, 1, index_re.expand([B, sample_num, 2]))
+        # loc_re = torch.cat([loc_grid, loc_re], 1)
+        # x_re = map2token(x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous(), loc_re)
 
-        sample_num = x.shape[1] - N_grid
-        conf_ada = conf_hr[:, N_grid:]
-        loc_grid = loc_hr[:, :N_grid]
-        loc_ada = loc_hr[:, N_grid:]
-        index_re = gumble_top_k(conf_ada, sample_num, 1, T=1)
-        loc_re = torch.gather(loc_ada, 1, index_re.expand([B, sample_num, 2]))
-        loc_re = torch.cat([loc_grid, loc_re], 1)
+        conf = self.conf(x)
+        _, loc_re, N_grid = get_loc(conf, H, W, self.grid_stride)
         x_re = map2token(x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous(), loc_re)
 
         x_hr, H_hr, W_hr = self.re_patch_embed(img)
