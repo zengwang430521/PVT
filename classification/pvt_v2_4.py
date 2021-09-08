@@ -438,7 +438,7 @@ class MyPVT(nn.Module):
         conf_hr, loc_hr, N_grid = get_loc(conf_hr, H * 2, W * 2, self.grid_stride * 2)
 
         sample_num = x.shape[1] - N_grid
-        conf_ada = conf[:, N_grid:]
+        conf_ada = conf_hr[:, N_grid:]
         loc_grid = loc_hr[:, :N_grid]
         loc_ada = loc_hr[:, N_grid:]
         index_re = gumble_top_k(conf_ada, sample_num, 1, T=1)
@@ -478,6 +478,7 @@ class MyPVT(nn.Module):
         x = self.head(x)
 
         return x
+
 
 
 @register_model
