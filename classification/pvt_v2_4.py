@@ -490,6 +490,223 @@ class MyPVT(nn.Module):
         return x
 
 
+'''only conf and block'''
+class MyPVTa(nn.Module):
+    def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
+                 num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
+                 attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
+                 depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], num_stages=4, linear=False):
+        super().__init__()
+        self.num_classes = num_classes
+        self.depths = depths
+        self.num_stages = num_stages
+        self.grid_stride = sr_ratios[0]
+        img_size = img_size // 2
+
+        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
+        cur = 0
+        for i in range(1):
+            patch_embed = OverlapPatchEmbed(img_size=img_size if i == 0 else img_size // (2 ** (i + 1)),
+                                            patch_size=7 if i == 0 else 3,
+                                            stride=4 if i == 0 else 2,
+                                            in_chans=in_chans if i == 0 else embed_dims[i - 1],
+                                            embed_dim=embed_dims[i])
+
+            block = nn.ModuleList([Block(
+                dim=embed_dims[i], num_heads=num_heads[i], mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
+                drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + j], norm_layer=norm_layer,
+                sr_ratio=sr_ratios[i], linear=linear)
+                for j in range(depths[i] - 1)])
+            norm = norm_layer(embed_dims[i])
+            cur += depths[i]
+
+            setattr(self, f"patch_embed{i + 1}", patch_embed)
+            setattr(self, f"block{i + 1}", block)
+            setattr(self, f"norm{i + 1}", norm)
+
+        ##########
+        # for resample process in stage 1
+        i = 0
+        self.conf = torch.nn.Sequential(
+            nn.LayerNorm(embed_dims[0]),
+            nn.Linear(embed_dims[0], 1)
+        )
+        # self.re_patch_embed = OverlapPatchEmbed(img_size=img_size * 2,
+        #                                       patch_size=7,
+        #                                       stride=4,
+        #                                       in_chans=in_chans,
+        #                                       embed_dim=embed_dims[0])
+        #
+        # self.re_layer = Mlp_old(in_features=embed_dims[0]*2, out_features=embed_dims[0])
+
+        self.re_block = MyBlock(dim=embed_dims[i], num_heads=num_heads[i],
+                                mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
+                                drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
+                                norm_layer=norm_layer, sr_ratio=sr_ratios[i], linear=linear)
+
+        ##########
+
+        for i in range(1, num_stages):
+            down_layers = DownLayer(sample_ratio=0.25, embed_dim=embed_dims[i-1], dim_out=embed_dims[i],
+                                          drop_rate=drop_rate,
+                                          down_block=MyBlock(
+                                              dim=embed_dims[i], num_heads=num_heads[i],
+                                              mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
+                                              drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
+                                              norm_layer=norm_layer, sr_ratio=sr_ratios[i], linear=linear)
+                                    )
+            block = nn.ModuleList([MyBlock(
+                dim=embed_dims[i], num_heads=num_heads[i], mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
+                drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + j], norm_layer=norm_layer,
+                sr_ratio=sr_ratios[i], linear=linear)
+                for j in range(1, depths[i])])
+            norm = norm_layer(embed_dims[i])
+            cur += depths[i]
+
+            setattr(self, f"down_layers{i}", down_layers)
+            setattr(self, f"block{i + 1}", block)
+            setattr(self, f"norm{i + 1}", norm)
+
+        # classification head
+        self.head = nn.Linear(embed_dims[3], num_classes) if num_classes > 0 else nn.Identity()
+
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+        elif isinstance(m, nn.Conv2d):
+            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            fan_out //= m.groups
+            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
+            if m.bias is not None:
+                m.bias.data.zero_()
+
+    def reset_drop_path(self, drop_path_rate):
+        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(self.depths))]
+        cur = 0
+        for i in range(self.depths[0] - 1):
+            self.block1[i].drop_path.drop_prob = dpr[cur + i]
+            # print(dpr[cur + i])
+        self.re_block.drop_path.drop_prob = dpr[cur + self.depths[0] - 1]
+
+        cur += self.depths[0]
+        self.down_layers1.block.drop_path.drop_prob = dpr[cur]
+        cur += 1
+        for i in range(self.depths[1] - 1):
+            self.block2[i].drop_path.drop_prob = dpr[cur + i]
+            # print(dpr[cur + i])
+
+        cur += self.depths[1] - 1
+        self.down_layers2.block.drop_path.drop_prob = dpr[cur]
+        cur += 1
+        for i in range(self.depths[2] - 1):
+            self.block3[i].drop_path.drop_prob = dpr[cur + i]
+            # print(dpr[cur + i])
+
+        cur += self.depths[2] - 1
+        self.down_layers3.block.drop_path.drop_prob = dpr[cur]
+        cur += 1
+        for i in range(self.depths[3] - 1):
+            self.block4[i].drop_path.drop_prob = dpr[cur + i]
+            # print(dpr[cur + i])
+
+    def freeze_patch_emb(self):
+        self.patch_embed1.requires_grad = False
+
+    @torch.jit.ignore
+    def no_weight_decay(self):
+        return {'pos_embed1', 'pos_embed2', 'pos_embed3', 'pos_embed4', 'cls_token'}  # has pos_embed may be better
+
+    def get_classifier(self):
+        return self.head
+
+    def reset_classifier(self, num_classes, global_pool=''):
+        self.num_classes = num_classes
+        self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
+
+    def forward_features(self, x):
+        if vis:
+            outs = []
+
+        img = x
+        B = x.shape[0]
+        x = F.avg_pool2d(x, 2)
+        # stage 1
+        i = 0
+        patch_embed = getattr(self, f"patch_embed{i + 1}")
+        block = getattr(self, f"block{i + 1}")
+        norm = getattr(self, f"norm{i + 1}")
+        x, H, W = patch_embed(x)    # 28 * 28
+
+        for blk in block:
+            x = blk(x, H, W)
+
+        ##############
+        # resample
+        # conf = self.conf(x)
+        # conf_hr = conf.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+        # conf_hr = F.interpolate(conf_hr, scale_factor=2)
+        # conf_hr = conf_hr.flatten(2).transpose(1, 2)
+        # conf_hr, loc_hr, N_grid = get_loc(conf_hr, H * 2, W * 2, self.grid_stride * 2)
+        #
+        # sample_num = x.shape[1] - N_grid
+        # loc_grid = loc_hr[:, :N_grid]
+        # conf_ada = conf_hr[:, N_grid:]
+        # loc_ada = loc_hr[:, N_grid:]
+        # index_re = gumble_top_k(conf_ada, sample_num, 1, T=1)
+        # loc_re = torch.gather(loc_ada, 1, index_re.expand([B, sample_num, 2]))
+        # loc_re = torch.cat([loc_grid, loc_re], 1)
+        # x_re = map2token(x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous(), loc_re)
+
+        conf = self.conf(x)
+        _, loc_re, N_grid = get_loc(conf, H, W, self.grid_stride)
+        x_re = map2token(x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous(), loc_re)
+
+        # tmp, loc, N_grid = get_loc(torch.cat([x, conf], dim=-1), H, W, self.grid_stride)
+        # x = tmp[:, :, :-1]
+        # err = x_re - x
+        # err = err.abs().max()
+
+        # x_hr, H_hr, W_hr = self.re_patch_embed(img)
+        # x_hr = map2token(x_hr.reshape(B, H_hr, W_hr, -1).permute(0, 3, 1, 2).contiguous(), loc_re)
+        # x_re = x_re + self.re_layer(torch.cat([x_re, x_hr], dim=-1))
+
+        tmp, loc, N_grid = get_loc(torch.cat([x, conf], dim=-1), H, W, self.grid_stride)
+        x = tmp[:, :, :-1]
+        conf = tmp[:, :, -1:]
+
+        x = self.re_block(x_re, x, loc_re, loc, H, W, conf)
+        ###############
+
+        x = norm(x)
+        # x, loc, N_grid = get_loc(x, H, W, self.grid_stride)
+        if vis: outs.append((x, loc, [H, W]))
+
+        for i in range(1, self.num_stages):
+            down_layers = getattr(self, f"down_layers{i}")
+            block = getattr(self, f"block{i + 1}")
+            norm = getattr(self, f"norm{i + 1}")
+            x, loc = down_layers(x, loc, H, W, N_grid)  # down sample
+            H, W = H // 2, W // 2
+            for blk in block:
+                x = blk(x, x, loc, loc, H, W)
+            x = norm(x)
+            if vis: outs.append((x, loc, [H, W]))
+
+        return x.mean(dim=1)
+
+    def forward(self, x):
+        x = self.forward_features(x)
+        x = self.head(x)
+
+        return x
+
 
 @register_model
 def mypvt4_small(pretrained=False, **kwargs):
@@ -500,6 +717,14 @@ def mypvt4_small(pretrained=False, **kwargs):
 
     return model
 
+@register_model
+def mypvt4a_small(pretrained=False, **kwargs):
+    model = MyPVTa(
+        patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],  **kwargs)
+    model.default_cfg = _cfg()
+
+    return model
 
 # For test
 if __name__ == '__main__':
