@@ -272,7 +272,7 @@ class DownLayer(nn.Module):
         return x_down, pos_down
 
 
-
+from pvt import Mlp as Mlp_old
 class MyPVT(nn.Module):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
@@ -319,7 +319,7 @@ class MyPVT(nn.Module):
                                               in_chans=in_chans,
                                               embed_dim=embed_dims[0])
 
-        self.re_layer = nn.Linear(embed_dims[0]*2, embed_dims[0])
+        self.re_layer = Mlp_old(in_features=embed_dims[0]*2, out_features=embed_dims[0])
 
         self.re_block = MyBlock(dim=embed_dims[i], num_heads=num_heads[i],
                                 mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
@@ -434,12 +434,12 @@ class MyPVT(nn.Module):
         # conf = self.conf(x)
         # conf_hr = conf.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         # conf_hr = F.interpolate(conf_hr, scale_factor=2)
-        # conf_hr = conf_hr.reshape(B, 1, -1).permute(0, 2, 1)
+        # conf_hr = conf_hr.flatten(2).transpose(1, 2)
         # conf_hr, loc_hr, N_grid = get_loc(conf_hr, H * 2, W * 2, self.grid_stride * 2)
         #
         # sample_num = x.shape[1] - N_grid
-        # conf_ada = conf_hr[:, N_grid:]
         # loc_grid = loc_hr[:, :N_grid]
+        # conf_ada = conf_hr[:, N_grid:]
         # loc_ada = loc_hr[:, N_grid:]
         # index_re = gumble_top_k(conf_ada, sample_num, 1, T=1)
         # loc_re = torch.gather(loc_ada, 1, index_re.expand([B, sample_num, 2]))
@@ -450,13 +450,19 @@ class MyPVT(nn.Module):
         _, loc_re, N_grid = get_loc(conf, H, W, self.grid_stride)
         x_re = map2token(x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous(), loc_re)
 
+        # tmp, loc, N_grid = get_loc(torch.cat([x, conf], dim=-1), H, W, self.grid_stride)
+        # x = tmp[:, :, :-1]
+        # err = x_re - x
+        # err = err.abs().max()
+
         x_hr, H_hr, W_hr = self.re_patch_embed(img)
         x_hr = map2token(x_hr.reshape(B, H_hr, W_hr, -1).permute(0, 3, 1, 2).contiguous(), loc_re)
-        x_re = self.re_layer(torch.cat([x_re, x_hr], dim=-1))
+        x_re = x_re + self.re_layer(torch.cat([x_re, x_hr], dim=-1))
 
         tmp, loc, N_grid = get_loc(torch.cat([x, conf], dim=-1), H, W, self.grid_stride)
         x = tmp[:, :, :-1]
         conf = tmp[:, :, -1:]
+
         x = self.re_block(x_re, x, loc_re, loc, H, W, conf)
         ###############
 
@@ -502,7 +508,7 @@ if __name__ == '__main__':
     model.reset_drop_path(0.)
     # pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
     # model.load_state_dict(pre_dict)
-    x = torch.zeros([1, 3, 448, 448]).to(device)
+    x = torch.rand([1, 3, 224, 224]).to(device)
     x = F.avg_pool2d(x, kernel_size=2)
     tmp = model.forward(x)
     print('Finish')
