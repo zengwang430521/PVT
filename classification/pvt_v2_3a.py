@@ -255,7 +255,7 @@ class DownLayer(nn.Module):
         T = self.T
         self.T = (self.T * self.T_decay).clamp(self.T_min, 1.0)
 
-        _, index_down = torch.topk(conf_ada, self.sample_num, 1)
+        _, index_down = torch.topk(conf_ada, sample_num, 1)
         # index_down = gumble_top_k(conf_ada, sample_num, 1, T=T)
 
         # conf = F.softmax(conf, dim=1) * N
@@ -438,7 +438,7 @@ def mypvt3a_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt3_small(drop_path_rate=0.).to(device)
+    model = mypvt3a_small(drop_path_rate=0.).to(device)
     model.reset_drop_path(0.)
     # pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
     # model.load_state_dict(pre_dict)
