@@ -490,6 +490,7 @@ class MyPVT(nn.Module):
         return x
 
 
+
 '''only conf and block'''
 class MyPVTa(nn.Module):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
@@ -716,6 +717,7 @@ def mypvt4_small(pretrained=False, **kwargs):
     model.default_cfg = _cfg()
 
     return model
+
 
 @register_model
 def mypvt4a_small(pretrained=False, **kwargs):
