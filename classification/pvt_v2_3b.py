@@ -222,7 +222,7 @@ class DownLayer(nn.Module):
         self.T_decay = 0.9998
         self.conv = nn.Conv2d(embed_dim, dim_out, kernel_size=3, stride=2, padding=1)
         # self.conv = PartialConv2d(embed_dim, self.block.dim_out, kernel_size=3, stride=1, padding=1)
-        self.norm = nn.LayerNorm(self.dim_out)
+        # self.norm = nn.LayerNorm(self.dim_out)
         # self.conf = nn.Linear(self.dim_out, 1)
 
     def forward(self, x, pos, H, W, N_grid):
@@ -235,6 +235,7 @@ class DownLayer(nn.Module):
         H, W = H // 2,  W // 2
         x = map2token(x, pos)
         B, N, C = x.shape
+        # x = self.norm(x)
 
         # sample_num = max(math.ceil(N * self.sample_ratio) - N_grid, 0)
         # sample_num = max(math.ceil(N * self.sample_ratio), 0)

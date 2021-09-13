@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-
-python -m torch.distributed.launch --nproc_per_node=8 --master_port=6333 \
-    --use_env train.py --config configs/pvt_v2/debug.py \
+export NCCL_LL_THRESHOLD=0
+python -m torch.distributed.launch --nproc_per_node=8 --master_port=6333 --use_env \
+    train.py --config configs/pvt_v2/debug.py \
     --model=mypvt3b_small --output_dir=work_dirs/my3b_LR \
     --batch-size 128 --data-path data/imagenet --input-size 112
 
