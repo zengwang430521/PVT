@@ -232,3 +232,91 @@ def show_conf(conf, loc):
         ax = plt.subplot(1, 6, lv)
         ax.clear()
         ax.imshow(conf_map[0, 0].detach().cpu())
+
+
+def token2critcal(x, loc, loc_critical, return_mask=False):
+    B, N, C = x.shape
+    k = loc_critical.shape[1]
+    dists = square_distance(loc, loc_critical)
+    idx = dists.argmin(dim=-1)
+
+    idx = idx + torch.arange(B)[:, None].to(loc.device) * k
+    out = x.new_zeros(B * k, C + 1)
+
+    out.index_add_(dim=0, index=idx.reshape(B * N),
+                   source=torch.cat([x, x.new_ones(B, N, 1)], dim=-1).reshape(B * N, C + 1))
+    out = out.reshape(B, k, C + 1)
+    feature = out[:, :, :C]
+    mask = out[:, :, C:]
+    feature = feature / (mask + 1e-6)
+    mask = (mask > 0).float()
+    feature = feature * mask
+
+    if return_mask:
+        return feature, mask
+    return feature
+
+
+def square_distance(src, dst):
+    """
+    Calculate Euclid distance between each two points.
+    Input:
+        src: source points, [B, N, C]
+        dst: target points, [B, M, C]
+    Output:
+        dist: per-point square distance, [B, N, M]
+    """
+    dist = src.unsqueeze(2) - dst.unsqueeze(1)
+    dist = (dist**2).sum(dim=-1)
+    return dist
+
+
+def index_points(points, idx):
+    """
+
+    Input:
+        points: input points data, [B, N, C]
+        idx: sample index data, [B, S]
+    Return:
+        new_points:, indexed points data, [B, S, C]
+    """
+    device = points.device
+    B = points.shape[0]
+    view_shape = list(idx.shape)
+    view_shape[1:] = [1] * (len(view_shape) - 1)
+    repeat_shape = list(idx.shape)
+    repeat_shape[0] = 1
+    batch_indices = torch.arange(B, dtype=torch.long).to(device).view(view_shape).repeat(repeat_shape)
+    new_points = points[batch_indices, idx, :]
+    return new_points
+
+
+def inter_points(x_src, loc_src, loc_tar):
+    B, N, _ = loc_tar.shape
+
+    dists = square_distance(loc_tar, loc_src)
+    dists, idx = dists.sort(dim=-1)
+    dists, idx = dists[:, :, :3], idx[:, :, :3]     # [B, N, 3]
+
+    dist_recip = 1.0 / (dists + 1e-6)
+
+    one_mask = dists == 0
+    zero_mask = one_mask.sum(dim=-1) > 0
+    dist_recip[zero_mask, :] = 0
+    dist_recip[one_mask] = 1
+    # t = one_mask.max()
+
+    norm = torch.sum(dist_recip, dim=2, keepdim=True)
+    weight = dist_recip / norm
+
+    x_tar = torch.sum(index_points(x_src, idx) * weight.view(B, N, 3, 1), dim=2)
+    return x_tar
+
+
+def get_critical_idx(x, k=49):
+    # x： [B, N, C]
+    value, idx = x.max(dim=1)
+    tmp = (x >= value[:, None, :]) * x
+    tmp, _ = tmp.max(dim=-1)
+    _, idx = torch.topk(tmp, k, -1)
+    return idx
