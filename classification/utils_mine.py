@@ -172,7 +172,7 @@ def token2map_partical(x, loc, map_size, conf=None, method=0):
         feature = feature / (weight + 1e-6)
         mask = (weight > 0).float()
     else:
-        conf = conf - conf.max(dim=1)
+        conf = conf - conf.max(dim=1, keepdim=True)[0]
         if method == 0:
             # 1 as weight, mean feature, mean conf as mask
             out = x.new_zeros(B * H * W, C + 2)
