@@ -151,6 +151,62 @@ def reconstruct_feature(feature, mask, kernel_size, sigma):
     return out
 
 
+def token2map_partical(x, loc, map_size, conf=None, method=0):
+    H, W = map_size
+    B, N, C = x.shape
+    loc = loc.clamp(-1, 1)
+    loc = 0.5 * (loc + 1) * torch.FloatTensor([W, H]).to(loc.device)[None, None, :] - 0.5
+    loc = loc.round().long()
+    loc[..., 0] = loc[..., 0].clamp(0, W-1)
+    loc[..., 1] = loc[..., 1].clamp(0, H-1)
+    idx = loc[..., 0] + loc[..., 1] * W
+    idx = idx + torch.arange(B)[:, None].to(loc.device) * H * W
+    if conf is None:
+        out = x.new_zeros(B * H * W, C + 1)
+        weight = x.new_ones(B, N, 1)
+        tmp = torch.cat([x, weight], dim=-1)
+        out.index_add_(dim=0, index=idx.reshape(B*N), source=tmp.reshape(B*N, C+1))
+        out = out.reshape(B, H, W, C + 1).permute(0, 3, 1, 2).contiguous()
+        feature = out[:, :C, :, :]
+        weight = out[:, C:, :, :]
+        feature = feature / (weight + 1e-6)
+        mask = (weight > 0).float()
+    else:
+        if method == 0:
+            # 1 as weight, mean feature, mean conf as mask
+            out = x.new_zeros(B * H * W, C + 2)
+            conf = conf.exp()
+            weight = x.new_ones(B, N, 1)
+            tmp = torch.cat([x, conf], dim=-1)
+            tmp = tmp * weight
+            tmp = torch.cat([tmp, weight], dim=-1)
+            out.index_add_(dim=0, index=idx.reshape(B * N), source=tmp.reshape(B * N, C + 2))
+            out = out.reshape(B, H, W, C + 2).permute(0, 3, 1, 2).contiguous()
+
+            feature = out[:, :C, :, :]
+            conf = out[:, C:C+1, :, :]
+            weight = out[:, C+1:, :, :]
+            feature = feature / (weight + 1e-6)
+            mask = conf / (weight + 1e-6)
+        elif method == 1:
+            # conf as weight, weighted mean feature, weighted mean conf as mask
+            out = x.new_zeros(B * H * W, C + 2)
+            conf = conf.exp()
+            weight = conf
+            tmp = torch.cat([x, conf], dim=-1)
+            tmp = tmp * weight
+            tmp = torch.cat([tmp, weight], dim=-1)
+            out.index_add_(dim=0, index=idx.reshape(B * N), source=tmp.reshape(B * N, C + 2))
+            out = out.reshape(B, H, W, C + 2).permute(0, 3, 1, 2).contiguous()
+
+            feature = out[:, :C, :, :]
+            conf = out[:, C:C+1, :, :]
+            weight = out[:, C+1:, :, :]
+            feature = feature / (weight + 1e-6)
+            mask = conf / (weight + 1e-6)
+    return feature, mask
+
+
 def token2map(x, loc, map_size, kernel_size, sigma, return_mask=False):
     H, W = map_size
     B, N, C = x.shape
