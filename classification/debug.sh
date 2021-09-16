@@ -22,6 +22,10 @@ srun -p pat_earth \
     --job-name=pvt --ntasks=8 \
     --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
+    --model=mypvt3e_small --output_dir=work_dirs/my3e_LR \
+    --batch-size 128 --data-path data/imagenet --input-size 112 --use-mcloader
+
+    python -u train.py --config configs/pvt_v2/debug.py \
     --model=mypvt3c3_small --output_dir=work_dirs/my3c3_LR \
     --batch-size 128 --data-path data/imagenet --input-size 112 --use-mcloader
 
