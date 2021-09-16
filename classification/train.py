@@ -30,6 +30,7 @@ import pvt_v2_3
 import pvt_v2_3a
 import pvt_v2_3b, pvt_v2_3b2, pvt_v2_3b3
 import pvt_v2_3c, pvt_v2_3c2, pvt_v2_3c3
+import pvt_v2_3d
 import pvt_v2_4
 
 import utils
