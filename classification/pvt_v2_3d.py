@@ -9,13 +9,37 @@ from pvt_v2 import (Block, DropPath, DWConv, OverlapPatchEmbed,
 from utils_mine import (
     get_grid_loc, get_loc, extract_local_feature, extract_neighbor_feature,
     gumble_top_k, guassian_filt, reconstruct_feature, token2map, map2token,
-    show_tokens, show_conf
+    show_tokens, show_conf, token2map_partical
 )
 
 vis = False
 
 
-'''use top-k rather than gumble top-k'''
+''' the same as v2_3, but use partical conv to replace DWCONV'''
+from partialconv2d import PartialConv2d
+class MyTokenConv(nn.Module):
+    def __init__(self, in_channels, out_channels=None, kernel_size=3, stride=1, padding=1, bias=True, groups=1):
+        super().__init__()
+        out_channels = in_channels if out_channels is None else out_channels
+        self.conv = PartialConv2d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            bias=bias,
+            groups=groups,
+            return_mask=True
+        )
+
+    def forward(self, x, loc, H, W, conf=None, return_token=True):
+        x, mask = token2map_partical(x, loc, [H, W], conf=conf, method=0)
+        x, mask = self.conv(x, mask)
+        if return_token:
+            x = map2token(x, loc)
+            return x
+        else:
+            return x, mask
 
 
 class MyMlp(nn.Module):
@@ -60,19 +84,26 @@ class MyMlp(nn.Module):
         return x
 
 
-class MyDWConv(nn.Module):
-    def __init__(self, dim=768):
-        super().__init__()
-        self.dwconv = nn.Conv2d(dim, dim, 3, 1, 1, bias=True, groups=dim)
+# class MyDWConv(nn.Module):
+#     def __init__(self, dim=768):
+#         super().__init__()
+#         self.dwconv = nn.Conv2d(dim, dim, 3, 1, 1, bias=True, groups=dim)
+#
+#     def forward(self, x, loc, H, W, kernel_size, sigma):
+#         B, N, C = x.shape
+#         x = token2map(x, loc, [H, W], kernel_size=kernel_size, sigma=sigma)
+#         # x = x.transpose(1, 2).view(B, C, H, W)
+#         x = self.dwconv(x)
+#         # x = x.flatten(2).transpose(1, 2)
+#         x = map2token(x, loc)
+#         return x
 
+
+class MyDWConv(MyTokenConv):
+    def __init__(self, dim=768):
+        super().__init__(in_channels=dim, bias=True, groups=dim)
     def forward(self, x, loc, H, W, kernel_size, sigma):
-        B, N, C = x.shape
-        x = token2map(x, loc, [H, W], kernel_size=kernel_size, sigma=sigma)
-        # x = x.transpose(1, 2).view(B, C, H, W)
-        x = self.dwconv(x)
-        # x = x.flatten(2).transpose(1, 2)
-        x = map2token(x, loc)
-        return x
+        return  super().forward(x, loc, H, W)
 
 
 class MyAttention(nn.Module):
@@ -201,7 +232,7 @@ class MyBlock(nn.Module):
         return x
 
 
-'''use top-k rather than gumble top-k'''
+
 # from partialconv2d import PartialConv2d
 class DownLayer(nn.Module):
     """ Down sample
@@ -256,8 +287,8 @@ class DownLayer(nn.Module):
         T = self.T
         self.T = (self.T * self.T_decay).clamp(self.T_min, 1.0)
 
-        _, index_down = torch.topk(conf_ada, sample_num, 1)
-        # index_down = gumble_top_k(conf_ada, sample_num, 1, T=T)
+        # _, index_down = torch.topk(conf_ada, self.sample_num, 1)
+        index_down = gumble_top_k(conf_ada, sample_num, 1, T=T)
 
         # conf = F.softmax(conf, dim=1) * N
         # conf = F.sigmoid(conf)
@@ -427,7 +458,7 @@ class MyPVT(nn.Module):
 
 
 @register_model
-def mypvt3a_small(pretrained=False, **kwargs):
+def mypvt3d_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],  **kwargs)
@@ -439,7 +470,7 @@ def mypvt3a_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt3a_small(drop_path_rate=0.).to(device)
+    model = mypvt3d_small(drop_path_rate=0.).to(device)
     model.reset_drop_path(0.)
     # pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
     # model.load_state_dict(pre_dict)
