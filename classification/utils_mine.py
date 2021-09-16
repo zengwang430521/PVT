@@ -108,11 +108,7 @@ def guassian_filt(x, kernel_size=3, sigma=2):
     # Calculate the 2-dimensional gaussian kernel which is
     # the product of two gaussian distributions for two different
     # variables (in this case called x and y)
-    gaussian_kernel = (1. / (2. * math.pi * variance)) * \
-                      torch.exp(
-                          -torch.sum((xy_grid - mean) ** 2., dim=-1) / \
-                          (2 * variance)
-                      )
+    gaussian_kernel = (1. / (2. * math.pi * variance)) * torch.exp(-torch.sum((xy_grid - mean) ** 2., dim=-1) / (2 * variance))
 
     # Make sure sum of values in gaussian kernel equals 1.
     gaussian_kernel = gaussian_kernel / torch.sum(gaussian_kernel)
@@ -377,3 +373,82 @@ def get_critical_idx(x, k=49):
     tmp, _ = tmp.max(dim=-1)
     _, idx = torch.topk(tmp, k, -1)
     return idx
+
+
+def get_gaussian_kernel(kernel_size, sigma, device):
+    x_coord = torch.arange(kernel_size, device=device)
+    x_grid = x_coord.repeat(kernel_size).view(kernel_size, kernel_size).contiguous()
+    y_grid = x_grid.t()
+    xy_grid = torch.stack([x_grid, y_grid], dim=-1).float()
+
+    mean = (kernel_size - 1) / 2.
+    variance = sigma ** 2
+    gaussian_kernel = (1. / (2. * math.pi * variance)) * torch.exp(-torch.sum((xy_grid - mean) ** 2., dim=-1) / (2 * variance))
+
+    # Make sure sum of values in gaussian kernel equals 1.
+    gaussian_kernel = gaussian_kernel / torch.sum(gaussian_kernel)
+    gaussian_kernel = gaussian_kernel.view(1, 1, kernel_size, kernel_size).contiguous()
+    return gaussian_kernel
+
+
+def get_sample_grid(conf_map):
+    B, _, H, W = conf_map.shape
+    max_size = max(H, W)
+    device = conf_map.device
+    dtype = conf_map.dtype
+
+    conf_map = F.softmax(conf_map.reshape(B, 1, -1), dim=-1).reshape(B, 1, H, W)
+
+    kernel_size = 2 * max_size - 1
+    pad_size = max_size - 1
+
+    kernel_gaussian = get_gaussian_kernel(kernel_size, sigma=3, device=device)
+
+    h, w = kernel_size, kernel_size
+    x = torch.arange(w, device=device, dtype=dtype)
+    x = (x - 0.5 * (w-1)) * 2 / W
+    y = torch.arange(h, device=device, dtype=dtype)
+    y = (y - 0.5 * (h-1)) * 2 / H
+    y, x = torch.meshgrid(y, x)
+    kernel_delta = torch.stack([x, y], dim=-1)
+    kernel_delta = kernel_delta.permute(2, 0, 1).unsqueeze(1)
+
+    kernel = torch.cat([kernel_gaussian * kernel_delta, kernel_gaussian], dim=0)
+
+    conf_map = F.pad(conf_map, (pad_size, pad_size, pad_size, pad_size), mode='replicate')
+    tmp = F.conv2d(conf_map, kernel, stride=1, padding=0)
+    loc_delta, norm_weight = tmp[:, :2], tmp[:, 2:]
+    loc_delta = loc_delta / (norm_weight + 1e-8)
+
+    y_g, x_g = torch.arange(H, device=device).float(), torch.arange(W, device=device).float()
+    y_g = 2 * ((y_g + 0.5) / H) - 1
+    x_g = 2 * ((x_g + 0.5) / W) - 1
+    y_map, x_map = torch.meshgrid(y_g, x_g)
+    loc = torch.stack((x_map, y_map), dim=-1)
+    loc = loc.permute(2, 0, 1)[None, ...]
+
+    loc = loc + loc_delta
+    loc = loc.clamp(-1, 1)
+    return loc
+
+
+# '''for debug'''
+#
+# conf_map = torch.zeros(2, 1, 28, 28)
+# conf_map[0, 0, 7, 7] = 3
+# conf_map[0, 0, 3, 10] = 3
+# conf_map[1, 0, 1, 10] = 3
+#
+# loc = get_sample_grid(conf_map)
+# loc = loc.reshape(2, 2, -1).permute(0, 2,  1)
+#
+#
+# ax = plt.subplot(1, 2, 1)
+# ax.imshow(conf_map[0, 0].detach().cpu(), extent=[-1, 1, 1, -1])
+# ax.scatter(loc[0, :, 0], loc[0, :, 1], c='red', s=0.5)
+#
+# ax = plt.subplot(1, 2, 2)
+# ax.imshow(conf_map[1, 0].detach().cpu(), extent=[-1, 1, 1, -1])
+# ax.scatter(loc[1, :, 0], loc[1, :, 1], c='red', s=0.5)
+#
+# t = 0

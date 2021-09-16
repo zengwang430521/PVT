@@ -33,6 +33,7 @@ import pvt_v2_3c, pvt_v2_3c2, pvt_v2_3c3
 import pvt_v2_3d
 import pvt_v2_3e
 import pvt_v2_4
+import pvt_v2_5
 
 import utils
 import collections
