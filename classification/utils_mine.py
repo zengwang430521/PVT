@@ -397,7 +397,8 @@ def get_sample_grid(conf_map):
     device = conf_map.device
     dtype = conf_map.dtype
 
-    conf_map = F.softmax(conf_map.reshape(B, 1, -1), dim=-1).reshape(B, 1, H, W)
+    # conf_map = F.softmax(conf_map.reshape(B, 1, -1), dim=-1).reshape(B, 1, H, W)
+    conf_map = conf_map.exp()
 
     kernel_size = 2 * max_size - 1
     pad_size = max_size - 1
@@ -418,7 +419,7 @@ def get_sample_grid(conf_map):
     conf_map = F.pad(conf_map, (pad_size, pad_size, pad_size, pad_size), mode='replicate')
     tmp = F.conv2d(conf_map, kernel, stride=1, padding=0)
     loc_delta, norm_weight = tmp[:, :2], tmp[:, 2:]
-    loc_delta = loc_delta / (norm_weight + 1e-8)
+    loc_delta = loc_delta / (norm_weight + 1e-6)
 
     y_g, x_g = torch.arange(H, device=device).float(), torch.arange(W, device=device).float()
     y_g = 2 * ((y_g + 0.5) / H) - 1
