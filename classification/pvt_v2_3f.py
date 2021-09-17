@@ -201,7 +201,7 @@ class MyBlock(nn.Module):
         x = x + self.drop_path(self.mlp(self.norm2(x), loc, H, W, kernel_size, 2))
         if torch.isnan(x).any():
             print(f'x is nan')
-            print('self')
+            print(self)
 
         return x
 
