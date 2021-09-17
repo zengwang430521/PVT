@@ -199,6 +199,10 @@ class MyBlock(nn.Module):
         x = x + self.drop_path(self.attn(self.norm1(x), self.norm1(x_source), loc_source, H, W, conf_source))
         kernel_size = self.attn.sr_ratio + 1
         x = x + self.drop_path(self.mlp(self.norm2(x), loc, H, W, kernel_size, 2))
+        if torch.isnan(x).any():
+            print(f'x is nan')
+            print('self')
+
         return x
 
 
@@ -264,6 +268,7 @@ class DownLayer(nn.Module):
         weight = conf.exp()
         x_down, pos_down = merge_tokens(x, pos, pos_down, weight)
         x_down = self.block(x_down, x, pos_down, pos, H, W, conf)
+
         return x_down, pos_down
 
 
@@ -396,6 +401,10 @@ class MyPVT(nn.Module):
         x, H, W = patch_embed(x)
         for blk in block:
             x = blk(x, H, W)
+
+            if torch.isnan(x).any(): print('x_down is nan, the stage is 0')
+
+
         x = norm(x)
         x, loc, N_grid = get_loc(x, H, W, self.grid_stride)
         if vis: outs.append((x, loc, [H, W]))
@@ -408,6 +417,8 @@ class MyPVT(nn.Module):
             H, W = H // 2, W // 2
             for blk in block:
                 x = blk(x, x, loc, loc, H, W)
+                if torch.isnan(x).any(): print(f'x_down is nan, the stage is {i}')
+
             x = norm(x)
             if vis: outs.append((x, loc, [H, W]))
 
