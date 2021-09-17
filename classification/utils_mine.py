@@ -444,7 +444,9 @@ def merge_tokens(x, loc, loc_down, weight=None):
     if weight is None:
         weight = x.new_ones(B, N, 1)
     tmp = x.new_zeros(B*Ns, C+3)
+    loc = loc.to(x.device).type(x.dtype)
     source = torch.cat([x*weight, loc*weight, weight], dim=-1)
+    source = source.to(x.device).type(x.dtype)
     tmp.index_add_(dim=0, index=idx.reshape(B*N), source=source.reshape(B*N, C+3))
     tmp = tmp.reshape(B, Ns, C+3)
 
