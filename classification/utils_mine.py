@@ -398,7 +398,7 @@ def get_sample_grid(conf_map):
     dtype = conf_map.dtype
 
     # conf_map = F.softmax(conf_map.reshape(B, 1, -1), dim=-1).reshape(B, 1, H, W)
-    conf_map = conf_map.exp()
+    # conf_map = conf_map.exp()
 
     kernel_size = 2 * max_size - 1
     pad_size = max_size - 1
@@ -433,23 +433,26 @@ def get_sample_grid(conf_map):
     return loc
 
 
-# '''for debug'''
-#
-# conf_map = torch.zeros(2, 1, 28, 28)
-# conf_map[0, 0, 7, 7] = 3
-# conf_map[0, 0, 3, 10] = 3
-# conf_map[1, 0, 1, 10] = 3
-#
-# loc = get_sample_grid(conf_map)
-# loc = loc.reshape(2, 2, -1).permute(0, 2,  1)
-#
-#
-# ax = plt.subplot(1, 2, 1)
-# ax.imshow(conf_map[0, 0].detach().cpu(), extent=[-1, 1, 1, -1])
-# ax.scatter(loc[0, :, 0], loc[0, :, 1], c='red', s=0.5)
-#
-# ax = plt.subplot(1, 2, 2)
-# ax.imshow(conf_map[1, 0].detach().cpu(), extent=[-1, 1, 1, -1])
-# ax.scatter(loc[1, :, 0], loc[1, :, 1], c='red', s=0.5)
-#
-# t = 0
+'''for debug'''
+
+conf_map = torch.ones(2, 1, 28, 28) * 0.5
+conf_map[0, 0, 7:14, 7:14] = 5
+conf_map[0, 0, 3:6, 10:13] = 10
+conf_map[1, 0, 1, 10] = 5
+# conf_map = torch.rand(2, 1, 28, 28)
+# conf_map = guassian_filt(conf_map)
+
+loc = get_sample_grid(conf_map)
+loc = loc.reshape(2, 2, -1).permute(0, 2,  1)
+
+
+ax = plt.subplot(1, 2, 1)
+ax.imshow(conf_map[0, 0].detach().cpu(), extent=[-1, 1, 1, -1])
+ax.scatter(loc[0, :, 0], loc[0, :, 1], c='red', s=0.5)
+
+ax = plt.subplot(1, 2, 2)
+ax.imshow(conf_map[1, 0].detach().cpu(), extent=[-1, 1, 1, -1])
+ax.scatter(loc[1, :, 0], loc[1, :, 1], c='red', s=0.5)
+
+plt.show()
+t = 0

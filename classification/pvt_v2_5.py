@@ -239,9 +239,9 @@ class DownLayer(nn.Module):
         B, N, C = x.shape
 
         conf = self.conf(self.norm(x))
+        conf = F.softmax(conf, dim=1)
         conf_map, mask = token2map(conf, pos, [H, W], 1, 1, return_mask=True)
-        conf_map = conf_map * mask + (-10) * (1 - mask)
-
+        # conf_map = conf_map * mask + (-10) * (1 - mask)
         pos_down = get_sample_grid(conf_map).reshape(B, 2, -1).permute(0, 2,  1)
         x_down = map2token(x_map, pos_down)
 
