@@ -278,7 +278,7 @@ def show_tokens(x, out, N_grid=14*14):
 
 def show_conf(conf, loc):
     H = int(conf.shape[1]**0.5)
-    if H == 56:
+    if H == 28:
         conf = F.softmax(conf, dim=1)
         conf_map = token2map(conf,  map_size=[H, H], loc=loc, kernel_size=3, sigma=2)
         lv = 3
@@ -444,7 +444,6 @@ def merge_tokens(x, loc, loc_down, weight=None):
     if weight is None:
         weight = x.new_ones(B, N, 1)
     tmp = x.new_zeros(B*Ns, C+3)
-    loc = loc.to(x.device).type(x.dtype)
     source = torch.cat([x*weight, loc*weight, weight], dim=-1)
     source = source.to(x.device).type(x.dtype)
     tmp.index_add_(dim=0, index=idx.reshape(B*N), source=source.reshape(B*N, C+3))
@@ -455,6 +454,10 @@ def merge_tokens(x, loc, loc_down, weight=None):
     norm_weight = tmp[:, :, C+2:]
     x_down = x_down / (norm_weight + 1e-6)
     loc_down = loc_down / (norm_weight + 1e-6)
+
+    t1 = weight.min()
+    t2 = norm_weight.min()
+
     return x_down, loc_down
 
 

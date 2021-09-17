@@ -13,6 +13,7 @@ from utils_mine import (
 )
 
 vis = False
+# vis = True
 
 '''
 do not select tokens, merge tokens.
@@ -243,32 +244,27 @@ class DownLayer(nn.Module):
         # sample_num = max(math.ceil(N * self.sample_ratio) - N_grid, 0)
         # sample_num = max(math.ceil(N * self.sample_ratio), 0)
         sample_num = max(math.ceil(N * self.sample_ratio) - N_grid, 0)
-        if sample_num == 0:
-            sample_num = max(math.ceil(N * self.sample_ratio), 0)
-
-
+        if sample_num < N_grid:
+            sample_num = N_grid
 
         pos_grid = pos[:, :N_grid]
         pos_ada = pos[:, N_grid:]
 
         conf = self.conf(self.norm(x))
         conf_ada = conf[:, N_grid:]
-        if vis:
-            show_conf(conf, pos)
-        # temperature
-        # T = self.T if self.training else self.T_min
-        T = self.T
-        self.T = (self.T * self.T_decay).clamp(self.T_min, 1.0)
 
         # _, index_down = torch.topk(conf_ada, self.sample_num, 1)
-        index_down = gumble_top_k(conf_ada, sample_num, 1, T=T)
+        index_down = gumble_top_k(conf_ada, sample_num, 1, T=1)
         pos_down = torch.gather(pos_ada, 1, index_down.expand([B, sample_num, 2]))
         pos_down = torch.cat([pos_grid, pos_down], 1)
 
-        weight = conf.exp()
+        weight = (conf - conf.min(dim=1, keepdim=True)[0]).exp()
+        # weight = conf.exp()
         x_down, pos_down = merge_tokens(x, pos, pos_down, weight)
         x_down = self.block(x_down, x, pos_down, pos, H, W, conf)
 
+        if vis:
+            show_conf(conf, pos)
         return x_down, pos_down
 
 
@@ -422,12 +418,14 @@ class MyPVT(nn.Module):
             x = norm(x)
             if vis: outs.append((x, loc, [H, W]))
 
+        if vis:
+            show_tokens(img, outs, N_grid)
+
         return x.mean(dim=1)
 
     def forward(self, x):
         x = self.forward_features(x)
         x = self.head(x)
-
         return x
 
 
@@ -448,8 +446,7 @@ if __name__ == '__main__':
     model.reset_drop_path(0.)
     # pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
     # model.load_state_dict(pre_dict)
-    x = torch.zeros([1, 3, 448, 448]).to(device)
-    x = F.avg_pool2d(x, kernel_size=2)
+    x = torch.rand([2, 3, 112, 112]).to(device)
     tmp = model.forward(x)
     print('Finish')
 
