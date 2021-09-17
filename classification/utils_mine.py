@@ -433,26 +433,49 @@ def get_sample_grid(conf_map):
     return loc
 
 
-'''for debug'''
+def merge_tokens(x, loc, loc_down, weight=None):
+    B, N, C = x.shape
+    Ns = loc_down.shape[1]
 
-conf_map = torch.ones(2, 1, 28, 28) * 0.5
-conf_map[0, 0, 7:14, 7:14] = 5
-conf_map[0, 0, 3:6, 10:13] = 10
-conf_map[1, 0, 1, 10] = 5
-# conf_map = torch.rand(2, 1, 28, 28)
-# conf_map = guassian_filt(conf_map)
+    dists = square_distance(loc, loc_down)
+    idx = dists.argmin(axis=2)
+    idx = idx + torch.arange(B)[:, None].to(loc.device) * Ns
 
-loc = get_sample_grid(conf_map)
-loc = loc.reshape(2, 2, -1).permute(0, 2,  1)
+    if weight is None:
+        weight = x.new_ones(B, N, 1)
+    tmp = x.new_zeros(B*Ns, C+3)
+    source = torch.cat([x*weight, loc*weight, weight], dim=-1)
+    tmp.index_add_(dim=0, index=idx.reshape(B*N), source=source.reshape(B*N, C+3))
+    tmp = tmp.reshape(B, Ns, C+3)
+
+    x_down = tmp[..., :C]
+    loc_down = tmp[..., C:C+2]
+    norm_weight = tmp[:, :, C+2:]
+    x_down = x_down / (norm_weight + 1e-6)
+    loc_down = loc_down / (norm_weight + 1e-6)
+    return x_down, loc_down
 
 
-ax = plt.subplot(1, 2, 1)
-ax.imshow(conf_map[0, 0].detach().cpu(), extent=[-1, 1, 1, -1])
-ax.scatter(loc[0, :, 0], loc[0, :, 1], c='red', s=0.5)
-
-ax = plt.subplot(1, 2, 2)
-ax.imshow(conf_map[1, 0].detach().cpu(), extent=[-1, 1, 1, -1])
-ax.scatter(loc[1, :, 0], loc[1, :, 1], c='red', s=0.5)
-
-plt.show()
-t = 0
+# '''for debug'''
+#
+# conf_map = torch.ones(2, 1, 28, 28) * 0.5
+# conf_map[0, 0, 7:14, 7:14] = 5
+# conf_map[0, 0, 3:6, 10:13] = 10
+# conf_map[1, 0, 1, 10] = 5
+# # conf_map = torch.rand(2, 1, 28, 28)
+# # conf_map = guassian_filt(conf_map)
+#
+# loc = get_sample_grid(conf_map)
+# loc = loc.reshape(2, 2, -1).permute(0, 2,  1)
+#
+#
+# ax = plt.subplot(1, 2, 1)
+# ax.imshow(conf_map[0, 0].detach().cpu(), extent=[-1, 1, 1, -1])
+# ax.scatter(loc[0, :, 0], loc[0, :, 1], c='red', s=0.5)
+#
+# ax = plt.subplot(1, 2, 2)
+# ax.imshow(conf_map[1, 0].detach().cpu(), extent=[-1, 1, 1, -1])
+# ax.scatter(loc[1, :, 0], loc[1, :, 1], c='red', s=0.5)
+#
+# plt.show()
+# t = 0
