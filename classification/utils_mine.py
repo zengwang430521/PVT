@@ -391,14 +391,11 @@ def get_gaussian_kernel(kernel_size, sigma, device):
     return gaussian_kernel
 
 
-def get_sample_grid(conf_map):
-    B, _, H, W = conf_map.shape
+def get_sample_grid(weight_map):
+    B, _, H, W = weight_map.shape
     max_size = max(H, W)
-    device = conf_map.device
-    dtype = conf_map.dtype
-
-    # conf_map = F.softmax(conf_map.reshape(B, 1, -1), dim=-1).reshape(B, 1, H, W)
-    # conf_map = conf_map.exp()
+    device = weight_map.device
+    dtype = weight_map.dtype
 
     kernel_size = 2 * max_size - 1
     pad_size = max_size - 1
@@ -416,8 +413,8 @@ def get_sample_grid(conf_map):
 
     kernel = torch.cat([kernel_gaussian * kernel_delta, kernel_gaussian], dim=0)
 
-    conf_map = F.pad(conf_map, (pad_size, pad_size, pad_size, pad_size), mode='replicate')
-    tmp = F.conv2d(conf_map, kernel, stride=1, padding=0)
+    weight_map = F.pad(weight_map, (pad_size, pad_size, pad_size, pad_size), mode='replicate')
+    tmp = F.conv2d(weight_map, kernel, stride=1, padding=0)
     loc_delta, norm_weight = tmp[:, :2], tmp[:, 2:]
     loc_delta = loc_delta / (norm_weight + 1e-6)
 

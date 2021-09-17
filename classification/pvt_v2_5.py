@@ -13,7 +13,7 @@ from utils_mine import (
 )
 
 vis = False
-
+# vis = True
 '''
 Saliency-Based Sampling
 '''
@@ -239,10 +239,10 @@ class DownLayer(nn.Module):
         B, N, C = x.shape
 
         conf = self.conf(self.norm(x))
-        conf = F.softmax(conf, dim=1)
-        conf_map, mask = token2map(conf, pos, [H, W], 1, 1, return_mask=True)
+        weight = (conf - conf.min(dim=1, keepdim=True)[0]).exp()
+        weight, mask = token2map(weight, pos, [H, W], 1, 1, return_mask=True)
         # conf_map = conf_map * mask + (-10) * (1 - mask)
-        pos_down = get_sample_grid(conf_map).reshape(B, 2, -1).permute(0, 2,  1)
+        pos_down = get_sample_grid(weight).reshape(B, 2, -1).permute(0, 2,  1)
         x_down = map2token(x_map, pos_down)
 
         if vis:
@@ -395,6 +395,9 @@ class MyPVT(nn.Module):
                 x = blk(x, x, loc, loc, H, W)
             x = norm(x)
             if vis: outs.append((x, loc, [H, W]))
+
+        if vis:
+            show_tokens(img, outs, 0)
 
         return x.mean(dim=1)
 
