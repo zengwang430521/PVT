@@ -13,9 +13,9 @@ from utils_mine import (
 )
 
 vis = False
-
+# vis = True
 '''
-Saliency-Based Sampling, extra grid 
+Saliency-Based Sampling, detach
 '''
 
 
@@ -239,10 +239,10 @@ class DownLayer(nn.Module):
         B, N, C = x.shape
 
         conf = self.conf(self.norm(x))
-        conf = F.softmax(conf, dim=1)
-        conf_map, mask = token2map(conf, pos, [H, W], 1, 1, return_mask=True)
+        weight = (conf - conf.min(dim=1, keepdim=True)[0]).exp()
+        weight, mask = token2map(weight, pos, [H, W], 1, 1, return_mask=True)
         # conf_map = conf_map * mask + (-10) * (1 - mask)
-        pos_down = get_sample_grid(conf_map).reshape(B, 2, -1).permute(0, 2,  1)
+        pos_down = get_sample_grid(weight.detach()).reshape(B, 2, -1).permute(0, 2,  1)
         x_down = map2token(x_map, pos_down)
 
         if vis:
@@ -396,6 +396,9 @@ class MyPVT(nn.Module):
             x = norm(x)
             if vis: outs.append((x, loc, [H, W]))
 
+        if vis:
+            show_tokens(img, outs, 0)
+
         return x.mean(dim=1)
 
     def forward(self, x):
@@ -406,7 +409,7 @@ class MyPVT(nn.Module):
 
 
 @register_model
-def mypvt5_small(pretrained=False, **kwargs):
+def mypvt5a_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],  **kwargs)
@@ -418,7 +421,7 @@ def mypvt5_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt5_small(drop_path_rate=0.).to(device)
+    model = mypvt5a_small(drop_path_rate=0.).to(device)
     # model.reset_drop_path(0.)
     # pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
     # model.load_state_dict(pre_dict)
