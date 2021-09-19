@@ -410,12 +410,12 @@ class MyPVT(nn.Module):
             x_new, loc_new = down_layers(x, loc, H, W, N_grid)  # down sample
 
             if torch.isnan(x_new).any():
-                print(f'x is nan, the stage is {i}, the bloxk is down_layer')
+                print(f'x is nan, the stage is {i}, the block is down_layer')
                 print('loc:'); print(loc)
                 print('x:'); print(x)
                 print('x_new:'); print(x_new)
 
-                err_idx = torch.isnana(x_new).non_zeros()
+                err_idx = torch.isnan(x_new).non_zeros()
                 print('err_idx: ');
                 print(err_idx)
                 bid = err_idx[0, 0]
@@ -438,6 +438,16 @@ class MyPVT(nn.Module):
                     print('loc:'); print(loc)
                     print('x:'); print(x)
                     print('x_new:'); print(x_new)
+
+                    err_idx = torch.isnan(x_new).non_zeros()
+                    print('err_idx: ');
+                    print(err_idx)
+                    bid = err_idx[0, 0]
+                    print('loc: ');
+                    print(loc[bid])
+                    print('loc down: ');
+                    print(loc_new[bid])
+
                 x = x_new
 
             x = norm(x)
