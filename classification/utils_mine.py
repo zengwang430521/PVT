@@ -514,8 +514,8 @@ def merge_tokens(x, loc, loc_down, weight=None):
 
     assert norm_weight.min() > 0
 
-    x_out = x_out / (norm_weight + 1e-6)
-    loc_out = loc_out / (norm_weight + 1e-6)
+    x_out = x_out / (norm_weight + 1e-4)
+    loc_out = loc_out / (norm_weight + 1e-4)
 
     # t1 = weight.min()
     # t2 = norm_weight.min()
