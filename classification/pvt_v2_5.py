@@ -7,10 +7,11 @@ import math
 from pvt_v2 import (Block, DropPath, DWConv, OverlapPatchEmbed,
                     to_2tuple, trunc_normal_, register_model, _cfg)
 from utils_mine import (
-    get_grid_loc, get_loc, extract_local_feature, extract_neighbor_feature,
+    get_grid_loc, extract_local_feature, extract_neighbor_feature,
     gumble_top_k, guassian_filt, reconstruct_feature, token2map, map2token,
-    show_tokens, show_conf, get_sample_grid
+    show_tokens, show_conf, merge_tokens
 )
+from utils_mine import get_loc_new as get_loc
 
 vis = False
 # vis = True
@@ -233,7 +234,8 @@ class DownLayer(nn.Module):
         kernel_size = (self.block.attn.sr_ratio * 2) + 1
         x = token2map(x, pos, [H, W], kernel_size, 2)
         x = self.conv(x)
-        H, W = H // 2,  W // 2
+        # H, W = H // 2,  W // 2
+        _, _, H, W = x.shape
         x_map = x
         x = map2token(x, pos)
         B, N, C = x.shape
