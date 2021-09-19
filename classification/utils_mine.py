@@ -46,6 +46,38 @@ def get_loc(x, H, W, grid_stride):
         return x, loc, N_grid
 
 
+def get_loc_new(x, H, W, grid_stride):
+        B = x.shape[0]
+        device = x.device
+        y_g, x_g = torch.arange(H, device=device).float(), torch.arange(W, device=device).float()
+        y_g = 2 * ((y_g + 0.5) / H) - 1
+        x_g = 2 * ((x_g + 0.5) / W) - 1
+        y_map, x_map = torch.meshgrid(y_g, x_g)
+        xy_map = torch.stack((x_map, y_map), dim=-1)
+
+        loc = xy_map.reshape(-1, 2)[None, ...].repeat([B, 1, 1])
+
+        # split into grid and adaptive tokens
+        pos = torch.arange(x.shape[1], dtype=torch.long, device=x.device)
+        tmp = pos.reshape([H, W])
+        # pos_grid = tmp[grid_stride // 2:H:grid_stride, grid_stride // 2:W:grid_stride]
+        pos_grid = tmp[0:H:grid_stride, 0:W:grid_stride]
+        pos_grid = pos_grid.reshape([-1])
+        mask = torch.ones(pos.shape, dtype=torch.bool, device=pos.device)
+        mask[pos_grid] = 0
+        pos_ada = torch.masked_select(pos, mask)
+
+        x_grid = torch.index_select(x, 1, pos_grid)
+        x_ada = torch.index_select(x, 1, pos_ada)
+        loc_grid = torch.index_select(loc, 1, pos_grid)
+        loc_ada = torch.index_select(loc, 1, pos_ada)
+
+        x = torch.cat([x_grid, x_ada], 1)
+        loc = torch.cat([loc_grid, loc_ada], 1)
+        N_grid = x_grid.shape[1]
+        return x, loc, N_grid
+
+
 def extract_local_feature(src, loc, kernel_size=(3, 3)):
     B, C, H, W = src.shape
     B, N, _ = loc.shape
@@ -205,6 +237,9 @@ def token2map_partical(x, loc, map_size, conf=None, method=0):
 
 
 def token2map(x, loc, map_size, kernel_size, sigma, return_mask=False):
+    # if kernel_size == 1:
+    #     x, loc = x[:, :16], loc[:, :16]
+
     H, W = map_size
     B, N, C = x.shape
     loc = loc.clamp(-1, 1)
@@ -237,6 +272,8 @@ def token2map(x, loc, map_size, kernel_size, sigma, return_mask=False):
     mask = (mask > 0).float()
     feature = feature * mask
     feature = reconstruct_feature(feature, mask, kernel_size, sigma)
+
+    # t = mask.min()
     if return_mask:
         return feature, mask
     return feature

@@ -7,10 +7,11 @@ import math
 from pvt_v2 import (Block, DropPath, DWConv, OverlapPatchEmbed,
                     to_2tuple, trunc_normal_, register_model, _cfg)
 from utils_mine import (
-    get_grid_loc, get_loc, extract_local_feature, extract_neighbor_feature,
+    get_grid_loc, extract_local_feature, extract_neighbor_feature,
     gumble_top_k, guassian_filt, reconstruct_feature, token2map, map2token,
     show_tokens, show_conf, merge_tokens
 )
+from utils_mine import get_loc_new as get_loc
 
 vis = False
 # vis = True
@@ -129,10 +130,11 @@ class MyAttention(nn.Module):
             if self.sr_ratio > 1:
                 kernel = self.sr_ratio + 1
                 x_source = token2map(x_source, loc_source, [H, W], kernel_size=kernel, sigma=2)
-                x_source = self.sr(x_source).reshape(B, C, -1).permute(0, 2, 1)
+                x_source = self.sr(x_source)
+                _, _, h, w = x_source.shape
+                x_source = x_source.reshape(B, C, -1).permute(0, 2, 1)
                 x_source = self.norm(x_source)
                 if conf_source is not None:
-                    h, w = H // self.sr_ratio, W // self.sr_ratio
                     conf_source = token2map(conf_source, loc_source, [h, w], 1, 1)
                     conf_source = conf_source.reshape(B, 1, -1).permute(0, 2, 1)
         else:
@@ -207,7 +209,7 @@ class MyBlock(nn.Module):
                 'loc': loc,
                 'loc_source': loc_source,
                 'x1': x1,
-                'x2':x2
+                'x2': x2
             }
             if conf_source is not None:
                 save_dict['conf_source'] = conf_source
@@ -249,7 +251,8 @@ class DownLayer(nn.Module):
         kernel_size = (self.block.attn.sr_ratio * 2) + 1
         x = token2map(x, pos, [H, W], kernel_size, 2)
         x = self.conv(x)
-        H, W = H // 2,  W // 2
+        # H, W = H // 2,  W // 2
+        _, _, H, W = x.shape
         x = map2token(x, pos)
         B, N, C = x.shape
 
