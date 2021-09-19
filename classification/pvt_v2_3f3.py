@@ -415,7 +415,7 @@ class MyPVT(nn.Module):
                 print('x:'); print(x)
                 print('x_new:'); print(x_new)
 
-                err_idx = torch.isnan(x_new).non_zeros()
+                err_idx = torch.isnan(x_new).nonzero()
                 print('err_idx: ');
                 print(err_idx)
                 bid = err_idx[0, 0]
@@ -439,7 +439,7 @@ class MyPVT(nn.Module):
                     print('x:'); print(x)
                     print('x_new:'); print(x_new)
 
-                    err_idx = torch.isnan(x_new).non_zeros()
+                    err_idx = torch.isnan(x_new).nonzero()
                     print('err_idx: ');
                     print(err_idx)
                     bid = err_idx[0, 0]

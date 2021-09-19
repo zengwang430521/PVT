@@ -456,7 +456,7 @@ def merge_tokens(x, loc, loc_down, weight=None):
     # print(norm_weight.min())
     if norm_weight.min() <= 0:
         print('norm_weight: '); print(norm_weight.min())
-        err_idx = (norm_weight <=0).non_zeros()
+        err_idx = (norm_weight <=0).nonzero()
         print('err_idx: '); print(err_idx)
         bid = err_idx[0, 0]
         print('loc: '); print(loc[bid])
@@ -477,7 +477,7 @@ def merge_tokens(x, loc, loc_down, weight=None):
 
     if torch.isnan(x_out).any():
         print('norm_weight_min: '); print(norm_weight.min())
-        err_idx = torch.isnan(x_out).non_zeros()
+        err_idx = torch.isnan(x_out).nonzero()
         print('err_idx: '); print(err_idx)
         bid = err_idx[0, 0]
         print('loc: '); print(loc[bid])
