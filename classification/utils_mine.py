@@ -475,6 +475,14 @@ def merge_tokens(x, loc, loc_down, weight=None):
         print(err_mseg)
         raise ValueError(err_mseg)
 
+    assert norm_weight.min() > 0
+
+    x_out = x_out / (norm_weight + 1e-6)
+    loc_out = loc_out / (norm_weight + 1e-6)
+
+    # t1 = weight.min()
+    # t2 = norm_weight.min()
+
     if torch.isnan(x_out).any():
         save_dict = {
             'x': x,
@@ -512,16 +520,6 @@ def merge_tokens(x, loc, loc_down, weight=None):
                        + f'norm_weight: {norm_weight[bid]}'
             f.writelines(err_mseg)
         raise ValueError(err_mseg)
-
-    assert norm_weight.min() > 0
-
-
-
-    x_out = x_out / (norm_weight + 1e-6)
-    loc_out = loc_out / (norm_weight + 1e-6)
-
-    # t1 = weight.min()
-    # t2 = norm_weight.min()
 
     return x_out, loc_out
 
