@@ -476,24 +476,29 @@ def merge_tokens(x, loc, loc_down, weight=None):
         raise ValueError(err_mseg)
 
     if torch.isnan(x_out).any():
-        print('norm_weight_min: '); print(norm_weight.min())
-        err_idx = torch.isnan(x_out).nonzero()
-        print('err_idx: '); print(err_idx)
-        bid = err_idx[0, 0]
-        print('loc: '); print(loc[bid])
-        print('loc down: '); print(loc_down[bid])
-        print('idx:'); print(idx[bid])
-        print('weight:'); print(weight[bid])
-        print('norm_weight:'); print(norm_weight[bid])
+        with open('debug.txt', 'a') as f:
+            f.writelines('merge tokens:')
+            f.writelines('merge tokens:')
+            f.writelines('merge tokens:')
+            f.writelines('merge tokens:')
+            f.writelines('norm_weight_min: '); f.writelines(norm_weight.min())
+            err_idx = torch.isnan(x_out).nonzero()
+            f.writelines('err_idx: '); f.writelines(err_idx)
+            bid = err_idx[0, 0]
+            f.writelines('loc: '); f.writelines(loc[bid])
+            f.writelines('loc down: '); f.writelines(loc_down[bid])
+            f.writelines('idx:'); f.writelines(idx[bid])
+            f.writelines('weight:'); f.writelines(weight[bid])
+            f.writelines('norm_weight:'); f.writelines(norm_weight[bid])
 
-        err_mseg = f'norm_weight.min(): {norm_weight.min()}' + \
-                   f'err_idx: {err_idx}' + \
-                   f'loc: {loc[bid]}' + \
-                   f'loc_down: {loc_down}' + \
-                   f'idx: {idx[bid]}' + \
-                   f'weight: {weight[bid]}' \
-                   + f'norm_weight: {norm_weight[bid]}'
-        print(err_mseg)
+            err_mseg = f'norm_weight.min(): {norm_weight.min()}' + \
+                       f'err_idx: {err_idx}' + \
+                       f'loc: {loc[bid]}' + \
+                       f'loc_down: {loc_down}' + \
+                       f'idx: {idx[bid]}' + \
+                       f'weight: {weight[bid]}' \
+                       + f'norm_weight: {norm_weight[bid]}'
+            f.writelines(err_mseg)
         raise ValueError(err_mseg)
 
     assert norm_weight.min() > 0

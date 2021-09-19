@@ -410,19 +410,20 @@ class MyPVT(nn.Module):
             x_new, loc_new = down_layers(x, loc, H, W, N_grid)  # down sample
 
             if torch.isnan(x_new).any():
-                print(f'x is nan, the stage is {i}, the block is down_layer')
-                print('loc:'); print(loc)
-                print('x:'); print(x)
-                print('x_new:'); print(x_new)
+                with open('debug.txt', 'a') as f:
+                    f.writelines(f'x is nan, the stage is {i}, the block is down_layer')
+                    f.writelines('loc:'); f.writelines(loc)
+                    f.writelines('x:'); f.writelines(x)
+                    f.writelines('x_new:'); f.writelines(x_new)
 
-                err_idx = torch.isnan(x_new).nonzero()
-                print('err_idx: ');
-                print(err_idx)
-                bid = err_idx[0, 0]
-                print('loc: ');
-                print(loc[bid])
-                print('loc down: ');
-                print(loc_new[bid])
+                    err_idx = torch.isnan(x_new).nonzero()
+                    f.writelines('err_idx: ');
+                    f.writelines(err_idx)
+                    bid = err_idx[0, 0]
+                    f.writelines('loc: ');
+                    f.writelines(loc[bid])
+                    f.writelines('loc down: ');
+                    f.writelines(loc_new[bid])
 
 
 
@@ -434,19 +435,20 @@ class MyPVT(nn.Module):
             for j, blk in enumerate(block):
                 x_new = blk(x, x, loc, loc, H, W)
                 if torch.isnan(x_new).any():
-                    print(f'x is nan, the stage is {i}, the bloxk is {j}')
-                    print('loc:'); print(loc)
-                    print('x:'); print(x)
-                    print('x_new:'); print(x_new)
+                    with open('debug.txt', 'a') as f:
+                        f.writelines(f'x is nan, the stage is {i}, the bloxk is {j}')
+                        f.writelines('loc:'); f.writelines(loc)
+                        f.writelines('x:'); f.writelines(x)
+                        f.writelines('x_new:'); f.writelines(x_new)
 
-                    err_idx = torch.isnan(x_new).nonzero()
-                    print('err_idx: ');
-                    print(err_idx)
-                    bid = err_idx[0, 0]
-                    print('loc: ');
-                    print(loc[bid])
-                    print('loc down: ');
-                    print(loc_new[bid])
+                        err_idx = torch.isnan(x_new).nonzero()
+                        f.writelines('err_idx: ');
+                        f.writelines(err_idx)
+                        bid = err_idx[0, 0]
+                        f.writelines('loc: ');
+                        f.writelines(loc[bid])
+                        f.writelines('loc down: ');
+                        f.writelines(loc_new[bid])
 
                 x = x_new
 
