@@ -481,15 +481,15 @@ def merge_tokens(x, loc, loc_down, weight=None):
             f.writelines('merge tokens:')
             f.writelines('merge tokens:')
             f.writelines('merge tokens:')
-            f.writelines('norm_weight_min: '); f.writelines(norm_weight.min())
+            f.writelines('norm_weight_min: '); f.writelines(str(norm_weight.min()))
             err_idx = torch.isnan(x_out).nonzero()
-            f.writelines('err_idx: '); f.writelines(err_idx)
+            f.writelines('err_idx: '); f.writelines(str(err_idx))
             bid = err_idx[0, 0]
-            f.writelines('loc: '); f.writelines(loc[bid])
-            f.writelines('loc down: '); f.writelines(loc_down[bid])
-            f.writelines('idx:'); f.writelines(idx[bid])
-            f.writelines('weight:'); f.writelines(weight[bid])
-            f.writelines('norm_weight:'); f.writelines(norm_weight[bid])
+            f.writelines('loc: '); f.writelines(str(loc[bid]))
+            f.writelines('loc down: '); f.writelines(str(loc_down[bid]))
+            f.writelines('idx:'); f.writelines(str(idx[bid]))
+            f.writelines('weight:'); f.writelines(str(weight[bid]))
+            f.writelines('norm_weight:'); f.writelines(str(norm_weight[bid]))
 
             err_mseg = f'norm_weight.min(): {norm_weight.min()}' + \
                        f'err_idx: {err_idx}' + \

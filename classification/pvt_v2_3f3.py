@@ -412,18 +412,18 @@ class MyPVT(nn.Module):
             if torch.isnan(x_new).any():
                 with open('debug.txt', 'a') as f:
                     f.writelines(f'x is nan, the stage is {i}, the block is down_layer')
-                    f.writelines('loc:'); f.writelines(loc)
-                    f.writelines('x:'); f.writelines(x)
-                    f.writelines('x_new:'); f.writelines(x_new)
+                    f.writelines('loc:'); f.writelines(str(loc))
+                    f.writelines('x:'); f.writelines(str(x))
+                    f.writelines('x_new:'); f.writelines(str(x_new))
 
                     err_idx = torch.isnan(x_new).nonzero()
                     f.writelines('err_idx: ');
-                    f.writelines(err_idx)
+                    f.writelines(str(err_idx))
                     bid = err_idx[0, 0]
                     f.writelines('loc: ');
-                    f.writelines(loc[bid])
+                    f.writelines(str(loc[bid]))
                     f.writelines('loc down: ');
-                    f.writelines(loc_new[bid])
+                    f.writelines(str(loc_new[bid]))
 
 
 
@@ -437,18 +437,18 @@ class MyPVT(nn.Module):
                 if torch.isnan(x_new).any():
                     with open('debug.txt', 'a') as f:
                         f.writelines(f'x is nan, the stage is {i}, the bloxk is {j}')
-                        f.writelines('loc:'); f.writelines(loc)
-                        f.writelines('x:'); f.writelines(x)
-                        f.writelines('x_new:'); f.writelines(x_new)
+                        f.writelines('loc:'); f.writelines(str(loc))
+                        f.writelines('x:'); f.writelines(str(x))
+                        f.writelines('x_new:'); f.writelines(str(x_new))
 
                         err_idx = torch.isnan(x_new).nonzero()
                         f.writelines('err_idx: ');
-                        f.writelines(err_idx)
+                        f.writelines(str(err_idx))
                         bid = err_idx[0, 0]
                         f.writelines('loc: ');
-                        f.writelines(loc[bid])
+                        f.writelines(str(loc[bid]))
                         f.writelines('loc down: ');
-                        f.writelines(loc_new[bid])
+                        f.writelines(str(loc_new[bid]))
 
                 x = x_new
 
