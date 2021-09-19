@@ -7,16 +7,17 @@ import math
 from pvt_v2 import (Block, DropPath, DWConv, OverlapPatchEmbed,
                     to_2tuple, trunc_normal_, register_model, _cfg)
 from utils_mine import (
-    get_grid_loc, get_loc, extract_local_feature, extract_neighbor_feature,
+    get_grid_loc, extract_local_feature, extract_neighbor_feature,
     gumble_top_k, guassian_filt, reconstruct_feature, token2map, map2token,
     show_tokens, show_conf, merge_tokens
 )
+from utils_mine import get_loc_new as get_loc
 
 vis = False
 # vis = True
 
 '''
-do not select tokens, merge tokens.
+do not select tokens, merge tokens., detach()
 '''
 
 
@@ -129,10 +130,11 @@ class MyAttention(nn.Module):
             if self.sr_ratio > 1:
                 kernel = self.sr_ratio + 1
                 x_source = token2map(x_source, loc_source, [H, W], kernel_size=kernel, sigma=2)
-                x_source = self.sr(x_source).reshape(B, C, -1).permute(0, 2, 1)
+                x_source = self.sr(x_source)
+                _, _, h, w = x_source.shape
+                x_source = x_source.reshape(B, C, -1).permute(0, 2, 1)
                 x_source = self.norm(x_source)
                 if conf_source is not None:
-                    h, w = H // self.sr_ratio, W // self.sr_ratio
                     conf_source = token2map(conf_source, loc_source, [h, w], 1, 1)
                     conf_source = conf_source.reshape(B, 1, -1).permute(0, 2, 1)
         else:
@@ -197,14 +199,26 @@ class MyBlock(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x, x_source, loc, loc_source, H, W, conf_source=None):
-        x = x + self.drop_path(self.attn(self.norm1(x), self.norm1(x_source), loc_source, H, W, conf_source))
+        x1 = x + self.drop_path(self.attn(self.norm1(x), self.norm1(x_source), loc_source, H, W, conf_source))
         kernel_size = self.attn.sr_ratio + 1
-        x = x + self.drop_path(self.mlp(self.norm2(x), loc, H, W, kernel_size, 2))
-        if torch.isnan(x).any():
-            print(f'x is nan')
-            print(self)
-
-        return x
+        x2 = x1 + self.drop_path(self.mlp(self.norm2(x1), loc, H, W, kernel_size, 2))
+        if torch.isnan(x2).any():
+            save_dict = {
+                'x':x.detach().cpu(),
+                'x_source': x_source,
+                'loc': loc,
+                'loc_source': loc_source,
+                'x1': x1,
+                'x2': x2
+            }
+            if conf_source is not None:
+                save_dict['conf_source'] = conf_source
+            for key in save_dict.keys():
+                save_dict[key] = save_dict[key].detach().cpu()
+            torch.save(save_dict, 'debug_block.pth')
+            exit(1)
+            assert torch.isnan(x2).any() is False
+        return x2
 
 
 
@@ -237,7 +251,8 @@ class DownLayer(nn.Module):
         kernel_size = (self.block.attn.sr_ratio * 2) + 1
         x = token2map(x, pos, [H, W], kernel_size, 2)
         x = self.conv(x)
-        H, W = H // 2,  W // 2
+        # H, W = H // 2,  W // 2
+        _, _, H, W = x.shape
         x = map2token(x, pos)
         B, N, C = x.shape
 
@@ -397,9 +412,7 @@ class MyPVT(nn.Module):
         x, H, W = patch_embed(x)
         for blk in block:
             x = blk(x, H, W)
-
-            if torch.isnan(x).any(): print('x_down is nan, the stage is 0')
-
+            if torch.isnan(x).any(): print('x is nan, the stage is 0')
 
         x = norm(x)
         x, loc, N_grid = get_loc(x, H, W, self.grid_stride)
@@ -409,11 +422,51 @@ class MyPVT(nn.Module):
             down_layers = getattr(self, f"down_layers{i}")
             block = getattr(self, f"block{i + 1}")
             norm = getattr(self, f"norm{i + 1}")
-            x, loc = down_layers(x, loc, H, W, N_grid)  # down sample
+            x_new, loc_new = down_layers(x, loc, H, W, N_grid)  # down sample
+
+            if torch.isnan(x_new).any():
+                with open('debug.txt', 'a') as f:
+
+                    f.writelines(f'x is nan, the stage is {i}, the block is down_layer')
+                    f.writelines('loc:'); f.writelines(str(loc))
+                    f.writelines('x:'); f.writelines(str(x))
+                    f.writelines('x_new:'); f.writelines(str(x_new))
+
+                    err_idx = torch.isnan(x_new).nonzero()
+                    f.writelines('err_idx: ');
+                    f.writelines(str(err_idx))
+                    bid = err_idx[0, 0]
+                    f.writelines('loc: ');
+                    f.writelines(str(loc[bid]))
+                    f.writelines('loc down: ');
+                    f.writelines(str(loc_new[bid]))
+
+
+
+            x, loc = x_new, loc_new
+
             H, W = H // 2, W // 2
-            for blk in block:
-                x = blk(x, x, loc, loc, H, W)
-                if torch.isnan(x).any(): print(f'x_down is nan, the stage is {i}')
+
+
+            for j, blk in enumerate(block):
+                x_new = blk(x, x, loc, loc, H, W)
+                if torch.isnan(x_new).any():
+                    with open('debug.txt', 'a') as f:
+                        f.writelines(f'x is nan, the stage is {i}, the bloxk is {j}')
+                        f.writelines('loc:'); f.writelines(str(loc))
+                        f.writelines('x:'); f.writelines(str(x))
+                        f.writelines('x_new:'); f.writelines(str(x_new))
+
+                        err_idx = torch.isnan(x_new).nonzero()
+                        f.writelines('err_idx: ');
+                        f.writelines(str(err_idx))
+                        bid = err_idx[0, 0]
+                        f.writelines('loc: ');
+                        f.writelines(str(loc[bid]))
+                        f.writelines('loc down: ');
+                        f.writelines(str(loc_new[bid]))
+
+                x = x_new
 
             x = norm(x)
             if vis: outs.append((x, loc, [H, W]))
