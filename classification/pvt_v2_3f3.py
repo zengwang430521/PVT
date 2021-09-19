@@ -197,14 +197,22 @@ class MyBlock(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x, x_source, loc, loc_source, H, W, conf_source=None):
-        x = x + self.drop_path(self.attn(self.norm1(x), self.norm1(x_source), loc_source, H, W, conf_source))
+        x1 = x + self.drop_path(self.attn(self.norm1(x), self.norm1(x_source), loc_source, H, W, conf_source))
         kernel_size = self.attn.sr_ratio + 1
-        x = x + self.drop_path(self.mlp(self.norm2(x), loc, H, W, kernel_size, 2))
+        x2 = x1 + self.drop_path(self.mlp(self.norm2(x1), loc, H, W, kernel_size, 2))
         if torch.isnan(x).any():
-            print(f'x is nan')
-            print(self)
-
-        return x
+            save_dict = {
+                'x':x.detach().cpu(),
+                'x_source': x_source,
+                'loc': loc,
+                'loc_source': loc_source,
+                'x1': x1,
+                'x2':x2
+            }
+            for key in save_dict.keys():
+                save_dict[key] = save_dict[key].detach().cpu()
+            torch.save(save_dict, 'debug.pth')
+        return x2
 
 
 
@@ -411,6 +419,7 @@ class MyPVT(nn.Module):
 
             if torch.isnan(x_new).any():
                 with open('debug.txt', 'a') as f:
+
                     f.writelines(f'x is nan, the stage is {i}, the block is down_layer')
                     f.writelines('loc:'); f.writelines(str(loc))
                     f.writelines('x:'); f.writelines(str(x))
