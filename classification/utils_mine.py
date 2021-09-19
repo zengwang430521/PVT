@@ -476,6 +476,18 @@ def merge_tokens(x, loc, loc_down, weight=None):
         raise ValueError(err_mseg)
 
     if torch.isnan(x_out).any():
+        save_dict = {
+            'x': x,
+            'loc': loc,
+            'loc_down':loc_down,
+            'idx': idx,
+            'weight':weight,
+            'norm_weight':norm_weight
+        }
+        for key in save_dict.keys():
+            save_dict[key] = save_dict[key].detach().cpu()
+        torch.save(save_dict, 'debug_merge.pth')
+
         with open('debug.txt', 'a') as f:
             f.writelines('merge tokens:')
             f.writelines('merge tokens:')

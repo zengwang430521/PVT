@@ -211,7 +211,7 @@ class MyBlock(nn.Module):
             }
             for key in save_dict.keys():
                 save_dict[key] = save_dict[key].detach().cpu()
-            torch.save(save_dict, 'debug.pth')
+            torch.save(save_dict, 'debug_block.pth')
         return x2
 
 
