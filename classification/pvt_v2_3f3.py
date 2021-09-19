@@ -275,6 +275,7 @@ class DownLayer(nn.Module):
 
         # weight = (conf - conf.min(dim=1, keepdim=True)[0]).exp()
         weight = conf.exp()
+        weight = weight.clamp(0, 1e4)
         x_down, pos_down = merge_tokens(x, pos, pos_down, weight.detach())
         x_down = self.block(x_down, x, pos_down, pos, H, W, conf)
 
