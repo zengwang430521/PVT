@@ -215,6 +215,7 @@ class MyBlock(nn.Module):
                 save_dict[key] = save_dict[key].detach().cpu()
             torch.save(save_dict, 'debug_block.pth')
             exit(1)
+            assert torch.isnan(x2).any() is False
         return x2
 
 
