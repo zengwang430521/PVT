@@ -200,7 +200,7 @@ class MyBlock(nn.Module):
         x1 = x + self.drop_path(self.attn(self.norm1(x), self.norm1(x_source), loc_source, H, W, conf_source))
         kernel_size = self.attn.sr_ratio + 1
         x2 = x1 + self.drop_path(self.mlp(self.norm2(x1), loc, H, W, kernel_size, 2))
-        if torch.isnan(x).any():
+        if torch.isnan(x2).any():
             save_dict = {
                 'x':x.detach().cpu(),
                 'x_source': x_source,
