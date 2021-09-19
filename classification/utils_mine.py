@@ -453,7 +453,7 @@ def merge_tokens(x, loc, loc_down, weight=None):
     # assert norm_weight.min() > 0
     # assert norm_weight.min() > 0
 
-    print(norm_weight.min())
+    # print(norm_weight.min())
     if norm_weight.min() <= 0:
         print('norm_weight: '); print(norm_weight.min())
         err_idx = (norm_weight <=0).non_zeros()
@@ -474,6 +474,7 @@ def merge_tokens(x, loc, loc_down, weight=None):
                    + f'norm_weight: {norm_weight[bid]}'
         print(err_mseg)
         raise ValueError(err_mseg)
+    assert norm_weight.min() > 0
 
 
 
