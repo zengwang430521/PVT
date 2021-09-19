@@ -520,6 +520,7 @@ def merge_tokens(x, loc, loc_down, weight=None):
                        + f'norm_weight: {norm_weight[bid]}'
             f.writelines(err_mseg)
         raise ValueError(err_mseg)
+        exit(-1)
 
     return x_out, loc_out
 

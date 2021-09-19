@@ -209,9 +209,12 @@ class MyBlock(nn.Module):
                 'x1': x1,
                 'x2':x2
             }
+            if conf_source is not None:
+                save_dict['conf_source'] = conf_source
             for key in save_dict.keys():
                 save_dict[key] = save_dict[key].detach().cpu()
             torch.save(save_dict, 'debug_block.pth')
+            exit(1)
         return x2
 
 
