@@ -397,9 +397,7 @@ class MyPVT(nn.Module):
         x, H, W = patch_embed(x)
         for blk in block:
             x = blk(x, H, W)
-
             if torch.isnan(x).any(): print('x is nan, the stage is 0')
-
 
         x = norm(x)
         x, loc, N_grid = get_loc(x, H, W, self.grid_stride)
@@ -409,11 +407,38 @@ class MyPVT(nn.Module):
             down_layers = getattr(self, f"down_layers{i}")
             block = getattr(self, f"block{i + 1}")
             norm = getattr(self, f"norm{i + 1}")
-            x, loc = down_layers(x, loc, H, W, N_grid)  # down sample
+            x_new, loc_new = down_layers(x, loc, H, W, N_grid)  # down sample
+
+            if torch.isnan(x_new).any():
+                print(f'x is nan, the stage is {i}, the bloxk is down_layer')
+                print('loc:'); print(loc)
+                print('x:'); print(x)
+                print('x_new:'); print(x_new)
+
+                err_idx = torch.isnana(x_new).non_zeros()
+                print('err_idx: ');
+                print(err_idx)
+                bid = err_idx[0, 0]
+                print('loc: ');
+                print(loc[bid])
+                print('loc down: ');
+                print(loc_new[bid])
+
+
+
+            x, loc = x_new, loc_new
+
             H, W = H // 2, W // 2
-            for blk in block:
-                x = blk(x, x, loc, loc, H, W)
-                if torch.isnan(x).any(): print(f'x is nan, the stage is {i}')
+
+
+            for j, blk in enumerate(block):
+                x_new = blk(x, x, loc, loc, H, W)
+                if torch.isnan(x_new).any():
+                    print(f'x is nan, the stage is {i}, the bloxk is {j}')
+                    print('loc:'); print(loc)
+                    print('x:'); print(x)
+                    print('x_new:'); print(x_new)
+                x = x_new
 
             x = norm(x)
             if vis: outs.append((x, loc, [H, W]))
