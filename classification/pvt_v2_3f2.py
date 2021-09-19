@@ -398,7 +398,7 @@ class MyPVT(nn.Module):
         for blk in block:
             x = blk(x, H, W)
 
-            if torch.isnan(x).any(): print('x_down is nan, the stage is 0')
+            if torch.isnan(x).any(): print('x is nan, the stage is 0')
 
 
         x = norm(x)
@@ -413,7 +413,7 @@ class MyPVT(nn.Module):
             H, W = H // 2, W // 2
             for blk in block:
                 x = blk(x, x, loc, loc, H, W)
-                if torch.isnan(x).any(): print(f'x_down is nan, the stage is {i}')
+                # if torch.isnan(x).any(): print(f'x is nan, the stage is {i}')
 
             x = norm(x)
             if vis: outs.append((x, loc, [H, W]))

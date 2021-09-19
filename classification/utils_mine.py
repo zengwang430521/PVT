@@ -450,8 +450,20 @@ def merge_tokens(x, loc, loc_down, weight=None):
     loc_out = tmp[..., C:C+2]
     norm_weight = tmp[:, :, C+2:]
 
-    assert norm_weight.min() > 0
+    # assert norm_weight.min() > 0
     # print(norm_weight.min())
+    if norm_weight.min() <= 0:
+        print('norm_weight: '); print(norm_weight.min())
+        err_idx = (norm_weight <=0).non_zeros()
+        print('err_idx: '); print(err_idx)
+        bid = err_idx[0, 0]
+        print('loc: '); print(loc[bid])
+        print('loc down: '); print(loc_down[bid])
+        print('idx:'); print(idx[bid])
+        print('weight:'); print(weight[bid])
+        print('norm_weight:'); print(norm_weight[bid])
+
+
 
     x_out = x_out / (norm_weight + 1e-6)
     loc_out = loc_out / (norm_weight + 1e-6)
