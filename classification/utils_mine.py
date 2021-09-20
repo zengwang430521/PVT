@@ -572,13 +572,13 @@ def merge_tokens(x, loc, loc_down, weight=None):
 
     if weight is None:
         weight = x.new_ones(B, N, 1)
-    all_weight = x.new_zeros(B * Ns, 1)
+    all_weight = weight.new_zeros(B * Ns, 1)
     all_weight.index_add_(dim=0, index=idx.reshape(B * N), source=weight.reshape(B * N, 1))
     all_weight = all_weight + 1e-4
     norm_weight = weight / all_weight[idx]
 
     tmp = x.new_zeros(B * Ns, C + 2)
-    source = torch.cat([x * norm_weight, loc * norm_weight], dim=-1)
+    source = torch.cat([x * norm_weight, loc * norm_weight], dim=-1).type(x.type)
     source = source.to(x.device).type(x.dtype)
     tmp.index_add_(dim=0, index=idx.reshape(B * N), source=source.reshape(B * N, C + 2))
     tmp = tmp.reshape(B, Ns, C + 2)
