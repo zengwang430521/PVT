@@ -241,10 +241,8 @@ class DownLayer(nn.Module):
         B, N, C = x.shape
 
         conf = self.conf(self.norm(x))
-        # weight = (conf - conf.min(dim=1, keepdim=True)[0]).exp()
-        weight = conf.exp()
+        weight = conf.clamp(-7, 7).exp()
         weight, mask = token2map(weight, pos, [H, W], 1, 1, return_mask=True)
-        # conf_map = conf_map * mask + (-10) * (1 - mask)
         pos_down = get_sample_grid(weight).reshape(B, 2, -1).permute(0, 2,  1)
         x_down = map2token(x_map, pos_down)
 
