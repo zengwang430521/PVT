@@ -467,7 +467,7 @@ def get_sample_grid(weight_map):
     return loc
 
 
-def merge_tokens(x, loc, loc_down, weight=None):
+def merge_tokens_old(x, loc, loc_down, weight=None):
     B, N, C = x.shape
     Ns = loc_down.shape[1]
 
@@ -561,6 +561,46 @@ def merge_tokens(x, loc, loc_down, weight=None):
 
     return x_out, loc_out
 
+
+def merge_tokens(x, loc, loc_down, weight=None):
+    B, N, C = x.shape
+    Ns = loc_down.shape[1]
+
+    dists = square_distance(loc, loc_down)
+    idx = dists.argmin(axis=2)
+    idx = idx + torch.arange(B)[:, None].to(loc.device) * Ns
+
+    if weight is None:
+        weight = x.new_ones(B, N, 1)
+    all_weight = x.new_zeros(B * Ns, 1)
+    all_weight.index_add_(dim=0, index=idx.reshape(B * N), source=weight.reshape(B * N, 1))
+    all_weight = all_weight + 1e-4
+    norm_weight = weight / all_weight[idx]
+
+    tmp = x.new_zeros(B * Ns, C + 2)
+    source = torch.cat([x * norm_weight, loc * norm_weight], dim=-1)
+    source = source.to(x.device).type(x.dtype)
+    tmp.index_add_(dim=0, index=idx.reshape(B * N), source=source.reshape(B * N, C + 2))
+    tmp = tmp.reshape(B, Ns, C + 2)
+
+    x_out = tmp[..., :C]
+    loc_out = tmp[..., C:]
+
+    if torch.isinf(x_out).any():
+        save_dict = {
+            'x': x,
+            'loc': loc,
+            'loc_down': loc_down,
+            'idx': idx,
+            'weight': weight,
+            'norm_weight': norm_weight,
+            'all_weight': all_weight
+        }
+        for key in save_dict.keys():
+            save_dict[key] = save_dict[key].detach().cpu()
+        torch.save(save_dict, 'debug_merge.pth')
+
+    return x_out, loc_out
 
 # '''for debug'''
 #

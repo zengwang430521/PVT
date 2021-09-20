@@ -20,10 +20,12 @@ conf_source = conf_source[bid, ...].unsqueeze(0)
 
 
 conf_source = conf_source.cuda()
-weight = conf_source.exp()
-weight = weight.clamp(0, 1e3)
+weight = conf_source.clamp(-7, 7).exp()
 tmp = utils_mine.merge_tokens(x_source.cuda(), loc_source.cuda(), loc.cuda(), weight)
 
+x_t, loc_t = tmp
+
+t = 0
 # conf = conf_source
 # weight = (conf - conf.min(dim=1, keepdim=True)[0]).float().exp().half()
 # loc_down = loc
@@ -59,3 +61,6 @@ tmp = utils_mine.merge_tokens(x_source.cuda(), loc_source.cuda(), loc.cuda(), we
 # conf_map, mask = utils_mine.token2map(conf_source.float(), loc_source.float(), [3, 3], 1, 1, True)
 # conf_map = conf_map[bid]
 # mask = mask[bid]
+
+
+
