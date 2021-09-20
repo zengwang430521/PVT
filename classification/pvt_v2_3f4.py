@@ -17,7 +17,7 @@ vis = False
 # vis = True
 
 '''
-do not select tokens, merge tokens., conf clamp(-7, 7)
+do not select tokens, merge tokens. conf.clamp(-7, 7)
 '''
 
 
@@ -273,9 +273,10 @@ class DownLayer(nn.Module):
         pos_down = torch.gather(pos_ada, 1, index_down.expand([B, sample_num, 2]))
         pos_down = torch.cat([pos_grid, pos_down], 1)
 
-        weight = conf.clamp(-7, 7).exp().detach()
+        conf = conf.clamp(-7, 7)
+        weight = conf.exp()
         x_down, pos_down = merge_tokens(x, pos, pos_down, weight)
-        x_down = self.block(x_down, x, pos_down, pos, H, W, conf.clamp(-7, 7))
+        x_down = self.block(x_down, x, pos_down, pos, H, W, conf)
 
         if vis:
             show_conf(conf, pos)
