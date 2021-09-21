@@ -16,34 +16,34 @@ def get_grid_loc(B, H, W, device):
 
 
 def get_loc(x, H, W, grid_stride):
-        B = x.shape[0]
-        device = x.device
-        y_g, x_g = torch.arange(H, device=device).float(), torch.arange(W, device=device).float()
-        y_g = 2 * ((y_g + 0.5) / H) - 1
-        x_g = 2 * ((x_g + 0.5) / W) - 1
-        y_map, x_map = torch.meshgrid(y_g, x_g)
-        xy_map = torch.stack((x_map, y_map), dim=-1)
+    B = x.shape[0]
+    device = x.device
+    y_g, x_g = torch.arange(H, device=device).float(), torch.arange(W, device=device).float()
+    y_g = 2 * ((y_g + 0.5) / H) - 1
+    x_g = 2 * ((x_g + 0.5) / W) - 1
+    y_map, x_map = torch.meshgrid(y_g, x_g)
+    xy_map = torch.stack((x_map, y_map), dim=-1)
 
-        loc = xy_map.reshape(-1, 2)[None, ...].repeat([B, 1, 1])
+    loc = xy_map.reshape(-1, 2)[None, ...].repeat([B, 1, 1])
 
-        # split into grid and adaptive tokens
-        pos = torch.arange(x.shape[1], dtype=torch.long, device=x.device)
-        tmp = pos.reshape([H, W])
-        pos_grid = tmp[grid_stride // 2:H:grid_stride, grid_stride // 2:W:grid_stride]
-        pos_grid = pos_grid.reshape([-1])
-        mask = torch.ones(pos.shape, dtype=torch.bool, device=pos.device)
-        mask[pos_grid] = 0
-        pos_ada = torch.masked_select(pos, mask)
+    # split into grid and adaptive tokens
+    pos = torch.arange(x.shape[1], dtype=torch.long, device=x.device)
+    tmp = pos.reshape([H, W])
+    pos_grid = tmp[grid_stride // 2:H:grid_stride, grid_stride // 2:W:grid_stride]
+    pos_grid = pos_grid.reshape([-1])
+    mask = torch.ones(pos.shape, dtype=torch.bool, device=pos.device)
+    mask[pos_grid] = 0
+    pos_ada = torch.masked_select(pos, mask)
 
-        x_grid = torch.index_select(x, 1, pos_grid)
-        x_ada = torch.index_select(x, 1, pos_ada)
-        loc_grid = torch.index_select(loc, 1, pos_grid)
-        loc_ada = torch.index_select(loc, 1, pos_ada)
+    x_grid = torch.index_select(x, 1, pos_grid)
+    x_ada = torch.index_select(x, 1, pos_ada)
+    loc_grid = torch.index_select(loc, 1, pos_grid)
+    loc_ada = torch.index_select(loc, 1, pos_ada)
 
-        x = torch.cat([x_grid, x_ada], 1)
-        loc = torch.cat([loc_grid, loc_ada], 1)
-        N_grid = x_grid.shape[1]
-        return x, loc, N_grid
+    x = torch.cat([x_grid, x_ada], 1)
+    loc = torch.cat([loc_grid, loc_ada], 1)
+    N_grid = x_grid.shape[1]
+    return x, loc, N_grid
 
 
 def get_loc_new(x, H, W, grid_stride):
@@ -297,11 +297,14 @@ def show_tokens(x, out, N_grid=14*14):
     # for i in range(x.shape[0]):
     for i in range(1):
         img = x[i].permute(1, 2, 0).detach().cpu()
-        ax = plt.subplot(1, len(out)+2, 1)
+        ax = plt.subplot(2, 5, 1)
         ax.clear()
         ax.imshow(img)
+        # ax = plt.subplot(2, 5, 6)
+        # ax.clear()
+        # ax.imshow(img)
         for lv in range(len(out)):
-            ax = plt.subplot(1, len(out)+2, lv+2+(lv > 0))
+            ax = plt.subplot(2, 5, lv+2)
             ax.clear()
             ax.imshow(img, extent=[0, 1, 0, 1])
             loc = out[lv][1]
@@ -315,13 +318,14 @@ def show_tokens(x, out, N_grid=14*14):
 
 def show_conf(conf, loc):
     H = int(conf.shape[1]**0.5)
-    if H == 28:
-        conf = F.softmax(conf, dim=1)
-        conf_map = token2map(conf,  map_size=[H, H], loc=loc, kernel_size=3, sigma=2)
-        lv = 3
-        ax = plt.subplot(1, 6, lv)
-        ax.clear()
-        ax.imshow(conf_map[0, 0].detach().cpu())
+    lv = int(math.log2(28 / H) + 7 + 1)
+
+    # conf = F.softmax(conf, dim=1)
+    conf = conf.exp()
+    conf_map = token2map(conf,  map_size=[H, H], loc=loc, kernel_size=3, sigma=2)
+    ax = plt.subplot(2, 5, lv)
+    ax.clear()
+    ax.imshow(conf_map[0, 0].detach().cpu())
 
 
 def token2critcal(x, loc, loc_critical, return_mask=False):
@@ -463,6 +467,39 @@ def get_sample_grid(weight_map):
     loc = loc.permute(2, 0, 1)[None, ...]
 
     loc = loc + loc_delta
+    loc = loc.clamp(-1, 1)
+    return loc
+
+
+def get_sample_grid2(weight_map, loc_init):
+    B, _, H, W = weight_map.shape
+    max_size = max(H, W)
+    device = weight_map.device
+    dtype = weight_map.dtype
+
+    kernel_size = 2 * max_size - 1
+    pad_size = max_size - 1
+
+    kernel_gaussian = get_gaussian_kernel(kernel_size, sigma=3, device=device)
+
+    h, w = kernel_size, kernel_size
+    x = torch.arange(w, device=device, dtype=dtype)
+    x = (x - 0.5 * (w-1)) * 2 / W
+    y = torch.arange(h, device=device, dtype=dtype)
+    y = (y - 0.5 * (h-1)) * 2 / H
+    y, x = torch.meshgrid(y, x)
+    kernel_delta = torch.stack([x, y], dim=-1)
+    kernel_delta = kernel_delta.permute(2, 0, 1).unsqueeze(1)
+
+    kernel = torch.cat([kernel_gaussian * kernel_delta, kernel_gaussian], dim=0)
+
+    weight_map = F.pad(weight_map, (pad_size, pad_size, pad_size, pad_size), mode='replicate')
+    tmp = F.conv2d(weight_map, kernel, stride=1, padding=0)
+    loc_delta, norm_weight = tmp[:, :2], tmp[:, 2:]
+    loc_delta = loc_delta / (norm_weight + 1e-6)
+
+    loc_delta = map2token(loc_delta, loc_init)
+    loc = loc_init + loc_delta
     loc = loc.clamp(-1, 1)
     return loc
 

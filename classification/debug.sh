@@ -20,8 +20,15 @@ srun -p mm_human \
 srun -p pat_earth \
     --job-name=pvt --ntasks=8 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
-    --model=mypvt3a1_small --output_dir=work_dirs/my3a1_LR \
+    --model=mypvt3f5_small --output_dir=work_dirs/my3f5_LR \
+    --batch-size 128 --data-path data/imagenet --input-size 112 --use-mcloader --resume work_dirs/my3f5_LR/checkpoint.pth
+
+    python -u train.py --config configs/pvt_v2/debug.py \
+    --model=mypvt3a2_small --output_dir=work_dirs/my3a2_LR \
     --batch-size 128 --data-path data/imagenet --input-size 112 --use-mcloader
+
+    python -u train.py --config configs/pvt_v2/debug.py \
+    --model=mypvt3a1_small --output_dir=work_dirs/my3a1_LR \
 
     python -u train.py --config configs/pvt_v2/debug.py \
     --model=mypvt3_small --output_dir=work_dirs/my3_LR \
