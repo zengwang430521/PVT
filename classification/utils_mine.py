@@ -705,7 +705,8 @@ def reconstruct_feature2(feature, weight, kernel_size, sigma):
     mask = (weight > 0)
     if kernel_size < 3:
         return feature, mask
-
+    tmp = weight.max(dim=-1, keepdim=True)[0].max(dim=-2, keepdim=True)[0]
+    weight = weight / (tmp+1e-6)
     C = feature.shape[1]
     out = guassian_filt(torch.cat([feature * weight, weight], dim=1),
                         kernel_size=kernel_size, sigma=sigma)
