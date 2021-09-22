@@ -129,8 +129,13 @@ class MyAttention(nn.Module):
         if not self.linear:
             if self.sr_ratio > 1:
                 kernel = self.sr_ratio + 1
+                dtype = x_source.dtype
                 x_source, conf_source, mask = token2map_with_conf(
-                    x_source, loc_source, [H, W], kernel_size=kernel, sigma=2, conf=conf_source)
+                    x_source.float(), loc_source.float(), [H, W], kernel_size=kernel, sigma=2,
+                    conf=conf_source.float()if conf_source is not None else conf_source)
+                x_source = x_source.type(dtype)
+                conf_source = conf_source.type(dtype)
+
                 x_source = self.sr(x_source)
                 _, _, h, w = x_source.shape
                 x_source = x_source.reshape(B, C, -1).permute(0, 2, 1)
