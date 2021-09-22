@@ -662,3 +662,58 @@ def merge_tokens(x, loc, loc_down, weight=None):
 #
 # plt.show()
 # t = 0
+
+
+def token2map_with_conf(x, loc, map_size, kernel_size, sigma, conf=None):
+    # if kernel_size == 1:
+    #     x, loc = x[:, :16], loc[:, :16]
+    B, N, C = x.shape
+
+    if conf is None:
+        conf = x.new_zeros(B, N, 1)
+    weight = conf.exp()
+
+    H, W = map_size
+    loc = loc.clamp(-1, 1)
+    loc = 0.5 * (loc + 1) * torch.FloatTensor([W, H]).to(loc.device)[None, None, :] - 0.5
+    loc = loc.round().long()
+    loc[..., 0] = loc[..., 0].clamp(0, W-1)
+    loc[..., 1] = loc[..., 1].clamp(0, H-1)
+    idx = loc[..., 0] + loc[..., 1] * W
+    idx = idx + torch.arange(B)[:, None].to(loc.device) * H * W
+
+    all_weight = weight.new_zeros(B*H*W, 1)
+    all_weight.index_add_(dim=0, index=idx.reshape(B*N), source=weight.reshape(B*N, 1))
+    norm_weight = weight / all_weight[idx]
+
+    out = x.new_zeros(B*H*W, C+1)
+    source = torch.cat([x * norm_weight, conf * norm_weight], dim=-1)
+    out.index_add_(dim=0, index=idx.reshape(B*N),
+                   source=source.reshape(B*N, C+1))
+    out = out.reshape(B, H, W, C+1).permute(0, 3, 1, 2).contiguous()
+    all_weight = all_weight.reshape(B, H, W, 1).permute(0, 3, 1, 2).contiguous()
+
+    out, mask = reconstruct_feature2(out, all_weight, kernel_size, sigma)
+
+    feature = out[:, :C, :, :]
+    conf = out[:, C:, :, :]
+    conf = conf + (1 - mask.type(conf.dtype)) * (-10)
+    return feature, conf, mask
+
+
+def reconstruct_feature2(feature, weight, kernel_size, sigma):
+    mask = (weight > 0)
+    if kernel_size < 3:
+        return feature, mask
+
+    C = feature.shape[1]
+    out = guassian_filt(torch.cat([feature * weight, weight], dim=1),
+                        kernel_size=kernel_size, sigma=sigma)
+    feature_inter = out[:, :C]
+    weight_inter = out[:, C:]
+    feature_inter = feature_inter / (weight_inter + 1e-6)
+    mask_inter = (weight_inter > 0)
+    feature_inter = feature_inter * mask_inter.type(feature.dtype)
+    out = feature + (1 - mask.type(feature.dtype)) * feature_inter
+
+    return out, mask_inter
