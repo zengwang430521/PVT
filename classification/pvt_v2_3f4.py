@@ -14,7 +14,7 @@ from utils_mine import (
 from utils_mine import get_loc_new as get_loc
 
 # vis = False
-vis = True
+# vis = True
 
 '''
 do not select tokens, merge tokens. weight clamp, conf do not clamp
