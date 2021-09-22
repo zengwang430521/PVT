@@ -131,8 +131,8 @@ class MyAttention(nn.Module):
                 kernel = self.sr_ratio + 1
                 dtype = x_source.dtype
                 x_source, conf_source, mask = token2map_with_conf(
-                    x_source.float(), loc_source.float(), [H, W], kernel_size=kernel, sigma=2,
-                    conf=conf_source.float()if conf_source is not None else conf_source)
+                    x_source.type(torch.float32), loc_source.type(torch.float32), [H, W], kernel_size=kernel, sigma=2,
+                    conf=conf_source.type(torch.float32) if conf_source is not None else conf_source)
                 x_source = x_source.type(dtype)
                 conf_source = conf_source.type(dtype)
 
