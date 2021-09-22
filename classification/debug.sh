@@ -15,16 +15,24 @@ python -m torch.distributed.launch --nproc_per_node=8 --master_port=6333 --use_e
 
 srun -p 3dv-share  -w SH-IDC1-10-198-6-129\
 srun -p mmpose \
+srun -p mm_human \
 srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
 srun -p pat_earth \
-srun -p mm_human \
     --job-name=pvt --ntasks=8 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
-    --model=mypvt5b0_small --output_dir=work_dirs/my5b0_LR \
-    --batch-size 128 --data-path data/imagenet --input-size 112 --use-mcloader
+    --model=mypvt3a0_small --output_dir=work_dirs/my3a0_LR \
+    --batch-size 128 --data-path data/imagenet --input-size 112 --use-mcloader --resume work_dirs/my3a0_LR/checkpoint.pth
+
+    python -u train.py --config configs/pvt_v2/debug.py \
+    --model=mypvt3f5_small --output_dir=work_dirs/my3f5 \
+    --batch-size 64 --data-path data/imagenet --input-size 224 --use-mcloader --resume work_dirs/my3f5/checkpoint.pth
 
      python -u train.py --config configs/pvt_v2/debug.py \
     --model=mypvt5c0_small --output_dir=work_dirs/my5c0_LR \
+    --batch-size 128 --data-path data/imagenet --input-size 112 --use-mcloader
+
+    python -u train.py --config configs/pvt_v2/debug.py \
+    --model=mypvt5b0_small --output_dir=work_dirs/my5b0_LR \
     --batch-size 128 --data-path data/imagenet --input-size 112 --use-mcloader
 
     python -u train.py --config configs/pvt_v2/debug.py \
