@@ -13,7 +13,7 @@ from utils_mine import (
 )
 from utils_mine import get_loc_new as get_loc
 
-# vis = False
+vis = False
 # vis = True
 
 '''
