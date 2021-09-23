@@ -741,7 +741,8 @@ def merge_tokens2(x, loc, loc_down, weight=None):
     all_weight.index_add_(dim=0, index=idx.reshape(B * N * K), source=weight.repeat(1, 1, K).reshape(B * N * K))
 
     all_weight = all_weight + 1e-4
-    norm_weight = weight / all_weight[idx, 0]
+    tmp = all_weight[idx.reshape(-1), 0].reshape(B, N, K)
+    norm_weight = weight / tmp
 
     tmp = x.new_zeros(B * Ns, C + 2)
     source = torch.cat([x.unsqueeze(-2) * norm_weight.unsqueeze(-1),
