@@ -738,7 +738,7 @@ def merge_tokens2(x, loc, loc_down, weight=None):
         weight = x.new_ones(B, N, 1)
 
     all_weight = weight.new_zeros(B * Ns, 1)
-    all_weight.index_add_(dim=0, index=idx.reshape(B * N * K), source=weight.expand(B, N, K).reshape(B * N * K))
+    all_weight.index_add_(dim=0, index=idx.reshape(B * N * K), source=weight.repeat(1, 1, K).reshape(B * N * K))
 
     all_weight = all_weight + 1e-4
     norm_weight = weight / all_weight[idx, 0]
