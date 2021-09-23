@@ -820,5 +820,10 @@ def merge_tokens_conv(x, loc, loc_down, weight, conv_weight, bias):
     x_out.index_add_(dim=0, index=idx.reshape(B * N), source=source.reshape(B * N, C_out))
     x_out = x_out.reshape(B, Ns, C_out)
 
-    return x_out, loc_out, x_o[:, :, :, 1, 1]
+    x_o = x_o[:, :, :, 1, 1]
+    if bias is not None:
+        x_out = x_out + bias[None, None, :]
+        x_o = x_o + bias[None, None, :]
+
+    return x_out, loc_out, x_o
 
