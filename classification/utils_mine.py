@@ -771,3 +771,54 @@ def merge_tokens2(x, loc, loc_down, weight=None):
         torch.save(save_dict, 'debug_merge.pth')
 
     return x_out, loc_out
+
+
+def merge_tokens_conv(x, loc, loc_down, weight, conv_weight, bias):
+    B, N, C_in = x.shape
+    C_out, C_in, kh, kw = conv_weight.shape
+    Ns = loc_down.shape[1]
+
+    x_o = torch.einsum('bni,oihw->bnohw', x, conv_weight)
+
+    dists = square_distance(loc, loc_down)
+    idx = dists.argmin(axis=2)
+    idx = idx + torch.arange(B)[:, None].to(loc.device) * Ns
+
+    if weight is None:
+        weight = x.new_ones(B, N, 1)
+    all_weight = weight.new_zeros(B * Ns, 1)
+    all_weight.index_add_(dim=0, index=idx.reshape(B * N), source=weight.reshape(B * N, 1))
+    all_weight = all_weight + 1e-4
+    norm_weight = weight / all_weight[idx]
+
+    loc_out = loc.new_zeros(B * Ns, 2)
+    source = loc * norm_weight
+    loc_out.index_add_(dim=0, index=idx.reshape(B * N), source=source.reshape(B * N, 2))
+    loc_delta = loc - loc_out[idx]
+
+    loc_out = loc_out.reshape(B, Ns, 2)
+
+    delta_matrix = loc_out[:, :, None, :] - loc[:, None, :, :]
+    mask = delta_matrix.new_zeros(B*Ns, N)
+    tmp = torch.arange(N)[None, :].expand(B, N).to(x.device)
+    mask[idx.reshape(-1), tmp.reshape(-1)] = 1
+    mask = mask.reshape(B, Ns, N, 1)
+    delta_matrix = delta_matrix * mask
+
+    box_scale = delta_matrix.abs().max(dim=2)[0]
+    box_scale = box_scale.max(dim=-1)[0] + 1e-4
+    box_scale = box_scale.reshape(-1, 1)
+    loc_delta = loc_delta / box_scale[idx]
+
+    x = map2token(x_o.flatten(0, 1),
+                  loc_delta.reshape(B*N, 1, 2))
+    x = x.reshape(B, N, 1, C_out).squeeze(-2)
+
+    x_out = x.new_zeros(B * Ns, C_out)
+    source = x * norm_weight
+    source = source.to(x.device).type(x.dtype)
+    x_out.index_add_(dim=0, index=idx.reshape(B * N), source=source.reshape(B * N, C_out))
+    x_out = x_out.reshape(B, Ns, C_out)
+
+    return x_out, loc_out, x_o[:, :, :, 1, 1]
+
