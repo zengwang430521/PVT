@@ -730,19 +730,21 @@ def merge_tokens2(x, loc, loc_down, weight=None):
     K = 2
 
     dists = square_distance(loc, loc_down)
-    _, idx = dists.sort(dim=2)
+    idx = dists.sort(dim=2)[1]
     idx = idx[:, :, :K]
+    # idx = torch.zeros(B, N, K).long().to(x.device)
     idx = idx + torch.arange(B)[:, None, None].to(loc.device) * Ns
 
     if weight is None:
         weight = x.new_ones(B, N, 1)
 
     all_weight = weight.new_zeros(B * Ns, 1)
-    all_weight.index_add_(dim=0, index=idx.reshape(B * N * K), source=weight.repeat(1, 1, K).reshape(B * N * K))
+    weight = weight.expand(B, N, K)
+    all_weight.index_add_(dim=0, index=idx.reshape(B * N * K), source=weight.reshape(B * N * K, 1))
 
     all_weight = all_weight + 1e-4
-    tmp = all_weight[idx.reshape(-1), 0].reshape(B, N, K)
-    norm_weight = weight / tmp
+    t_w = all_weight[idx.reshape(-1), 0].reshape(B, N, K)
+    norm_weight = weight / t_w
 
     tmp = x.new_zeros(B * Ns, C + 2)
     source = torch.cat([x.unsqueeze(-2) * norm_weight.unsqueeze(-1),

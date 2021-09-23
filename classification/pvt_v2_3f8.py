@@ -502,5 +502,7 @@ if __name__ == '__main__':
     # model.load_state_dict(pre_dict)
     x = torch.rand([2, 3, 112, 112]).to(device)
     tmp = model.forward(x)
+    tmp = tmp.sum()
+    tmp.backward()
     print('Finish')
 
