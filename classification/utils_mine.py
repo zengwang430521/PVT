@@ -718,3 +718,53 @@ def reconstruct_feature2(feature, weight, kernel_size, sigma):
     out = feature + (1 - mask.type(feature.dtype)) * feature_inter
 
     return out, mask_inter
+
+
+def merge_tokens2(x, loc, loc_down, weight=None):
+    """
+    merge tokens with 2 tokens
+    """
+
+    B, N, C = x.shape
+    Ns = loc_down.shape[1]
+    K = 2
+
+    dists = square_distance(loc, loc_down)
+    _, idx = dists.sort(dim=2)
+    idx = idx[:, :, :K]
+    idx = idx + torch.arange(B)[:, None, None].to(loc.device) * Ns
+
+    if weight is None:
+        weight = x.new_ones(B, N, 1)
+
+    all_weight = weight.new_zeros(B * Ns, 1)
+    all_weight.index_add_(dim=0, index=idx.reshape(B * N * K), source=weight.expand(B, N, K).reshape(B * N * K))
+
+    all_weight = all_weight + 1e-4
+    norm_weight = weight / all_weight[idx, 0]
+
+    tmp = x.new_zeros(B * Ns, C + 2)
+    source = torch.cat([x.unsqueeze(-2) * norm_weight.unsqueeze(-1),
+                        loc.unsqueeze(-2) * norm_weight.unsqueeze(-1)], dim=-1)
+    source = source.to(x.device).type(x.dtype)
+    tmp.index_add_(dim=0, index=idx.reshape(B * N * K), source=source.reshape(B * N * K, C + 2))
+    tmp = tmp.reshape(B, Ns, C + 2)
+
+    x_out = tmp[..., :C]
+    loc_out = tmp[..., C:]
+
+    if torch.isinf(x_out).any():
+        save_dict = {
+            'x': x,
+            'loc': loc,
+            'loc_down': loc_down,
+            'idx': idx,
+            'weight': weight,
+            'norm_weight': norm_weight,
+            'all_weight': all_weight
+        }
+        for key in save_dict.keys():
+            save_dict[key] = save_dict[key].detach().cpu()
+        torch.save(save_dict, 'debug_merge.pth')
+
+    return x_out, loc_out

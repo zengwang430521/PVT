@@ -9,17 +9,18 @@ from pvt_v2 import (Block, DropPath, DWConv, OverlapPatchEmbed,
 from utils_mine import (
     get_grid_loc, extract_local_feature, extract_neighbor_feature,
     gumble_top_k, guassian_filt, reconstruct_feature, token2map, map2token,
-    show_tokens, show_conf, merge_tokens, token2map_with_conf
+    show_tokens, show_conf
 )
 from utils_mine import get_loc_new as get_loc
+from utils_mine import merge_tokens2 as merge_tokens
 
 vis = False
 # vis = True
 
 '''
-do not select tokens, merge tokens. conf.clamp(-7, 7), token2map with conf
+do not select tokens, merge tokens 2.
+ weight clamp, conf do not clamp
 '''
-
 
 class MyMlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., linear=False):
@@ -129,19 +130,14 @@ class MyAttention(nn.Module):
         if not self.linear:
             if self.sr_ratio > 1:
                 kernel = self.sr_ratio + 1
-                dtype = x_source.dtype
-                x_source, conf_source, mask = token2map_with_conf(
-                    x_source.type(torch.float32), loc_source.type(torch.float32), [H, W], kernel_size=kernel, sigma=2,
-                    conf=conf_source.type(torch.float32) if conf_source is not None else conf_source)
-                x_source = x_source.type(dtype)
-                conf_source = conf_source.type(dtype)
-
+                x_source = token2map(x_source, loc_source, [H, W], kernel_size=kernel, sigma=2)
                 x_source = self.sr(x_source)
                 _, _, h, w = x_source.shape
                 x_source = x_source.reshape(B, C, -1).permute(0, 2, 1)
                 x_source = self.norm(x_source)
-                conf_source = F.avg_pool2d(conf_source, kernel_size=self.sr_ratio, stride=self.sr_ratio)
-                conf_source = conf_source.reshape(B, 1, -1).permute(0, 2, 1)
+                if conf_source is not None:
+                    conf_source = token2map(conf_source, loc_source, [h, w], 1, 1)
+                    conf_source = conf_source.reshape(B, 1, -1).permute(0, 2, 1)
         else:
             h, w = H // self.sr_ratio, W // self.sr_ratio
             x_source = token2map(x_source, loc_source, [h, w], 1, 1)
@@ -278,8 +274,8 @@ class DownLayer(nn.Module):
         pos_down = torch.gather(pos_ada, 1, index_down.expand([B, sample_num, 2]))
         pos_down = torch.cat([pos_grid, pos_down], 1)
 
-        conf = conf.clamp(-7, 7)
-        weight = conf.exp()
+        # conf = conf.clamp(-7, 7)
+        weight = conf.clamp(-7, 7).exp()
         x_down, pos_down = merge_tokens(x, pos, pos_down, weight)
         x_down = self.block(x_down, x, pos_down, pos, H, W, conf)
 
@@ -488,7 +484,7 @@ class MyPVT(nn.Module):
 
 
 @register_model
-def mypvt3f7_small(pretrained=False, **kwargs):
+def mypvt3f8_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],  **kwargs)
@@ -500,7 +496,7 @@ def mypvt3f7_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt3f7_small(drop_path_rate=0.).to(device)
+    model = mypvt3f8_small(drop_path_rate=0.).to(device)
     model.reset_drop_path(0.)
     # pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
     # model.load_state_dict(pre_dict)

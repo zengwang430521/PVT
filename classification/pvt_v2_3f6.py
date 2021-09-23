@@ -17,7 +17,7 @@ vis = False
 # vis = True
 
 '''
-do not select tokens, merge tokens. conf.clamp(-7, 7), token2map with conf
+do not select tokens, merge tokens. weight clamp, conf do not clamp
 '''
 
 class MyMlp(nn.Module):
