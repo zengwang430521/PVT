@@ -931,8 +931,8 @@ def merge_tokens_agg(x, loc, loc_down, idx_agg, weight=None, return_weight=False
 #
 
 
-def token2map_agg_sparse(x, loc, loc_orig, idx_agg, map_size, weight=None):
-    # x = torch.rand(2, 4, 3)
+def token2map_agg_sparse_old(x, loc, loc_orig, idx_agg, map_size, weight=None):
+    # x = torch.rand(2, 4, 3).half()
     # loc = torch.rand(2, 4, 2)
     # loc_orig = torch.rand(2, 7, 2)
     # idx_agg = (torch.rand(2, 7) * 3).long()
@@ -970,6 +970,41 @@ def token2map_agg_sparse(x, loc, loc_orig, idx_agg, map_size, weight=None):
     x_out = x_out.type(x.dtype)
 
     x_out = x_out.reshape(B, H, W, C).permute(0, 3,  1, 2).contiguous()
+    all_weight = all_weight.reshape(B, H, W, 1).permute(0, 3,  1, 2).contiguous()
+    return x_out, all_weight
+
+
+def token2map_agg_sparse(x, loc, loc_orig, idx_agg, map_size, weight=None):
+    # x = torch.rand(2, 4, 3).half()
+    # loc = torch.rand(2, 4, 2)
+    # loc_orig = torch.rand(2, 7, 2)
+    # idx_agg = (torch.rand(2, 7) * 3).long()
+    # map_size = [5, 5]
+    # weight = None
+
+    H, W = map_size
+    B, N, C = x.shape
+    N0 = loc_orig.shape[1]
+    device = x.device
+    loc_orig = loc_orig.clamp(-1, 1)
+    loc_orig = 0.5 * (loc_orig + 1) * torch.FloatTensor([W, H]).to(device)[None, None, :] - 0.5
+    loc_orig = loc_orig.round().long()
+    loc_orig[..., 0] = loc_orig[..., 0].clamp(0, W-1)
+    loc_orig[..., 1] = loc_orig[..., 1].clamp(0, H-1)
+    idx_HW_orig = loc_orig[..., 0] + loc_orig[..., 1] * W
+
+    idx_batch = torch.arange(B, device=device)[:, None].expand(B, N0)
+    if weight is None:
+        weight = x.new_ones(B, N, 1)
+    value = index_points(weight, idx_agg).reshape(B*N0)
+
+    A = x.new_zeros(B, H*W, N)
+    A[idx_batch.reshape(-1), idx_HW_orig.reshape(-1), idx_agg.reshape(-1)] = value.reshape(-1)
+    all_weight = (A.sum(dim=-1, keepdim=True) +1e-6)
+    A = A / all_weight
+    x_out = A @ x
+
+    x_out = x_out.reshape(B, H, W, C).permute(0, 3, 1, 2).contiguous()
     all_weight = all_weight.reshape(B, H, W, 1).permute(0, 3,  1, 2).contiguous()
     return x_out, all_weight
 
