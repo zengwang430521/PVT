@@ -799,7 +799,7 @@ def merge_tokens_conv(x, loc, loc_down, weight, conv_weight, bias):
     loc_out = loc_out.reshape(B, Ns, 2)
 
     delta_matrix = loc_out[:, :, None, :] - loc[:, None, :, :]
-    mask = delta_matrix.new_zeros(B*Ns, N)
+    mask = delta_matrix.new_zeros(B * Ns, N)
     tmp = torch.arange(N)[None, :].expand(B, N).to(x.device)
     mask[idx.reshape(-1), tmp.reshape(-1)] = 1
     mask = mask.reshape(B, Ns, N, 1)
@@ -811,7 +811,7 @@ def merge_tokens_conv(x, loc, loc_down, weight, conv_weight, bias):
     loc_delta = loc_delta / box_scale[idx]
 
     x = map2token(x_o.flatten(0, 1),
-                  loc_delta.reshape(B*N, 1, 2))
+                  loc_delta.reshape(B * N, 1, 2))
     x = x.reshape(B, N, 1, C_out).squeeze(-2)
 
     x_out = x.new_zeros(B * Ns, C_out)
@@ -826,4 +826,279 @@ def merge_tokens_conv(x, loc, loc_down, weight, conv_weight, bias):
         x_o = x_o + bias[None, None, :]
 
     return x_out, loc_out, x_o
+
+
+def merge_tokens_agg(x, loc, loc_down, idx_agg, weight=None, return_weight=False):
+    B, N, C = x.shape
+    Ns = loc_down.shape[1]
+
+    dists = square_distance(loc, loc_down)
+    idx_agg_t = dists.argmin(axis=2)
+    idx = idx_agg_t + torch.arange(B)[:, None].to(loc.device) * Ns
+
+    if weight is None:
+        weight = x.new_ones(B, N, 1)
+    all_weight = weight.new_zeros(B * Ns, 1)
+    all_weight.index_add_(dim=0, index=idx.reshape(B * N), source=weight.reshape(B * N, 1))
+    all_weight = all_weight + 1e-4
+    norm_weight = weight / all_weight[idx]
+
+    tmp = x.new_zeros(B * Ns, C + 2)
+    source = torch.cat([x * norm_weight, loc * norm_weight], dim=-1)
+    source = source.to(x.device).type(x.dtype)
+    tmp.index_add_(dim=0, index=idx.reshape(B * N), source=source.reshape(B * N, C + 2))
+    tmp = tmp.reshape(B, Ns, C + 2)
+
+    x_out = tmp[..., :C]
+    loc_out = tmp[..., C:]
+    idx_agg = index_points(idx_agg_t[..., None], idx_agg).squeeze(-1)
+
+    if torch.isinf(x_out).any():
+        save_dict = {
+            'x': x,
+            'loc': loc,
+            'loc_down': loc_down,
+            'idx': idx,
+            'weight': weight,
+            'norm_weight': norm_weight,
+            'all_weight': all_weight
+        }
+        for key in save_dict.keys():
+            save_dict[key] = save_dict[key].detach().cpu()
+        torch.save(save_dict, 'debug_merge.pth')
+
+    if return_weight:
+        weight_t = index_points(norm_weight, idx_agg)
+        return x_out, loc_out, idx_agg, weight_t
+    return x_out, loc_out, idx_agg
+
+
+
+# def token2map_agg(x, loc, loc_orig, idx_agg, map_size):
+#     # x = torch.rand(2, 4, 3)
+#     # loc = torch.rand(2, 4, 2)
+#     # loc_orig = torch.rand(2, 7, 2)
+#     # idx_agg = (torch.rand(2, 7) * 3).long()
+#     # map_size = [5, 5]
+#
+#     H, W = map_size
+#     B, N, C = x.shape
+#     N0 = loc_orig.shape[1]
+#     device = x.device
+#     loc_orig = loc_orig.clamp(-1, 1)
+#     loc_orig = 0.5 * (loc_orig + 1) * torch.FloatTensor([W, H]).to(device)[None, None, :] - 0.5
+#     loc_orig = loc_orig.round().long()
+#     loc_orig[..., 0] = loc_orig[..., 0].clamp(0, W-1)
+#     loc_orig[..., 1] = loc_orig[..., 1].clamp(0, H-1)
+#     idx_HW_orig = loc_orig[..., 0] + loc_orig[..., 1] * W
+#     idx_HW_orig = idx_HW_orig + torch.arange(B)[:, None].to(device) * H * W
+#
+#     weight = x.new_ones(B, N, 1)
+#     source = index_points(torch.cat([x, weight], dim=-1), idx_agg)
+#     out = x.new_zeros(B*H*W, C+1)
+#     out.index_add_(dim=0, index=idx_HW_orig.reshape(B*N0),
+#                    source=source.reshape(B*N0, C+1))
+#     x_out = out[:, :C]
+#     all_weight = out[:, C:]
+#     x_out = x_out / (all_weight + 1e-6)
+#
+#     x_out = x_out.reshape(B, H, W, C)
+#     return x_out, all_weight
+#
+#
+# def map2token_agg(feature_map, loc_xy, loc_orig, idx_agg, mode='bilinear', align_corners=False):
+#     N = loc_xy.shape[1]
+#     B, N0, _ = loc_orig.shape
+#     C = feature_map.shape[-1]
+#     device = feature_map.device
+#
+#     loc_orig = loc_orig.unsqueeze(1).type(feature_map.dtype)
+#     tokens_orig = F.grid_sample(feature_map, loc_orig, mode=mode, align_corners=align_corners)
+#     tokens_orig = tokens_orig.permute(0, 2, 3, 1).squeeze(1).contiguous()
+#
+#     idx_tokens = idx_agg + torch.arange(B)[:, None].to(device) * N
+#
+#     out = feature_map.new_zeros(B * N, C + 1)
+#     weight = tokens_orig.new_ones(B, N0, 1)
+#     source = torch.cat([tokens_orig, weight], dim=-1)
+#     out.index_add_(dim=0, index=idx_tokens.reshape(B * N0),
+#                    source=source.reshape(B * N0, C + 1))
+#     tokens = out[:, :C]
+#     all_weight = out[:, C:]
+#     tokens = tokens / (all_weight + 1e-6)
+#     tokens = tokens.reshape(B, N, C)
+#     return tokens
+#
+
+
+def token2map_agg_sparse(x, loc, loc_orig, idx_agg, map_size, weight=None):
+    # x = torch.rand(2, 4, 3)
+    # loc = torch.rand(2, 4, 2)
+    # loc_orig = torch.rand(2, 7, 2)
+    # idx_agg = (torch.rand(2, 7) * 3).long()
+    # map_size = [5, 5]
+    # weight = None
+
+    H, W = map_size
+    B, N, C = x.shape
+    N0 = loc_orig.shape[1]
+    device = x.device
+    loc_orig = loc_orig.clamp(-1, 1)
+    loc_orig = 0.5 * (loc_orig + 1) * torch.FloatTensor([W, H]).to(device)[None, None, :] - 0.5
+    loc_orig = loc_orig.round().long()
+    loc_orig[..., 0] = loc_orig[..., 0].clamp(0, W-1)
+    loc_orig[..., 1] = loc_orig[..., 1].clamp(0, H-1)
+    idx_HW_orig = loc_orig[..., 0] + loc_orig[..., 1] * W
+    idx_HW_orig = idx_HW_orig + torch.arange(B)[:, None].to(device) * H * W
+
+    idx_tokens = idx_agg + torch.arange(B)[:, None].to(device) * N
+
+    coor = torch.stack([idx_HW_orig, idx_tokens], dim=0).reshape(2, B*N0)
+    if weight is None:
+        weight = x.new_ones(B, N, 1)
+    value = index_points(weight, idx_agg).reshape(B*N0)
+
+    A = torch.sparse.FloatTensor(coor, value, torch.Size([B*H*W, B*N]))
+    all_weight = A @ x.new_ones(B*N, 1) + 1e-6
+    value = value / all_weight[idx_HW_orig.reshape(-1), 0]
+    A = torch.sparse.FloatTensor(coor, value, torch.Size([B*H*W, B*N]))
+    x_out = A @ x.reshape(B*N, C)
+    x_out = x_out.reshape(B, H, W, C).permute(0, 3,  1, 2).contiguous()
+    all_weight = all_weight.reshape(B, H, W, 1).permute(0, 3,  1, 2).contiguous()
+    return x_out, all_weight
+
+
+# def map2token_agg_sparse(feature_map, loc, loc_orig, idx_agg, weight=None):
+#
+#     ''' sparse can not be multiply with sparse'''
+#     feature_map = torch.rand(2, 3, 5, 5)
+#     loc = torch.rand(2, 4, 2)
+#     loc_orig = torch.rand(2, 7, 2) - 0.5
+#     idx_agg = (torch.rand(2, 7) * 3).long()
+#     weight = None
+#
+#
+#     B, C, H, W = feature_map.shape
+#     device = feature_map.device
+#     N = loc.shape[1]
+#     N0 = loc_orig.shape[1]
+#
+#
+#     loc_orig = 0.5 * (loc_orig + 1) * torch.FloatTensor([W, H]).to(device)[None, None, :] - 0.5
+#     x = loc_orig[:, :, 0].reshape(-1)
+#     y = loc_orig[:, :, 1].reshape(-1)
+#
+#     h, w = H, W
+#
+#     x_grid = x
+#     x_lo = x_grid.floor().long().clamp(min=0, max=w - 1)
+#     x_hi = (x_lo + 1).clamp(max=w - 1)
+#     x_grid = torch.min(x_hi.float(), x_grid)
+#     x_w = x_grid - x_lo.float()
+#
+#     y_grid = y
+#     y_lo = y_grid.floor().long().clamp(min=0, max=h - 1)
+#     y_hi = (y_lo + 1).clamp(max=h - 1)
+#     y_grid = torch.min(y_hi.float(), y_grid)
+#     y_w = y_grid - y_lo.float()
+#
+#     w_ylo_xlo = (1.0 - x_w) * (1.0 - y_w)
+#     w_ylo_xhi = x_w * (1.0 - y_w)
+#     w_yhi_xlo = (1.0 - x_w) * y_w
+#     w_yhi_xhi = x_w * y_w
+#
+#     i_ylo_xlo = (y_lo * w + x_lo).detach()
+#     i_ylo_xhi = (y_lo * w + x_hi).detach()
+#     i_yhi_xlo = (y_hi * w + x_lo).detach()
+#     i_yhi_xhi = (y_hi * w + x_hi).detach()
+#
+#     idx_HW_orig = torch.stack([i_ylo_xlo, i_ylo_xhi, i_yhi_xlo, i_yhi_xhi], dim=1)
+#     idx_HW_orig = idx_HW_orig + torch.arange(B)[:, None].expand(B, N0).to(device).reshape(B*N0, 1) * H * W
+#
+#     idx_tokens_orig = torch.arange(B*N0).to(device)[:, None].expand(B*N0, 4)
+#     value = torch.stack([w_ylo_xlo, w_ylo_xhi, w_yhi_xlo, w_yhi_xhi], dim=1)
+#
+#     coor = torch.stack([idx_tokens_orig.reshape(-1), idx_HW_orig.reshape(-1)], dim=0)
+#     value = value.reshape(-1)
+#     A = torch.sparse.FloatTensor(coor, value, torch.Size([B*N0, B*H*W]))   # [B*N0, B*H*W]
+#
+#     idx_tokens = idx_agg + torch.arange(B)[:, None].to(device) * N
+#     idx_tokens = idx_tokens.reshape(-1)
+#     coor1 = torch.stack([idx_tokens, torch.arange(B*N0).to(device)], dim=0)
+#     if weight is None:
+#         weight = feature_map.new_ones(B, N0, 1)
+#     value1 = weight.reshape(-1)
+#
+#     A1 = torch.sparse.FloatTensor(coor1, value1, torch.Size([B*N, B*N0]))  # [B*N, B*N0]
+#     A = A1 @ A                                                           # [B*N, B*HW]
+#
+#     A2 = feature_map.new_zeros(B*N, B*H*W)
+#     A2.index_add(dim=0, index=idx_tokens, source=A)
+#
+#     return tokens
+
+
+def map2token_agg_mat(feature_map, loc, loc_orig, idx_agg, weight=None):
+    ''' realized by 2 attention matrix'''
+    # feature_map = torch.rand(2, 3, 5, 5)
+    # loc = torch.rand(2, 4, 2)
+    # loc_orig = torch.rand(2, 7, 2) - 0.5
+    # idx_agg = (torch.rand(2, 7) * 3).long()
+    # weight = None
+
+    B, C, H, W = feature_map.shape
+    device = feature_map.device
+    N = loc.shape[1]
+    N0 = loc_orig.shape[1]
+
+    loc_orig = 0.5 * (loc_orig + 1) * torch.FloatTensor([W, H]).to(device)[None, None, :] - 0.5
+    x = loc_orig[:, :, 0].reshape(-1)
+    y = loc_orig[:, :, 1].reshape(-1)
+
+    h, w = H, W
+
+    x_grid = x
+    x_lo = x_grid.floor().long().clamp(min=0, max=w - 1)
+    x_hi = (x_lo + 1).clamp(max=w - 1)
+    x_grid = torch.min(x_hi.float(), x_grid)
+    x_w = x_grid - x_lo.float()
+
+    y_grid = y
+    y_lo = y_grid.floor().long().clamp(min=0, max=h - 1)
+    y_hi = (y_lo + 1).clamp(max=h - 1)
+    y_grid = torch.min(y_hi.float(), y_grid)
+    y_w = y_grid - y_lo.float()
+
+    w_ylo_xlo = (1.0 - x_w) * (1.0 - y_w)
+    w_ylo_xhi = x_w * (1.0 - y_w)
+    w_yhi_xlo = (1.0 - x_w) * y_w
+    w_yhi_xhi = x_w * y_w
+
+    i_ylo_xlo = (y_lo * w + x_lo).detach()
+    i_ylo_xhi = (y_lo * w + x_hi).detach()
+    i_yhi_xlo = (y_hi * w + x_lo).detach()
+    i_yhi_xhi = (y_hi * w + x_hi).detach()
+
+    idx_HW_orig = torch.stack([i_ylo_xlo, i_ylo_xhi, i_yhi_xlo, i_yhi_xhi], dim=1)
+    idx_batch = torch.arange(B, device=device)[:, None, None].expand(B, N0, 4)
+    idx_tokens_orig = torch.arange(N0, device=device)[None, :, None].expand(B, N0, 4)
+    value = torch.stack([w_ylo_xlo, w_ylo_xhi, w_yhi_xlo, w_yhi_xhi], dim=1)
+
+    A = feature_map.new_zeros(B, N0, H*W)
+    A[idx_batch.reshape(-1), idx_tokens_orig.reshape(-1), idx_HW_orig.reshape(-1)] = value.reshape(-1)
+
+    A1 = feature_map.new_zeros(B, N, N0)
+    idx_batch = torch.arange(B, device=device)[:, None].expand(B, N0)
+    idx_tokens_orig = torch.arange(N0, device=device)[None, :].expand(B, N0)
+    if weight is None:
+        weight = feature_map.new_ones(B, N0, 1)
+    A1[idx_batch.reshape(-1), idx_agg.reshape(-1), idx_tokens_orig.reshape(-1)] = weight.reshape(-1)
+    A1 = A1 / A1.sum(dim=-1, keepdim=True)
+
+    A = A1 @ A
+
+    tokens = A @ feature_map.flatten(2).permute(0, 2, 1)
+
+    return tokens
+
 
