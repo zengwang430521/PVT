@@ -23,6 +23,9 @@ srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
     --model=mypvt3f11_small --output_dir=work_dirs/my3f11_LR \
     --batch-size 128 --data-path data/imagenet --input-size 112 --use-mcloader --resume work_dirs/my3f11_LR/checkpoint.pth
 
+    --model=mypvt4b0_small --output_dir=work_dirs/my4b0_LR \
+    --batch-size 128 --data-path data/imagenet --input-size 224 --use-mcloader --resume work_dirs/my4b0_LR/checkpoint.pth
+
     python -u train.py --config configs/pvt_v2/debug.py \
     --model=mypvt3f10_small --output_dir=work_dirs/my3f10_LR \
     --batch-size 128 --data-path data/imagenet --input-size 112 --use-mcloader --resume work_dirs/my3f10_LR/checkpoint.pth
