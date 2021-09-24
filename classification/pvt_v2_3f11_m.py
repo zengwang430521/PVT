@@ -9,7 +9,7 @@ from pvt_v2 import (Block, DropPath, DWConv, OverlapPatchEmbed,
 from utils_mine import (
     get_grid_loc,
     gumble_top_k,
-    show_tokens, show_conf, merge_tokens, merge_tokens_agg, , map2token_agg_mat
+    show_tokens, show_conf, merge_tokens, merge_tokens_agg, map2token_agg_mat
 )
 from utils_mine import token2map_agg_mat as token2map_agg_sparse
 from utils_mine import get_loc_new as get_loc
