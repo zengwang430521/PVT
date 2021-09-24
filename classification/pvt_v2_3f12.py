@@ -427,7 +427,7 @@ class MyPVT(nn.Module):
         B, N, _ = x.shape
         device = x.device
         idx_agg = torch.arange(N)[None, :].repeat(B, 1).to(device)
-        agg_weight = x.new_zeros(B, N, 1)
+        agg_weight = x.new_ones(B, N, 1)
         loc_orig = loc
 
         for i in range(1, self.num_stages):

@@ -1093,7 +1093,7 @@ def map2token_agg_mat(feature_map, loc, loc_orig, idx_agg, weight=None):
     if weight is None:
         weight = feature_map.new_ones(B, N0, 1)
     A1[idx_batch.reshape(-1), idx_agg.reshape(-1), idx_tokens_orig.reshape(-1)] = weight.reshape(-1)
-    A1 = A1 / A1.sum(dim=-1, keepdim=True)
+    A1 = A1 / (A1.sum(dim=-1, keepdim=True) +1e-6)
 
     A = A1 @ A
 
