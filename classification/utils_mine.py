@@ -931,7 +931,7 @@ def merge_tokens_agg(x, loc, loc_down, idx_agg, weight=None, return_weight=False
 #
 
 
-def token2map_agg_sparse_old(x, loc, loc_orig, idx_agg, map_size, weight=None):
+def token2map_agg_sparse(x, loc, loc_orig, idx_agg, map_size, weight=None):
     # x = torch.rand(2, 4, 3).half()
     # loc = torch.rand(2, 4, 2)
     # loc_orig = torch.rand(2, 7, 2)
@@ -976,7 +976,7 @@ def token2map_agg_sparse_old(x, loc, loc_orig, idx_agg, map_size, weight=None):
     return x_out, all_weight
 
 
-def token2map_agg_sparse(x, loc, loc_orig, idx_agg, map_size, weight=None):
+def token2map_agg_mat(x, loc, loc_orig, idx_agg, map_size, weight=None):
     # x = torch.rand(2, 4, 3).half()
     # loc = torch.rand(2, 4, 2)
     # loc_orig = torch.rand(2, 7, 2)
