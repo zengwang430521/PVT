@@ -960,14 +960,16 @@ def token2map_agg_sparse_old(x, loc, loc_orig, idx_agg, map_size, weight=None):
 
     A = torch.sparse.FloatTensor(coor, value, torch.Size([B*H*W, B*N]))
 
-    all_weight = A.type(torch.float32) @ x.new_ones(B*N, 1).type(torch.float32) + 1e-6
-    all_weight = all_weight.type(x.dtype)
+    with torch.cuda.amp.autocast(enabled=False):
+        all_weight = A.type(torch.float32) @ x.new_ones(B*N, 1).type(torch.float32) + 1e-6
+        all_weight = all_weight.type(x.dtype)
 
     value = value / all_weight[idx_HW_orig.reshape(-1), 0]
     A = torch.sparse.FloatTensor(coor, value, torch.Size([B*H*W, B*N]))
 
-    x_out = A.type(torch.float32) @ x.reshape(B*N, C).type(torch.float32)
-    x_out = x_out.type(x.dtype)
+    with torch.cuda.amp.autocast(enabled=False):
+        x_out = A.type(torch.float32) @ x.reshape(B*N, C).type(torch.float32)
+        x_out = x_out.type(x.dtype)
 
     x_out = x_out.reshape(B, H, W, C).permute(0, 3,  1, 2).contiguous()
     all_weight = all_weight.reshape(B, H, W, 1).permute(0, 3,  1, 2).contiguous()
@@ -1123,7 +1125,7 @@ def map2token_agg_mat(feature_map, loc, loc_orig, idx_agg, weight=None):
     idx_HW_orig = torch.stack([i_ylo_xlo, i_ylo_xhi, i_yhi_xlo, i_yhi_xhi], dim=1)
     idx_batch = torch.arange(B, device=device)[:, None, None].expand(B, N0, 4)
     idx_tokens_orig = torch.arange(N0, device=device)[None, :, None].expand(B, N0, 4)
-    value = torch.stack([w_ylo_xlo, w_ylo_xhi, w_yhi_xlo, w_yhi_xhi], dim=1)
+    value = torch.stack([w_ylo_xlo, w_ylo_xhi, w_yhi_xlo, w_yhi_xhi], dim=1).type(feature_map.dtype)
 
     A = feature_map.new_zeros(B, N0, H*W)
     A[idx_batch.reshape(-1), idx_tokens_orig.reshape(-1), idx_HW_orig.reshape(-1)] = value.reshape(-1)
