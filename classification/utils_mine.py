@@ -959,12 +959,16 @@ def token2map_agg_sparse(x, loc, loc_orig, idx_agg, map_size, weight=None):
     value = index_points(weight, idx_agg).reshape(B*N0)
 
     A = torch.sparse.FloatTensor(coor, value, torch.Size([B*H*W, B*N]))
-    all_weight = A @ x.new_ones(B*N, 1).float() + 1e-6
+
+    all_weight = A.type(torch.float32) @ x.new_ones(B*N, 1).type(torch.float32) + 1e-6
     all_weight = all_weight.type(x.dtype)
+
     value = value / all_weight[idx_HW_orig.reshape(-1), 0]
     A = torch.sparse.FloatTensor(coor, value, torch.Size([B*H*W, B*N]))
-    x_out = A @ x.reshape(B*N, C).float()
+
+    x_out = A.type(torch.float32) @ x.reshape(B*N, C).type(torch.float32)
     x_out = x_out.type(x.dtype)
+
     x_out = x_out.reshape(B, H, W, C).permute(0, 3,  1, 2).contiguous()
     all_weight = all_weight.reshape(B, H, W, 1).permute(0, 3,  1, 2).contiguous()
     return x_out, all_weight
