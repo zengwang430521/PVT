@@ -457,7 +457,7 @@ class MyPVT(nn.Module):
             H, W = H // 2, W // 2
 
             for j, blk in enumerate(block):
-                x_new = blk(x, loc, idx_agg, loc_orig, x, loc, idx_agg, H, W, conf_source=None)
+                x_new = blk(x, loc, idx_agg, agg_weight, loc_orig, x, loc, idx_agg, agg_weight, H, W, conf_source=None)
 
                 if torch.isnan(x_new).any():
                     with open('debug.txt', 'a') as f:
@@ -492,7 +492,7 @@ class MyPVT(nn.Module):
 
 
 @register_model
-def mypvt3f11_small(pretrained=False, **kwargs):
+def mypvt3f12_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],  **kwargs)
@@ -504,7 +504,7 @@ def mypvt3f11_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt3f11_small(drop_path_rate=0.).to(device)
+    model = mypvt3f12_small(drop_path_rate=0.).to(device)
     model.reset_drop_path(0.)
     # pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
     # model.load_state_dict(pre_dict)
