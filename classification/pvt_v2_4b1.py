@@ -20,7 +20,7 @@ vis = False
 '''
 change from 3f6
 do not select tokens, merge tokens. weight clamp, conf do not clamp
-extra HR feature
+extra HR feature, re_block use MyBlock
 '''
 
 class MyMlp(nn.Module):
@@ -326,7 +326,7 @@ class MyPVT(nn.Module):
                                                 embed_dim=embed_dims[0])
 
         self.re_layer = Mlp_old(in_features=embed_dims[0]*2, out_features=embed_dims[0])
-        self.re_block = Block(
+        self.re_block = MyBlock(
                 dim=embed_dims[i], num_heads=num_heads[i], mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
                 drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur], norm_layer=norm_layer,
                 sr_ratio=sr_ratios[i], linear=linear)
