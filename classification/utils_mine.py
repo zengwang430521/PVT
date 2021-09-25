@@ -1145,3 +1145,53 @@ def map2token_agg_mat(feature_map, loc, loc_orig, idx_agg, weight=None):
     return tokens
 
 
+'''merge according to feature cosine similarity'''
+def merge_tokens_agg_cosine(x, loc, index_down, x_down, idx_agg, weight=None, return_weight=False):
+    B, N, C = x.shape
+    Ns = x_down.shape[1]
+
+    cos_sim = F.cosine_similarity(x[:, :, None, :], x_down[:, None, :, :], dim=-1)
+    idx_agg_t = cos_sim.argmax(axis=2)
+
+    # make sure selected tokens merge to itself
+    idx_batch = torch.arange(B, device=x.device)[:, None].expand(B, Ns)
+    idx_tmp = torch.arange(Ns, device=x.device)[None, :].expand(B, Ns)
+    idx_agg_t[idx_batch.reshape(-1), index_down.reshape(-1)] = idx_tmp.reshape(-1)
+
+    idx = idx_agg_t + torch.arange(B)[:, None].to(loc.device) * Ns
+
+    if weight is None:
+        weight = x.new_ones(B, N, 1)
+    all_weight = weight.new_zeros(B * Ns, 1)
+    all_weight.index_add_(dim=0, index=idx.reshape(B * N), source=weight.reshape(B * N, 1))
+    all_weight = all_weight + 1e-4
+    norm_weight = weight / all_weight[idx]
+
+    tmp = x.new_zeros(B * Ns, C + 2)
+    source = torch.cat([x * norm_weight, loc * norm_weight], dim=-1)
+    source = source.to(x.device).type(x.dtype)
+    tmp.index_add_(dim=0, index=idx.reshape(B * N), source=source.reshape(B * N, C + 2))
+    tmp = tmp.reshape(B, Ns, C + 2)
+
+    x_out = tmp[..., :C]
+    loc_out = tmp[..., C:]
+    idx_agg = index_points(idx_agg_t[..., None], idx_agg).squeeze(-1)
+
+    if torch.isinf(x_out).any():
+        save_dict = {
+            'x': x,
+            'loc': loc,
+            'loc_down': loc_down,
+            'idx': idx,
+            'weight': weight,
+            'norm_weight': norm_weight,
+            'all_weight': all_weight
+        }
+        for key in save_dict.keys():
+            save_dict[key] = save_dict[key].detach().cpu()
+        torch.save(save_dict, 'debug_merge.pth')
+
+    if return_weight:
+        weight_t = index_points(norm_weight, idx_agg)
+        return x_out, loc_out, idx_agg, weight_t
+    return x_out, loc_out, idx_agg
