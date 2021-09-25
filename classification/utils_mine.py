@@ -1181,7 +1181,8 @@ def merge_tokens_agg_cosine(x, loc, index_down, x_down, idx_agg, weight=None, re
         save_dict = {
             'x': x,
             'loc': loc,
-            'loc_down': loc_down,
+            'index_down': index_down,
+            'x_down': x_down,
             'idx': idx,
             'weight': weight,
             'norm_weight': norm_weight,
@@ -1189,9 +1190,21 @@ def merge_tokens_agg_cosine(x, loc, index_down, x_down, idx_agg, weight=None, re
         }
         for key in save_dict.keys():
             save_dict[key] = save_dict[key].detach().cpu()
-        torch.save(save_dict, 'debug_merge.pth')
+        torch.save(save_dict, 'debug_merge_cosine.pth')
 
     if return_weight:
         weight_t = index_points(norm_weight, idx_agg)
         return x_out, loc_out, idx_agg, weight_t
     return x_out, loc_out, idx_agg
+
+
+def conf_resample(conf_map, N):
+    B, C, H, W = conf_map.shape
+    conf = conf_map.flatten(2).permute(0, 2, 1)
+    loc = get_grid_loc(B, H, W, conf_map.device)
+
+    index_down = gumble_top_k(conf, N, 1, T=1)
+    loc_down = torch.gather(loc, 1, index_down.expand([B, N, 2]))
+    return loc_down
+
+

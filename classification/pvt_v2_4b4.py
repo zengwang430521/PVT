@@ -20,7 +20,7 @@ vis = False
 '''
 change from 3f6
 do not select tokens, merge tokens. weight clamp, conf do not clamp
-extra HR feature, re_block use MyBlock, extra conf, relocate tokens, source tokens unchanged
+extra HR feature, re_block use MyBlock, extra conf, relocate tokens AND source tokens
 '''
 
 class MyMlp(nn.Module):
@@ -440,8 +440,8 @@ class MyPVT(nn.Module):
         x_re = x_re + self.re_layer(torch.cat([x_re, x_hr], dim=-1))
 
         # TODO: how to use this block?
-        x = self.re_block(x_re, x, loc_re, loc, H, W, conf)
-        # x = self.re_block(x_re, x_re, loc_re, loc_re, H, W, conf_re)
+        # x = self.re_block(x_re, x, loc_re, loc, H, W, conf)
+        x = self.re_block(x_re, x_re, loc_re, loc_re, H, W, conf_re)
         # ==========================
 
         x = norm(x)
@@ -513,7 +513,7 @@ class MyPVT(nn.Module):
 
 
 @register_model
-def mypvt4b3_small(pretrained=False, **kwargs):
+def mypvt4b4_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],  **kwargs)
@@ -525,7 +525,7 @@ def mypvt4b3_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt4b3_small(drop_path_rate=0.).to(device)
+    model = mypvt4b4_small(drop_path_rate=0.).to(device)
     # pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
     # model.load_state_dict(pre_dict)
     x = torch.rand([2, 3, 224, 224]).to(device)
