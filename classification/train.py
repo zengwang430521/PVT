@@ -38,6 +38,7 @@ import pvt_v2_3f, pvt_v2_3f2, pvt_v2_3f3, pvt_v2_3f4, pvt_v2_3f5, \
 import pvt_v2_4
 import pvt_v2_4, pvt_v2_4b0, pvt_v2_4b1, pvt_v2_4b2, pvt_v2_4b3, pvt_v2_4b4
 import pvt_v2_5, pvt_v2_5a, pvt_v2_5b, pvt_v2_5b0, pvt_v2_5c, pvt_v2_5c0
+import pvt_v2_6, pvt_v2_6a
 
 import utils
 import collections
