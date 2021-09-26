@@ -9,18 +9,17 @@ from pvt_v2 import (Block, DropPath, DWConv, OverlapPatchEmbed,
 from utils_mine import (
     get_grid_loc,
     gumble_top_k,
-    show_tokens, show_conf, merge_tokens, token2map_agg_sparse, map2token_agg_mat
+    show_tokens, show_conf, merge_tokens, merge_tokens_agg, token2map_agg_sparse, map2token_agg_mat
 )
 from utils_mine import get_loc_new as get_loc
-from utils_mine import merge_tokens_agg_cosine
 
 vis = False
 # vis = True
 
 '''
-do not select tokens, merge tokens. weight clamp, conf do not clamp
+do not select tokens, merge tokens. weight do not clamp, conf do not clamp
 merge feature, but not merge locs, reserve all locs.
-use feature cosine similarity to merge feature
+inherit weights when map2token, which can regarded as tokens merge
 '''
 
 class MyMlp(nn.Module):
@@ -53,11 +52,11 @@ class MyMlp(nn.Module):
             if m.bias is not None:
                 m.bias.data.zero_()
 
-    def forward(self, x, loc, loc_orig, idx_agg, H, W):
+    def forward(self, x, loc, loc_orig, idx_agg, agg_weight, H, W):
         x = self.fc1(x)
         if self.linear:
             x = self.relu(x)
-        x = self.dwconv(x, loc, loc_orig, idx_agg, H, W)
+        x = self.dwconv(x, loc, loc_orig, idx_agg, agg_weight, H, W)
         x = self.act(x)
         x = self.drop(x)
         x = self.fc2(x)
@@ -70,11 +69,11 @@ class MyDWConv(nn.Module):
         super().__init__()
         self.dwconv = nn.Conv2d(dim, dim, 3, 1, 1, bias=True, groups=dim)
 
-    def forward(self, x, loc, loc_orig, idx_agg, H, W):
+    def forward(self, x, loc, loc_orig, idx_agg, agg_weight, H, W):
         B, N, C = x.shape
         x, _ = token2map_agg_sparse(x, loc, loc_orig, idx_agg, [H, W])
         x = self.dwconv(x)
-        x = map2token_agg_mat(x, loc, loc_orig, idx_agg)
+        x = map2token_agg_mat(x, loc, loc_orig, idx_agg, agg_weight)
         return x
 
 
@@ -196,7 +195,7 @@ class MyBlock(nn.Module):
             if m.bias is not None:
                 m.bias.data.zero_()
 
-    def forward(self, x, loc, idx_agg, loc_orig, x_source, loc_source, idx_agg_source, H, W, conf_source=None):
+    def forward(self, x, loc, idx_agg, agg_weight, loc_orig, x_source, loc_source, idx_agg_source, agg_weight_source, H, W, conf_source=None):
         x1 = x + self.drop_path(self.attn(self.norm1(x),
                                           loc_orig,
                                           self.norm1(x_source),
@@ -208,6 +207,7 @@ class MyBlock(nn.Module):
                                           loc,
                                           loc_orig,
                                           idx_agg,
+                                          agg_weight,
                                           H, W))
         if torch.isnan(x2).any():
             save_dict = {
@@ -251,14 +251,14 @@ class DownLayer(nn.Module):
         self.norm = nn.LayerNorm(self.dim_out)
         self.conf = nn.Linear(self.dim_out, 1)
 
-    def forward(self, x, pos, pos_orig, idx_agg, H, W, N_grid):
+    def forward(self, x, pos, pos_orig, idx_agg, agg_weight, H, W, N_grid):
         # x, mask = token2map(x, pos, [H, W], 1, 2, return_mask=True)
         # x = self.conv(x, mask)
 
         x, _ = token2map_agg_sparse(x, pos, pos_orig, idx_agg, [H, W])
         x = self.conv(x)
         _, _, H, W = x.shape
-        x = map2token_agg_mat(x, pos, pos_orig, idx_agg)
+        x = map2token_agg_mat(x, pos, pos_orig, idx_agg, agg_weight)
         B, N, C = x.shape
 
         # sample_num = max(math.ceil(N * self.sample_ratio) - N_grid, 0)
@@ -273,28 +273,23 @@ class DownLayer(nn.Module):
         conf = self.conf(self.norm(x))
         conf_ada = conf[:, N_grid:]
 
-        x_grid = x[:, :N_grid]
-        x_ada = x[:, N_grid:]
-
         # _, index_down = torch.topk(conf_ada, self.sample_num, 1)
         index_down = gumble_top_k(conf_ada, sample_num, 1, T=1)
         pos_down = torch.gather(pos_ada, 1, index_down.expand([B, sample_num, 2]))
         pos_down = torch.cat([pos_grid, pos_down], 1)
 
-        x_down = torch.gather(x_ada, 1, index_down.expand([B, sample_num, C]))
-        x_down = torch.cat([x_grid, x_down], 1)
-        index_down = torch.cat([torch.arange(N_grid, device=x.device)[None, :, None].expand(B, N_grid, 1),
-                                index_down],
-                               dim=1)
-
         # conf = conf.clamp(-7, 7)
-        weight = conf.clamp(-7, 7).exp()
-        x_down, pos_down, idx_agg_down = merge_tokens_agg_cosine(x, pos, index_down, x_down, idx_agg, weight)
-        x_down = self.block(x_down, pos_down, idx_agg_down, pos_orig, x, pos, idx_agg, H, W, conf_source=conf)
+        # weight = conf.clamp(-7, 7).exp()
+        weight = conf.exp()
+        x_down, pos_down, idx_agg_down, weight_t = merge_tokens_agg(x, pos, pos_down, idx_agg, weight, True)
+        agg_weight_down = agg_weight * weight_t
+        agg_weight_down = agg_weight_down / agg_weight_down.max(dim=1, keepdim=True)[0]
+
+        x_down = self.block(x_down, pos_down, idx_agg_down, agg_weight_down, pos_orig, x, pos, idx_agg, agg_weight, H, W, conf_source=conf)
 
         if vis:
             show_conf(conf, pos)
-        return x_down, pos_down, idx_agg_down
+        return x_down, pos_down, idx_agg_down, agg_weight_down
 
 
 class MyPVT(nn.Module):
@@ -433,13 +428,14 @@ class MyPVT(nn.Module):
         B, N, _ = x.shape
         device = x.device
         idx_agg = torch.arange(N)[None, :].repeat(B, 1).to(device)
+        agg_weight = x.new_ones(B, N, 1)
         loc_orig = loc
 
         for i in range(1, self.num_stages):
             down_layers = getattr(self, f"down_layers{i}")
             block = getattr(self, f"block{i + 1}")
             norm = getattr(self, f"norm{i + 1}")
-            x_new, loc_new, idx_agg_new = down_layers(x, loc, loc_orig, idx_agg, H, W, N_grid)  # down sample
+            x_new, loc_new, idx_agg_new, agg_weight = down_layers(x, loc, loc_orig, idx_agg, agg_weight, H, W, N_grid)  # down sample
 
             if torch.isnan(x_new).any():
                 with open('debug.txt', 'a') as f:
@@ -462,7 +458,7 @@ class MyPVT(nn.Module):
             H, W = H // 2, W // 2
 
             for j, blk in enumerate(block):
-                x_new = blk(x, loc, idx_agg, loc_orig, x, loc, idx_agg, H, W, conf_source=None)
+                x_new = blk(x, loc, idx_agg, agg_weight, loc_orig, x, loc, idx_agg, agg_weight, H, W, conf_source=None)
 
                 if torch.isnan(x_new).any():
                     with open('debug.txt', 'a') as f:
@@ -497,7 +493,7 @@ class MyPVT(nn.Module):
 
 
 @register_model
-def mypvt3f13_small(pretrained=False, **kwargs):
+def mypvt3f12_1_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],  **kwargs)
@@ -509,7 +505,7 @@ def mypvt3f13_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt3f13_small(drop_path_rate=0.).to(device)
+    model = mypvt3f12_1_small(drop_path_rate=0.).to(device)
     model.reset_drop_path(0.)
     # pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
     # model.load_state_dict(pre_dict)
