@@ -17,9 +17,10 @@ vis = False
 # vis = True
 
 '''
-do not select tokens, merge tokens. weight clamp, conf do not clamp
+do not select tokens, merge tokens. weight NOT clamp, conf do not clamp
 merge feature, but not merge locs, reserve all locs.
 inherit weights when map2token, which can regarded as tokens merge
+N_grid = 0
 '''
 
 class MyMlp(nn.Module):
@@ -279,7 +280,8 @@ class DownLayer(nn.Module):
         pos_down = torch.cat([pos_grid, pos_down], 1)
 
         # conf = conf.clamp(-7, 7)
-        weight = conf.clamp(-7, 7).exp()
+        # weight = conf.clamp(-7, 7).exp()
+        weight = conf.exp()
         x_down, pos_down, idx_agg_down, weight_t = merge_tokens_agg(x, pos, pos_down, idx_agg, weight, True)
         agg_weight_down = agg_weight * weight_t
         agg_weight_down = agg_weight_down / agg_weight_down.max(dim=1, keepdim=True)[0]
@@ -422,6 +424,7 @@ class MyPVT(nn.Module):
             if torch.isnan(x).any(): print('x is nan, the stage is 0')
         x = norm(x)
         x, loc, N_grid = get_loc(x, H, W, self.grid_stride)
+        N_grid = 0
 
         B, N, _ = x.shape
         device = x.device
@@ -495,7 +498,7 @@ class MyPVT(nn.Module):
 
 
 @register_model
-def mypvt3f12_small(pretrained=False, **kwargs):
+def mypvt3f12_2_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],  **kwargs)
@@ -507,7 +510,7 @@ def mypvt3f12_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt3f12_small(drop_path_rate=0.).to(device)
+    model = mypvt3f12_2_small(drop_path_rate=0.).to(device)
     model.reset_drop_path(0.)
     # pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
     # model.load_state_dict(pre_dict)

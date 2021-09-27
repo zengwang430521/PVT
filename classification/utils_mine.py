@@ -1208,3 +1208,67 @@ def conf_resample(conf_map, N):
     return loc_down
 
 
+def show_tokens_merge(x, out, N_grid=14*14):
+    import matplotlib.pyplot as plt
+    IMAGENET_DEFAULT_MEAN = torch.tensor([0.485, 0.456, 0.406], device=x.device)[None, :, None, None]
+    IMAGENET_DEFAULT_STD = torch.tensor([0.229, 0.224, 0.225], device=x.device)[None, :, None, None]
+    x = x * IMAGENET_DEFAULT_STD + IMAGENET_DEFAULT_MEAN
+    # for i in range(x.shape[0]):
+    for i in range(1):
+        img = x[i].permute(1, 2, 0).detach().cpu()
+        ax = plt.subplot(2, 5, 1)
+        ax.clear()
+        ax.imshow(img)
+        # ax = plt.subplot(2, 5, 6)
+        # ax.clear()
+        # ax.imshow(img)
+        for lv in range(len(out)):
+            ax = plt.subplot(2, 5, lv+2)
+            ax.clear()
+            ax.imshow(img, extent=[0, 1, 0, 1])
+            # loc = out[lv][1]
+            # loc = 0.5 * loc + 0.5
+            # loc_grid = loc[i, :N_grid].detach().cpu().numpy()
+            # ax.scatter(loc_grid[:, 0], 1 - loc_grid[:, 1], c='blue', s=0.4+lv*0.1)
+            # loc_ada = loc[i, N_grid:].detach().cpu().numpy()
+            # ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
+            idx_agg = out[lv][4]
+            loc_orig = out[lv][3]
+            loc = out[lv][1]
+            B, N, _ = loc.shape
+            # tmp = torch.arange(N, device=loc.device)[None, :, None].expand(B, N, 1).float()
+            tmp = torch.rand([N, 3], device=loc.device)[None, :, :].expand(B, N, 3).float()
+            H, W, _ = img.shape
+            idx_map, _ = token2map_agg_sparse(tmp, loc_orig, loc_orig, idx_agg, [H//4, W//4])
+            idx_map = idx_map[i].permute(1, 2, 0).detach().cpu()
+            ax.imshow(idx_map)
+
+    return
+
+
+def show_conf_merge(conf, loc, loc_orig, idx_agg):
+    H = int(conf.shape[1]**0.5)
+    lv = int(math.log2(28 / H) + 7 + 0)
+
+    # conf = F.softmax(conf, dim=1)
+    conf = conf.exp()
+    conf_map, _ = token2map_agg_sparse(conf, loc, loc_orig, idx_agg, [28, 28])
+    ax = plt.subplot(2, 5, lv)
+    ax.clear()
+    ax.imshow(conf_map[0, 0].detach().cpu())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
