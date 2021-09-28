@@ -1251,7 +1251,7 @@ def show_conf_merge(conf, loc, loc_orig, idx_agg):
     lv = int(math.log2(28 / H) + 7 + 0)
 
     # conf = F.softmax(conf, dim=1)
-    conf = conf.exp()
+    # conf = conf.exp()
     conf_map, _ = token2map_agg_sparse(conf, loc, loc_orig, idx_agg, [28, 28])
     ax = plt.subplot(2, 5, lv)
     ax.clear()
