@@ -1252,10 +1252,12 @@ def show_conf_merge(conf, loc, loc_orig, idx_agg):
 
     # conf = F.softmax(conf, dim=1)
     # conf = conf.exp()
+    conf = conf - conf.min(dim=1, keepdim=True)[0]
     conf_map, _ = token2map_agg_sparse(conf, loc, loc_orig, idx_agg, [28, 28])
     ax = plt.subplot(2, 5, lv)
     ax.clear()
-    ax.imshow(conf_map[0, 0].detach().cpu())
+    ax.imshow(conf_map[0, 0].detach().cpu().float(), vmin=0, vmax=7)
+    # plt.colorbar()
 
 
 

@@ -8,7 +8,7 @@ from pvt_v2 import (Block, DropPath, DWConv, OverlapPatchEmbed,
                     to_2tuple, trunc_normal_, register_model, _cfg)
 from utils_mine import (
     get_grid_loc,
-    gumble_top_k,
+    gumble_top_k,show_tokens_merge, show_conf_merge,
     show_tokens, show_conf, merge_tokens, token2map_agg_sparse, map2token_agg_mat
 )
 from utils_mine import get_loc_new as get_loc
@@ -293,7 +293,8 @@ class DownLayer(nn.Module):
         x_down = self.block(x_down, pos_down, idx_agg_down, pos_orig, x, pos, idx_agg, H, W, conf_source=conf)
 
         if vis:
-            show_conf(conf, pos)
+            show_conf_merge(conf, pos, pos_orig, idx_agg)
+
         return x_down, pos_down, idx_agg_down
 
 
@@ -428,12 +429,13 @@ class MyPVT(nn.Module):
             if torch.isnan(x).any(): print('x is nan, the stage is 0')
         x = norm(x)
         x, loc, N_grid = get_loc(x, H, W, self.grid_stride)
-        if vis: outs.append((x, loc, [H, W]))
 
         B, N, _ = x.shape
         device = x.device
         idx_agg = torch.arange(N)[None, :].repeat(B, 1).to(device)
         loc_orig = loc
+
+        if vis: outs.append((x, loc, [H, W], loc_orig, idx_agg))
 
         for i in range(1, self.num_stages):
             down_layers = getattr(self, f"down_layers{i}")
@@ -483,10 +485,10 @@ class MyPVT(nn.Module):
                 x = x_new
 
             x = norm(x)
-            if vis: outs.append((x, loc, [H, W]))
+            if vis: outs.append((x, loc, [H, W], loc_orig, idx_agg))
 
         if vis:
-            show_tokens(img, outs, N_grid)
+            show_tokens_merge(img, outs, N_grid)
 
         return x.mean(dim=1)
 
