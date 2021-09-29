@@ -3,29 +3,31 @@ import torch
 import utils_mine as utils_mine
 
 
-data = torch.load('../../debug_block.pth')
-x = data['x']
-x_source = data['x_source']
-loc = data['loc']
-loc_source = data['loc_source']
-conf_source = data['conf_source']
-x1,x2 = data['x1'], data['x2']
-bid = x1.isnan().nonzero()[0, 0]
+# data = torch.load('../../debug_block.pth')
+# x = data['x']
+# x_source = data['x_source']
+# loc = data['loc']
+# loc_source = data['loc_source']
+# conf_source = data['conf_source']
+# x1, x2 = data['x1'], data['x2']
+# bid = x1.isnan().nonzero()[0, 0]
+#
+# x = x[bid, ...].unsqueeze(0)
+# loc = loc[bid, ...].unsqueeze(0)
+# x_source = x_source[bid, ...].unsqueeze(0)
+# loc_source = loc_source[bid, ...].unsqueeze(0)
+# conf_source = conf_source[bid, ...].unsqueeze(0)
+#
+#
+# conf_source = conf_source.cuda()
+# weight = conf_source.clamp(-7, 7).exp()
+# tmp = utils_mine.merge_tokens(x_source.cuda(), loc_source.cuda(), loc.cuda(), weight)
+#
+# x_t, loc_t = tmp
+#
+# t = 0
 
-x = x[bid, ...].unsqueeze(0)
-loc = loc[bid, ...].unsqueeze(0)
-x_source = x_source[bid, ...].unsqueeze(0)
-loc_source = loc_source[bid, ...].unsqueeze(0)
-conf_source = conf_source[bid, ...].unsqueeze(0)
 
-
-conf_source = conf_source.cuda()
-weight = conf_source.clamp(-7, 7).exp()
-tmp = utils_mine.merge_tokens(x_source.cuda(), loc_source.cuda(), loc.cuda(), weight)
-
-x_t, loc_t = tmp
-
-t = 0
 # conf = conf_source
 # weight = (conf - conf.min(dim=1, keepdim=True)[0]).float().exp().half()
 # loc_down = loc
@@ -63,4 +65,21 @@ t = 0
 # mask = mask[bid]
 
 
+import matplotlib.pyplot as plt
+device = torch.device('cpu')
+H, W = 64, 48
+loc = utils_mine.get_grid_loc(1, H, W, device)
+B, N, _ = loc.shape
+x = torch.cat([loc, loc.new_zeros(B, N, 1)], dim=-1)
+idx_agg = torch.arange(N)[None, :].repeat(B, 1).to(device)
 
+x_map, weight_map = utils_mine.token2map_agg_sparse(x, loc, loc, idx_agg, [H, W])
+plt.subplot(1, 2, 1)
+plt.imshow(x_map[0].permute(1, 2, 0).detach().cpu())
+
+x_map_re = x_map
+for i in range(10):
+    x_re = utils_mine.map2token_agg_mat(x_map_re, loc, loc, idx_agg)
+    x_map_re, weight_map_re = utils_mine.token2map_agg_sparse(x_re, loc, loc, idx_agg, [H//2, W//2])
+    plt.subplot(1, 2, 2)
+    plt.imshow(x_map_re[0].permute(1, 2, 0).detach().cpu())

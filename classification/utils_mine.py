@@ -1127,16 +1127,31 @@ def map2token_agg_mat(feature_map, loc, loc_orig, idx_agg, weight=None):
     idx_tokens_orig = torch.arange(N0, device=device)[None, :, None].expand(B, N0, 4)
     value = torch.stack([w_ylo_xlo, w_ylo_xhi, w_yhi_xlo, w_yhi_xhi], dim=1).type(feature_map.dtype)
 
-    A = feature_map.new_zeros(B, N0, H*W)
-    A[idx_batch.reshape(-1), idx_tokens_orig.reshape(-1), idx_HW_orig.reshape(-1)] = value.reshape(-1)
 
-    A1 = feature_map.new_zeros(B, N, N0)
+    # this will cause error on edges where the four pixel is the same one.
+    # the weight is not the sum but the last one (usually 0)
+    # A = feature_map.new_zeros(B, N0, H*W)
+    # A[idx_batch.reshape(-1), idx_tokens_orig.reshape(-1), idx_HW_orig.reshape(-1)] = value.reshape(-1)
+
+    # A[idx_batch.reshape(-1), idx_tokens_orig.reshape(-1), idx_HW_orig.reshape(-1)] = value.reshape(-1)
+
+    indices = torch.stack([idx_batch.reshape(-1), idx_tokens_orig.reshape(-1), idx_HW_orig.reshape(-1)], dim=0)
+    A = torch.sparse_coo_tensor(indices, value.reshape(-1), (B, N0, H*W))
+    A = A.to_dense()
+
+
     idx_batch = torch.arange(B, device=device)[:, None].expand(B, N0)
     idx_tokens_orig = torch.arange(N0, device=device)[None, :].expand(B, N0)
     if weight is None:
         weight = feature_map.new_ones(B, N0, 1)
-    A1[idx_batch.reshape(-1), idx_agg.reshape(-1), idx_tokens_orig.reshape(-1)] = weight.reshape(-1).type(feature_map.dtype)
-    A1 = A1 / (A1.sum(dim=-1, keepdim=True) +1e-6)
+
+    indices = torch.stack([idx_batch.reshape(-1), idx_agg.reshape(-1), idx_tokens_orig.reshape(-1)], dim=0)
+    A1 = torch.sparse_coo_tensor(indices, weight.reshape(-1).type(feature_map.dtype), (B, N, N0))
+    A1 = A1.to_dense()
+
+    # A1 = feature_map.new_zeros(B, N, N0)
+    # A1[idx_batch.reshape(-1), idx_agg.reshape(-1), idx_tokens_orig.reshape(-1)] = weight.reshape(-1).type(feature_map.dtype)
+    # A1 = A1 / (A1.sum(dim=-1, keepdim=True) +1e-6)
 
     A = A1 @ A
 
