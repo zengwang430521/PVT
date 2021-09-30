@@ -514,7 +514,8 @@ if __name__ == '__main__':
     model.reset_drop_path(0.)
     # pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
     # model.load_state_dict(pre_dict)
-    x = torch.rand([2, 3, 112, 112]).to(device)
-    tmp = model.forward(x)
+    for i in range(100):
+        x = torch.rand([2, 3, 112, 112]).to(device)
+        tmp = model.forward(x)
     print('Finish')
 
