@@ -68,18 +68,27 @@ import utils_mine as utils_mine
 import matplotlib.pyplot as plt
 device = torch.device('cpu')
 H, W = 64, 48
-loc = utils_mine.get_grid_loc(1, H, W, device)
-B, N, _ = loc.shape
-x = torch.cat([loc, loc.new_zeros(B, N, 1)], dim=-1)
-idx_agg = torch.arange(N)[None, :].repeat(B, 1).to(device)
+loc_orig = utils_mine.get_grid_loc(1, H, W, device)
+B, N0, _ = loc_orig.shape
+x_orig = torch.cat([loc_orig * 0.5 + 0.5, loc_orig.new_zeros(B, N0, 1)], dim=-1)
+idx_agg = torch.arange(N0)[None, :].repeat(B, 1).to(device)
+agg_weight_orig = x_orig.new_ones(B, N0, 1)
 
-x_map, weight_map = utils_mine.token2map_agg_sparse(x, loc, loc, idx_agg, [H, W])
+loc_down = torch.rand(1, 100, 2) * 2 - 1
+loc_down = loc_down.to(device)
+x, loc, idx_agg, weight_t = utils_mine.merge_tokens_agg(x_orig, loc_orig, loc_down, idx_agg, weight=None, return_weight=True)
+
+agg_weight = agg_weight_orig * weight_t
+agg_weight = agg_weight / agg_weight.max(dim=1, keepdim=True)[0]
+
+
+x_map, weight_map = utils_mine.token2map_agg_sparse(x, loc, loc_orig, idx_agg, [H, W])
 plt.subplot(1, 2, 1)
 plt.imshow(x_map[0].permute(1, 2, 0).detach().cpu())
 
 x_map_re = x_map
 for i in range(100):
-    x_re = utils_mine.map2token_agg_mat(x_map_re, loc, loc, idx_agg)
-    x_map_re, weight_map_re = utils_mine.token2map_agg_sparse(x_re, loc, loc, idx_agg, [H, W])
+    x_re = utils_mine.map2token_agg_mat(x_map_re, loc, loc_orig, idx_agg)
+    x_map_re, weight_map_re = utils_mine.token2map_agg_sparse(x_re, loc, loc_orig, idx_agg, [H//2, W//2], agg_weight)
     plt.subplot(1, 2, 2)
     plt.imshow(x_map_re[0].permute(1, 2, 0).detach().cpu())
