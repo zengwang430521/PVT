@@ -1132,8 +1132,7 @@ def map2token_agg_mat(feature_map, loc, loc_orig, idx_agg, weight=None):
     # the weight is not the sum but the last one (usually 0)
     # A = feature_map.new_zeros(B, N0, H*W)
     # A[idx_batch.reshape(-1), idx_tokens_orig.reshape(-1), idx_HW_orig.reshape(-1)] = value.reshape(-1)
-
-    # A[idx_batch.reshape(-1), idx_tokens_orig.reshape(-1), idx_HW_orig.reshape(-1)] = value.reshape(-1)
+    #
 
     indices = torch.stack([idx_batch.reshape(-1), idx_tokens_orig.reshape(-1), idx_HW_orig.reshape(-1)], dim=0)
     A = torch.sparse_coo_tensor(indices, value.reshape(-1), (B, N0, H*W))

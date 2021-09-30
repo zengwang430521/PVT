@@ -78,8 +78,8 @@ plt.subplot(1, 2, 1)
 plt.imshow(x_map[0].permute(1, 2, 0).detach().cpu())
 
 x_map_re = x_map
-for i in range(10):
+for i in range(100):
     x_re = utils_mine.map2token_agg_mat(x_map_re, loc, loc, idx_agg)
-    x_map_re, weight_map_re = utils_mine.token2map_agg_sparse(x_re, loc, loc, idx_agg, [H//2, W//2])
+    x_map_re, weight_map_re = utils_mine.token2map_agg_sparse(x_re, loc, loc, idx_agg, [H, W])
     plt.subplot(1, 2, 2)
     plt.imshow(x_map_re[0].permute(1, 2, 0).detach().cpu())
