@@ -1348,6 +1348,52 @@ def merge_tokens_agg_dist(x, loc, index_down, x_down, idx_agg, weight=None, retu
     return x_out, loc_out, idx_agg
 
 
+'''merge according to qkv'''
+def merge_tokens_agg_qkv(q, k, v, index_down, idx_agg, weight=None, return_weight=False):
+    B, N, C = v.shape
+    Ns = q.shape[1]
+
+    scale = q.shape[-1] ** -0.5
+    attn = (q @ k.transpose(-2, -1)) * scale
+
+    # gumble argmax
+    p_value = 1e-6
+    noise = torch.rand_like(attn)
+    noise = -1 * (noise + p_value).log()
+    noise = -1 * (noise + p_value).log()
+    idx_agg_t = (attn + noise).argmax(axis=1)
+    # idx_agg_t = attn.argmax(axis=1)
+
+    # make sure selected tokens merge to itself
+    idx_batch = torch.arange(B, device=v.device)[:, None].expand(B, Ns)
+    idx_tmp = torch.arange(Ns, device=v.device)[None, :].expand(B, Ns)
+    idx_agg_t[idx_batch.reshape(-1), index_down.reshape(-1)] = idx_tmp.reshape(-1)
+
+    idx_batch = torch.arange(B, device=v.device)[:, None].expand(B, N)
+    idx_tokens = torch.arange(N, device=v.device)[None, :].expand(B, N)
+    indices = torch.stack([idx_batch.reshape(-1), idx_agg_t.reshape(-1), idx_tokens.reshape(-1)], dim=0)
+    value = v.new_ones(B*N)
+    mask = torch.sparse_coo_tensor(indices, value, (B, Ns, N))
+    mask = mask.to_dense()
+
+    attn = attn.softmax(dim=-1)
+    attn = mask * attn
+    if weight is not None:
+        attn = attn * weight[:, None, :]
+    attn = attn / attn.sum(dim=-1, keepdim=True)
+
+    x_out = (attn @ v).transpose(1, 2).reshape(B, Ns, C)
+    idx_agg = index_points(idx_agg_t[..., None], idx_agg).squeeze(-1)
+
+    if return_weight:
+        norm_weight = attn[indices[0], indices[1], indices[2]]
+        norm_weight = norm_weight.reshape(B, N, 1)
+        weight_t = index_points(norm_weight, idx_agg)
+        return x_out, idx_agg, weight_t
+    return x_out, idx_agg
+
+
+
 def conf_resample(conf_map, N):
     B, C, H, W = conf_map.shape
     conf = conf_map.flatten(2).permute(0, 2, 1)
