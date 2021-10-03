@@ -65,30 +65,70 @@ import utils_mine as utils_mine
 # mask = mask[bid]
 
 
+# import matplotlib.pyplot as plt
+# device = torch.device('cpu')
+# H, W = 64, 48
+# loc_orig = utils_mine.get_grid_loc(1, H, W, device)
+# B, N0, _ = loc_orig.shape
+# x_orig = torch.cat([loc_orig * 0.5 + 0.5, loc_orig.new_zeros(B, N0, 1)], dim=-1)
+# idx_agg = torch.arange(N0)[None, :].repeat(B, 1).to(device)
+# agg_weight_orig = x_orig.new_ones(B, N0, 1)
+#
+# loc_down = torch.rand(1, 100, 2) * 2 - 1
+# loc_down = loc_down.to(device)
+# x, loc, idx_agg, weight_t = utils_mine.merge_tokens_agg(x_orig, loc_orig, loc_down, idx_agg, weight=None, return_weight=True)
+#
+# agg_weight = agg_weight_orig * weight_t
+# agg_weight = agg_weight / agg_weight.max(dim=1, keepdim=True)[0]
+#
+#
+# x_map, weight_map = utils_mine.token2map_agg_sparse(x, loc, loc_orig, idx_agg, [H, W])
+# plt.subplot(1, 2, 1)
+# plt.imshow(x_map[0].permute(1, 2, 0).detach().cpu())
+#
+# x_map_re = x_map
+# for i in range(100):
+#     x_re = utils_mine.map2token_agg_mat(x_map_re, loc, loc_orig, idx_agg)
+#     x_map_re, weight_map_re = utils_mine.token2map_agg_sparse(x_re, loc, loc_orig, idx_agg, [H//2, W//2], agg_weight)
+#     plt.subplot(1, 2, 2)
+#     plt.imshow(x_map_re[0].permute(1, 2, 0).detach().cpu())
+
+
+x_map = x
+
+x_down, pos_down, idx_agg_down, weight_t = merge_tokens_agg(x, pos, pos_down, idx_agg, None, True)
+agg_weight_down = agg_weight * weight_t
+agg_weight_down = agg_weight_down / agg_weight_down.max(dim=1, keepdim=True)[0]
+
+x_map1, _ = token2map_agg_sparse(x, pos, pos_orig, idx_agg, [H, W])
+x_map2, _ = token2map_agg_sparse(x, pos, pos_orig, idx_agg, [H*2, W*2])
+x_map3, _ = token2map_agg_sparse(x_down, pos_down, pos_orig, idx_agg_down, [H, W])
+
+max = x_map[0, :3].max()
+min = x_map[0, :3].min()
 import matplotlib.pyplot as plt
-device = torch.device('cpu')
-H, W = 64, 48
-loc_orig = utils_mine.get_grid_loc(1, H, W, device)
-B, N0, _ = loc_orig.shape
-x_orig = torch.cat([loc_orig * 0.5 + 0.5, loc_orig.new_zeros(B, N0, 1)], dim=-1)
-idx_agg = torch.arange(N0)[None, :].repeat(B, 1).to(device)
-agg_weight_orig = x_orig.new_ones(B, N0, 1)
+r, c = 2, 2
+plt.subplot(r,c,1)
+tmp = (x_map - min) / (max - min)
+plt.imshow(tmp[0, :3, :, :].permute(1,2,0).detach().cpu())
+plt.subplot(r,c,2)
+tmp = (x_map1 - min) / (max - min)
+plt.imshow(tmp[0, :3, :, :].permute(1,2,0).detach().cpu())
+plt.subplot(r,c,3)
+tmp = (x_map2 - min) / (max - min)
+plt.imshow(tmp[0, :3, :, :].permute(1,2,0).detach().cpu())
+plt.subplot(r,c,4)
+tmp = (x_map3 - min) / (max - min)
+plt.imshow(tmp[0, :3, :, :].permute(1,2,0).detach().cpu())
+plt.show()
 
-loc_down = torch.rand(1, 100, 2) * 2 - 1
-loc_down = loc_down.to(device)
-x, loc, idx_agg, weight_t = utils_mine.merge_tokens_agg(x_orig, loc_orig, loc_down, idx_agg, weight=None, return_weight=True)
 
-agg_weight = agg_weight_orig * weight_t
-agg_weight = agg_weight / agg_weight.max(dim=1, keepdim=True)[0]
-
-
-x_map, weight_map = utils_mine.token2map_agg_sparse(x, loc, loc_orig, idx_agg, [H, W])
-plt.subplot(1, 2, 1)
-plt.imshow(x_map[0].permute(1, 2, 0).detach().cpu())
-
-x_map_re = x_map
-for i in range(100):
-    x_re = utils_mine.map2token_agg_mat(x_map_re, loc, loc_orig, idx_agg)
-    x_map_re, weight_map_re = utils_mine.token2map_agg_sparse(x_re, loc, loc_orig, idx_agg, [H//2, W//2], agg_weight)
-    plt.subplot(1, 2, 2)
-    plt.imshow(x_map_re[0].permute(1, 2, 0).detach().cpu())
+# x_map[0, 0] - x_map2[0, 0]
+# 
+# plt.subplot(1,2,1)
+# tmp = x_map - x_map2
+# plt.imshow(tmp[0, 0, :, :].detach().cpu())
+# plt.subplot(1,2,2)
+# tmp = x_map / x_map2
+# plt.imshow(tmp[0, 0, :, :].detach().cpu())
+# plt.show()
