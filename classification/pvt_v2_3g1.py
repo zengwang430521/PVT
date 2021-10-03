@@ -290,6 +290,7 @@ class DownLayer(nn.Module):
         agg_weight_down = agg_weight * weight_t
         agg_weight_down = agg_weight_down / agg_weight_down.max(dim=1, keepdim=True)[0]
 
+        x_down = self.block(x_down, pos_down, idx_agg_down, agg_weight_down, pos_orig, x, pos, idx_agg, agg_weight, H, W, conf_source=conf)
 
         if vis:
             show_conf_merge(conf, pos, pos_orig, idx_agg)
