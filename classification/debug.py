@@ -94,33 +94,33 @@ import utils_mine as utils_mine
 #     plt.imshow(x_map_re[0].permute(1, 2, 0).detach().cpu())
 
 
-x_map = x
-
-x_down, pos_down, idx_agg_down, weight_t = merge_tokens_agg(x, pos, pos_down, idx_agg, None, True)
-agg_weight_down = agg_weight * weight_t
-agg_weight_down = agg_weight_down / agg_weight_down.max(dim=1, keepdim=True)[0]
-
-x_map1, _ = token2map_agg_sparse(x, pos, pos_orig, idx_agg, [H, W])
-x_map2, _ = token2map_agg_sparse(x, pos, pos_orig, idx_agg, [H*2, W*2])
-x_map3, _ = token2map_agg_sparse(x_down, pos_down, pos_orig, idx_agg_down, [H, W])
-
-max = x_map[0, :3].max()
-min = x_map[0, :3].min()
-import matplotlib.pyplot as plt
-r, c = 2, 2
-plt.subplot(r,c,1)
-tmp = (x_map - min) / (max - min)
-plt.imshow(tmp[0, :3, :, :].permute(1,2,0).detach().cpu())
-plt.subplot(r,c,2)
-tmp = (x_map1 - min) / (max - min)
-plt.imshow(tmp[0, :3, :, :].permute(1,2,0).detach().cpu())
-plt.subplot(r,c,3)
-tmp = (x_map2 - min) / (max - min)
-plt.imshow(tmp[0, :3, :, :].permute(1,2,0).detach().cpu())
-plt.subplot(r,c,4)
-tmp = (x_map3 - min) / (max - min)
-plt.imshow(tmp[0, :3, :, :].permute(1,2,0).detach().cpu())
-plt.show()
+# x_map = x
+#
+# x_down, pos_down, idx_agg_down, weight_t = merge_tokens_agg(x, pos, pos_down, idx_agg, None, True)
+# agg_weight_down = agg_weight * weight_t
+# agg_weight_down = agg_weight_down / agg_weight_down.max(dim=1, keepdim=True)[0]
+#
+# x_map1, _ = token2map_agg_sparse(x, pos, pos_orig, idx_agg, [H, W])
+# x_map2, _ = token2map_agg_sparse(x, pos, pos_orig, idx_agg, [H*2, W*2])
+# x_map3, _ = token2map_agg_sparse(x_down, pos_down, pos_orig, idx_agg_down, [H, W])
+#
+# max = x_map[0, :3].max()
+# min = x_map[0, :3].min()
+# import matplotlib.pyplot as plt
+# r, c = 2, 2
+# plt.subplot(r,c,1)
+# tmp = (x_map - min) / (max - min)
+# plt.imshow(tmp[0, :3, :, :].permute(1,2,0).detach().cpu())
+# plt.subplot(r,c,2)
+# tmp = (x_map1 - min) / (max - min)
+# plt.imshow(tmp[0, :3, :, :].permute(1,2,0).detach().cpu())
+# plt.subplot(r,c,3)
+# tmp = (x_map2 - min) / (max - min)
+# plt.imshow(tmp[0, :3, :, :].permute(1,2,0).detach().cpu())
+# plt.subplot(r,c,4)
+# tmp = (x_map3 - min) / (max - min)
+# plt.imshow(tmp[0, :3, :, :].permute(1,2,0).detach().cpu())
+# plt.show()
 
 
 # x_map[0, 0] - x_map2[0, 0]
@@ -132,3 +132,10 @@ plt.show()
 # tmp = x_map / x_map2
 # plt.imshow(tmp[0, 0, :, :].detach().cpu())
 # plt.show()
+
+B, N, C = 2, 196, 64
+Ns = 49
+x = torch.rand(B, N, C)
+
+x_down = utils_mine.farthest_point_sample(x, Ns)
+x_down = x_down
