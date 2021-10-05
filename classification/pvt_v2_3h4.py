@@ -23,6 +23,8 @@ merge feature, but not merge locs, reserve all locs.
 inherit weights when map2token, which can regarded as tokens merge
 farthest_point_sample DOWN, N_grid = 0, feature distance merge
 token2map nearest + skip token conv (this must be used together.)
+
+FPS before channel increase.
 '''
 
 class MyMlp(nn.Module):
@@ -257,8 +259,15 @@ class DownLayer(nn.Module):
         self.conf = nn.Linear(self.dim_out, 1)
 
     def forward(self, x, pos, pos_orig, idx_agg, agg_weight, H, W, N_grid):
-        # x, mask = token2map(x, pos, [H, W], 1, 2, return_mask=True)
-        # x = self.conv(x, mask)
+        B, N, C = x.shape
+        sample_num = max(math.ceil(N * self.sample_ratio) - N_grid, 0)
+        if sample_num < N_grid:
+            sample_num = N_grid
+        x_grid = x[:, :N_grid]
+        x_ada = x[:, N_grid:]
+        # determine down index before channel increase
+        with torch.no_grad():
+            index_down = farthest_point_sample(x_ada, sample_num).unsqueeze(-1)
 
         x_map, _ = token2map_agg_sparse(x, pos, pos_orig, idx_agg, [H, W])
         x_map = self.conv(x_map)
@@ -269,24 +278,12 @@ class DownLayer(nn.Module):
 
         # sample_num = max(math.ceil(N * self.sample_ratio) - N_grid, 0)
         # sample_num = max(math.ceil(N * self.sample_ratio), 0)
-        sample_num = max(math.ceil(N * self.sample_ratio) - N_grid, 0)
-        if sample_num < N_grid:
-            sample_num = N_grid
 
-        pos_grid = pos[:, :N_grid]
-        pos_ada = pos[:, N_grid:]
 
         conf = self.conf(self.norm(x))
-        conf_ada = conf[:, N_grid:]
-
-        # # _, index_down = torch.topk(conf_ada, self.sample_num, 1)
-        # index_down = gumble_top_k(conf_ada, sample_num, 1, T=1)
-        # pos_down = torch.gather(pos_ada, 1, index_down.expand([B, sample_num, 2]))
-        # pos_down = torch.cat([pos_grid, pos_down], 1)
 
         x_grid = x[:, :N_grid]
         x_ada = x[:, N_grid:]
-        index_down = farthest_point_sample(x_ada, sample_num).unsqueeze(-1)
         x_down = torch.gather(x_ada, 1, index_down.expand([B, sample_num, C]))
         x_down = torch.cat([x_grid, x_down], 1)
 
@@ -514,7 +511,7 @@ class MyPVT(nn.Module):
 
 
 @register_model
-def mypvt3h2_small(pretrained=False, **kwargs):
+def mypvt3h4_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],  **kwargs)
@@ -524,226 +521,11 @@ def mypvt3h2_small(pretrained=False, **kwargs):
 
 
 
-class MyPVT1(nn.Module):
-    def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
-                 num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
-                 attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
-                 depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], num_stages=4, linear=False):
-        super().__init__()
-        self.num_classes = num_classes
-        self.depths = depths
-        self.num_stages = num_stages
-        self.grid_stride = sr_ratios[0]
-
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
-        cur = 0
-        for i in range(1):
-            patch_embed = OverlapPatchEmbed(img_size=img_size if i == 0 else img_size // (2 ** (i + 1)),
-                                            patch_size=7 if i == 0 else 3,
-                                            stride=4 if i == 0 else 2,
-                                            in_chans=in_chans if i == 0 else embed_dims[i - 1],
-                                            embed_dim=embed_dims[i])
-
-            block = nn.ModuleList([Block(
-                dim=embed_dims[i], num_heads=num_heads[i], mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
-                drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + j], norm_layer=norm_layer,
-                sr_ratio=sr_ratios[i], linear=linear)
-                for j in range(depths[i])])
-            norm = norm_layer(embed_dims[i])
-            cur += depths[i]
-
-            setattr(self, f"patch_embed{i + 1}", patch_embed)
-            setattr(self, f"block{i + 1}", block)
-            setattr(self, f"norm{i + 1}", norm)
-
-        for i in range(1, num_stages):
-            down_layers = DownLayer(sample_ratio=0.20, embed_dim=embed_dims[i-1], dim_out=embed_dims[i],
-                                          drop_rate=drop_rate,
-                                          down_block=MyBlock(
-                                              dim=embed_dims[i], num_heads=num_heads[i],
-                                              mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
-                                              drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
-                                              norm_layer=norm_layer, sr_ratio=sr_ratios[i], linear=linear)
-                                    )
-            block = nn.ModuleList([MyBlock(
-                dim=embed_dims[i], num_heads=num_heads[i], mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
-                drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + j], norm_layer=norm_layer,
-                sr_ratio=sr_ratios[i], linear=linear)
-                for j in range(1, depths[i])])
-            norm = norm_layer(embed_dims[i])
-            cur += depths[i]
-
-            setattr(self, f"down_layers{i}", down_layers)
-            setattr(self, f"block{i + 1}", block)
-            setattr(self, f"norm{i + 1}", norm)
-
-        # classification head
-        self.head = nn.Linear(embed_dims[3], num_classes) if num_classes > 0 else nn.Identity()
-
-        self.apply(self._init_weights)
-
-    def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-        elif isinstance(m, nn.Conv2d):
-            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-            fan_out //= m.groups
-            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
-            if m.bias is not None:
-                m.bias.data.zero_()
-
-    def reset_drop_path(self, drop_path_rate):
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(self.depths))]
-        cur = 0
-        for i in range(self.depths[0]):
-            self.block1[i].drop_path.drop_prob = dpr[cur + i]
-            # print(dpr[cur + i])
-
-        cur += self.depths[0]
-        self.down_layers1.block.drop_path.drop_prob = dpr[cur]
-        cur += 1
-        for i in range(self.depths[1] - 1):
-            self.block2[i].drop_path.drop_prob = dpr[cur + i]
-            # print(dpr[cur + i])
-
-        cur += self.depths[1] - 1
-        self.down_layers2.block.drop_path.drop_prob = dpr[cur]
-        cur += 1
-        for i in range(self.depths[2] - 1):
-            self.block3[i].drop_path.drop_prob = dpr[cur + i]
-            # print(dpr[cur + i])
-
-        cur += self.depths[2] - 1
-        self.down_layers3.block.drop_path.drop_prob = dpr[cur]
-        cur += 1
-        for i in range(self.depths[3] - 1):
-            self.block4[i].drop_path.drop_prob = dpr[cur + i]
-            # print(dpr[cur + i])
-
-    def freeze_patch_emb(self):
-        self.patch_embed1.requires_grad = False
-
-    @torch.jit.ignore
-    def no_weight_decay(self):
-        return {'pos_embed1', 'pos_embed2', 'pos_embed3', 'pos_embed4', 'cls_token'}  # has pos_embed may be better
-
-    def get_classifier(self):
-        return self.head
-
-    def reset_classifier(self, num_classes, global_pool=''):
-        self.num_classes = num_classes
-        self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
-
-    def forward_features(self, x):
-        if vis:
-            outs = []
-            img = x
-
-        # stage 1
-        i = 0
-        patch_embed = getattr(self, f"patch_embed{i + 1}")
-        block = getattr(self, f"block{i + 1}")
-        norm = getattr(self, f"norm{i + 1}")
-        x, H, W = patch_embed(x)
-        for blk in block:
-            x = blk(x, H, W)
-            if torch.isnan(x).any(): print('x is nan, the stage is 0')
-        x = norm(x)
-        x, loc, N_grid = get_loc(x, H, W, self.grid_stride)
-        N_grid = 0
-
-        B, N, _ = x.shape
-        device = x.device
-        idx_agg = torch.arange(N)[None, :].repeat(B, 1).to(device)
-        agg_weight = x.new_ones(B, N, 1)
-        loc_orig = loc
-
-        if vis: outs.append((x, loc, [H, W], loc_orig, idx_agg))
-
-
-        for i in range(1, self.num_stages):
-            down_layers = getattr(self, f"down_layers{i}")
-            block = getattr(self, f"block{i + 1}")
-            norm = getattr(self, f"norm{i + 1}")
-            x_new, loc_new, idx_agg_new, agg_weight = down_layers(x, loc, loc_orig, idx_agg, agg_weight, H, W, N_grid)  # down sample
-
-            if torch.isnan(x_new).any():
-                with open('debug.txt', 'a') as f:
-
-                    f.writelines(f'x is nan, the stage is {i}, the block is down_layer')
-                    f.writelines('loc:'); f.writelines(str(loc))
-                    f.writelines('x:'); f.writelines(str(x))
-                    f.writelines('x_new:'); f.writelines(str(x_new))
-
-                    err_idx = torch.isnan(x_new).nonzero()
-                    f.writelines('err_idx: ');
-                    f.writelines(str(err_idx))
-                    bid = err_idx[0, 0]
-                    f.writelines('loc: ');
-                    f.writelines(str(loc[bid]))
-                    f.writelines('loc down: ');
-                    f.writelines(str(loc_new[bid]))
-
-            x, loc, idx_agg = x_new, loc_new, idx_agg_new
-            H, W = H // 2, W // 2
-
-            for j, blk in enumerate(block):
-                x_new = blk(x, loc, idx_agg, agg_weight, loc_orig, x, loc, idx_agg, agg_weight, H, W, conf_source=None)
-
-                if torch.isnan(x_new).any():
-                    with open('debug.txt', 'a') as f:
-                        f.writelines(f'x is nan, the stage is {i}, the bloxk is {j}')
-                        f.writelines('loc:'); f.writelines(str(loc))
-                        f.writelines('x:'); f.writelines(str(x))
-                        f.writelines('x_new:'); f.writelines(str(x_new))
-
-                        err_idx = torch.isnan(x_new).nonzero()
-                        f.writelines('err_idx: ');
-                        f.writelines(str(err_idx))
-                        bid = err_idx[0, 0]
-                        f.writelines('loc: ');
-                        f.writelines(str(loc[bid]))
-                        f.writelines('loc down: ');
-                        f.writelines(str(loc_new[bid]))
-
-                x = x_new
-
-            x = norm(x)
-
-            if vis: outs.append((x, loc, [H, W], loc_orig, idx_agg))
-
-        if vis:
-            show_tokens_merge(img, outs, N_grid)
-
-        return x.mean(dim=1)
-
-    def forward(self, x):
-        x = self.forward_features(x)
-        x = self.head(x)
-        return x
-
-
-'''less tokens'''
-@register_model
-def mypvt3h2_1_small(pretrained=False, **kwargs):
-    model = MyPVT1(
-        patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],  **kwargs)
-    model.default_cfg = _cfg()
-
-    return model
-
-
 
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt3h2_1_small(drop_path_rate=0.).to(device)
+    model = mypvt3h4_small(drop_path_rate=0.).to(device)
     model.reset_drop_path(0.)
     # pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
     # model.load_state_dict(pre_dict)

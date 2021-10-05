@@ -22,7 +22,7 @@ do not select tokens, merge tokens. weight NOT clamp, conf do not clamp
 merge feature, but not merge locs, reserve all locs.
 inherit weights when map2token, which can regarded as tokens merge
 farthest_point_sample DOWN, N_grid = 0, feature distance merge, NO conf module
-token2map nearest + skip token conv (this must be used togrther.)
+token2map nearest + skip token conv (this must be used together.)
 '''
 
 class MyMlp(nn.Module):
