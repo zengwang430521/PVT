@@ -286,7 +286,8 @@ class DownLayer(nn.Module):
 
         x_grid = x[:, :N_grid]
         x_ada = x[:, N_grid:]
-        index_down = farthest_point_sample(x_ada, sample_num).unsqueeze(-1)
+        with torch.no_grad():
+            index_down = farthest_point_sample(x_ada, sample_num).unsqueeze(-1)
         x_down = torch.gather(x_ada, 1, index_down.expand([B, sample_num, C]))
         x_down = torch.cat([x_grid, x_down], 1)
 
