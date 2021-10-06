@@ -291,8 +291,6 @@ class DownLayer(nn.Module):
         x_down = torch.gather(x_ada, 1, index_down.expand([B, sample_num, C]))
         x_down = torch.cat([x_grid, x_down], 1)
 
-
-
         # pos_down = get_grid_loc(B, H, W, x.device)
 
         # conf = conf.clamp(-7, 7)
