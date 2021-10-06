@@ -1485,6 +1485,19 @@ def farthest_point_sample(xyz, npoint):
     return centroids
 
 
+def feature_try_sample(xyz, npoint):
+    """
+    find the feature far away from the mean
+    """
+    # dist = dist.norm(p=2, dim=-1)
+    # idx_agg_t = dist.argmin(axis=2)
+    dist = (xyz - xyz.mean(dim=1, keepdim=True)).norm(p=2, dim=-1)
+    _, centroids = torch.topk(dist, npoint, dim=1)
+    return centroids
+
+
+
+
 def show_tokens_merge(x, out, N_grid=14*14):
     import matplotlib.pyplot as plt
     IMAGENET_DEFAULT_MEAN = torch.tensor([0.485, 0.456, 0.406], device=x.device)[None, :, None, None]
@@ -1519,6 +1532,7 @@ def show_tokens_merge(x, out, N_grid=14*14):
             idx_map, _ = token2map_agg_sparse(tmp, loc_orig, loc_orig, idx_agg, [H//4, W//4])
             idx_map = idx_map[i].permute(1, 2, 0).detach().cpu()
             ax.imshow(idx_map)
+    plt.show()
 
     return
 
