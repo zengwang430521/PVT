@@ -432,7 +432,7 @@ class MyPVT(nn.Module):
         for blk in block:
             x = blk(x, H, W)
         x = norm(x)
-        loc = get_grid_loc(B, H, W, device)
+        loc = get_grid_loc(B, H, W, x.device)
         N_grid = 0
 
         B, N, _ = x.shape
@@ -480,7 +480,6 @@ def mypvt3h7_small(pretrained=False, **kwargs):
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     model = mypvt3h7_small(drop_path_rate=0.).to(device)
-    model.reset_drop_path(0.)
     # pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
     # model.load_state_dict(pre_dict)
     for i in range(10):
