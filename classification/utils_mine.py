@@ -1359,10 +1359,12 @@ def merge_tokens_agg_dist(x, loc, index_down, x_down, idx_agg, weight=None, retu
     # dist = dist.norm(p=2, dim=-1)
     # idx_agg_t = dist.argmin(axis=2)
     idx_agg_t = torch.cdist(x, x_down, p=2).argmin(axis=2)
+
     # make sure selected tokens merge to itself
-    idx_batch = torch.arange(B, device=x.device)[:, None].expand(B, Ns)
-    idx_tmp = torch.arange(Ns, device=x.device)[None, :].expand(B, Ns)
-    idx_agg_t[idx_batch.reshape(-1), index_down.reshape(-1)] = idx_tmp.reshape(-1)
+    if index_down is not None:
+        idx_batch = torch.arange(B, device=x.device)[:, None].expand(B, Ns)
+        idx_tmp = torch.arange(Ns, device=x.device)[None, :].expand(B, Ns)
+        idx_agg_t[idx_batch.reshape(-1), index_down.reshape(-1)] = idx_tmp.reshape(-1)
 
     idx = idx_agg_t + torch.arange(B)[:, None].to(loc.device) * Ns
 
@@ -1494,7 +1496,6 @@ def feature_try_sample(xyz, npoint):
     dist = (xyz - xyz.mean(dim=1, keepdim=True)).norm(p=2, dim=-1)
     _, centroids = torch.topk(dist, npoint, dim=1)
     return centroids
-
 
 
 

@@ -5,28 +5,28 @@ from functools import partial
 import math
 
 from pvt_v2 import (Block, DropPath, DWConv, OverlapPatchEmbed,
-                    to_2tuple, trunc_normal_, register_model, _cfg)
+                    to_2tuple, trunc_normal_, register_model, _cfg, Mlp)
 from utils_mine import (
     get_grid_loc,
     gumble_top_k,
     show_tokens_merge, show_conf_merge, merge_tokens, merge_tokens_agg_dist, token2map_agg_sparse, map2token_agg_mat_nearest,
-    feature_try_sample
+    farthest_point_sample
+
 )
-from utils_mine import get_critical_idx as feature_try_sample
 from utils_mine import get_loc_new as get_loc
 vis = False
 # vis = True
 
 '''
-just for debug
-
 do not select tokens, merge tokens. weight NOT clamp, conf do not clamp
 merge feature, but not merge locs, reserve all locs.
 inherit weights when map2token, which can regarded as tokens merge
-feature try DOWN, N_grid = 0, feature distance merge
+farthest_point_sample DOWN, N_grid = 0, feature distance merge
 token2map nearest + skip token conv (this must be used together.)
 
+high level feature by extra branch
 '''
+
 
 class MyMlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., linear=False):
@@ -276,32 +276,30 @@ class DownLayer(nn.Module):
         if sample_num < N_grid:
             sample_num = N_grid
 
-        # pos_grid = pos[:, :N_grid]
-        # pos_ada = pos[:, N_grid:]
+        pos_grid = pos[:, :N_grid]
+        pos_ada = pos[:, N_grid:]
 
         conf = self.conf(self.norm(x))
-        x_grid = x[:, :N_grid]
-        x_ada = x[:, N_grid:]
-
         conf_ada = conf[:, N_grid:]
-        # index_down = gumble_top_k(conf_ada, sample_num, 1, T=1)
+
         # # _, index_down = torch.topk(conf_ada, self.sample_num, 1)
-
-        with torch.no_grad():
-            index_down = feature_try_sample(x_ada, sample_num).unsqueeze(-1)
-
-        x_down = torch.gather(x_ada, 1, index_down.expand([B, sample_num, C]))
-        x_down = torch.cat([x_grid, x_down], 1)
+        # index_down = gumble_top_k(conf_ada, sample_num, 1, T=1)
         # pos_down = torch.gather(pos_ada, 1, index_down.expand([B, sample_num, 2]))
         # pos_down = torch.cat([pos_grid, pos_down], 1)
+
+        x_grid = x[:, :N_grid]
+        x_ada = x[:, N_grid:]
+        with torch.no_grad():
+            index_down = farthest_point_sample(x_ada, sample_num).unsqueeze(-1)
+        x_down = torch.gather(x_ada, 1, index_down.expand([B, sample_num, C]))
+        x_down = torch.cat([x_grid, x_down], 1)
+
         # pos_down = get_grid_loc(B, H, W, x.device)
 
         # conf = conf.clamp(-7, 7)
         # weight = conf.clamp(-7, 7).exp()
         weight = conf.exp()
-        for i in range(10):
-            x_down, pos_down, idx_agg_down, weight_t = merge_tokens_agg_dist(x, pos, None, x_down, idx_agg, weight, True)
-
+        x_down, pos_down, idx_agg_down, weight_t = merge_tokens_agg_dist(x, pos, index_down, x_down, idx_agg, weight, True)
         agg_weight_down = agg_weight * weight_t
         agg_weight_down = agg_weight_down / agg_weight_down.max(dim=1, keepdim=True)[0]
 
@@ -339,20 +337,31 @@ class MyPVT(nn.Module):
                 sr_ratio=sr_ratios[i], linear=linear)
                 for j in range(depths[i])])
             norm = norm_layer(embed_dims[i])
+
             cur += depths[i]
 
             setattr(self, f"patch_embed{i + 1}", patch_embed)
             setattr(self, f"block{i + 1}", block)
             setattr(self, f"norm{i + 1}", norm)
 
+
+        # high level feature branch
+        self.d_high = nn.AvgPool2d(7)
+        # self.conv_high = nn.Conv2d(in_channels=embed_dims[0]+embed_dims[0],
+        #                            out_channels=embed_dims[0],
+        #                            kernel_size=3,
+        #                            padding=1)
+
         for i in range(1, num_stages):
-            down_layers = DownLayer(sample_ratio=0.25, embed_dim=embed_dims[i-1], dim_out=embed_dims[i],
-                                          drop_rate=drop_rate,
-                                          down_block=MyBlock(
-                                              dim=embed_dims[i], num_heads=num_heads[i],
-                                              mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
-                                              drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
-                                              norm_layer=norm_layer, sr_ratio=sr_ratios[i], linear=linear)
+            down_layers = DownLayer(sample_ratio=0.25,
+                                    embed_dim=embed_dims[i-1] * 2 if i == 1 else embed_dims[i-1],
+                                    dim_out=embed_dims[i],
+                                    drop_rate=drop_rate,
+                                    down_block=MyBlock(
+                                          dim=embed_dims[i], num_heads=num_heads[i],
+                                          mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
+                                          drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
+                                          norm_layer=norm_layer, sr_ratio=sr_ratios[i], linear=linear)
                                     )
             block = nn.ModuleList([MyBlock(
                 dim=embed_dims[i], num_heads=num_heads[i], mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
@@ -360,11 +369,25 @@ class MyPVT(nn.Module):
                 sr_ratio=sr_ratios[i], linear=linear)
                 for j in range(1, depths[i])])
             norm = norm_layer(embed_dims[i])
+
+
+            # high level feature branch
+            if i in [1, 2]:
+                high_block = nn.ModuleList([Block(
+                    dim=embed_dims[0], num_heads=2, mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
+                    drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + j], norm_layer=norm_layer,
+                    sr_ratio=1, linear=linear)
+                    for j in range(2)])
+                high_norm = norm_layer(embed_dims[0])
+                setattr(self, f"high_block{i + 1}", high_block)
+                setattr(self, f"high_norm{i + 1}", high_norm)
+
             cur += depths[i]
 
             setattr(self, f"down_layers{i}", down_layers)
             setattr(self, f"block{i + 1}", block)
             setattr(self, f"norm{i + 1}", norm)
+
 
         # classification head
         self.head = nn.Linear(embed_dims[3], num_classes) if num_classes > 0 else nn.Identity()
@@ -385,34 +408,6 @@ class MyPVT(nn.Module):
             m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
             if m.bias is not None:
                 m.bias.data.zero_()
-
-    def reset_drop_path(self, drop_path_rate):
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(self.depths))]
-        cur = 0
-        for i in range(self.depths[0]):
-            self.block1[i].drop_path.drop_prob = dpr[cur + i]
-            # print(dpr[cur + i])
-
-        cur += self.depths[0]
-        self.down_layers1.block.drop_path.drop_prob = dpr[cur]
-        cur += 1
-        for i in range(self.depths[1] - 1):
-            self.block2[i].drop_path.drop_prob = dpr[cur + i]
-            # print(dpr[cur + i])
-
-        cur += self.depths[1] - 1
-        self.down_layers2.block.drop_path.drop_prob = dpr[cur]
-        cur += 1
-        for i in range(self.depths[2] - 1):
-            self.block3[i].drop_path.drop_prob = dpr[cur + i]
-            # print(dpr[cur + i])
-
-        cur += self.depths[2] - 1
-        self.down_layers3.block.drop_path.drop_prob = dpr[cur]
-        cur += 1
-        for i in range(self.depths[3] - 1):
-            self.block4[i].drop_path.drop_prob = dpr[cur + i]
-            # print(dpr[cur + i])
 
     def freeze_patch_emb(self):
         self.patch_embed1.requires_grad = False
@@ -443,11 +438,30 @@ class MyPVT(nn.Module):
             x = blk(x, H, W)
             if torch.isnan(x).any(): print('x is nan, the stage is 0')
         x = norm(x)
+        B, N, _ = x.shape
+        device = x.device
+
+
+        # high level feature extract
+        x_h = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+        x_h = self.d_high(x_h)
+        _, _, h, w = x_h.shape
+        x_h = x_h.flatten(2).transpose(1, 2)
+        for blk in self.high_block2:
+            x_h = blk(x_h, h, w)
+        x_h = self.high_norm2(x_h)
+        for blk in self.high_block3:
+            x_h = blk(x_h, h, w)
+        x_h = self.high_norm3(x_h)
+        x_h = x_h.reshape(B, h, w, -1).permute(0, 3, 1, 2).contiguous()
+        x_h = F.interpolate(x_h, [H, W], mode='bilinear')
+        x_h = x_h.flatten(2).transpose(1, 2)
+        x = torch.cat([x, x_h], dim=-1)
+
+
         x, loc, N_grid = get_loc(x, H, W, self.grid_stride)
         N_grid = 0
 
-        B, N, _ = x.shape
-        device = x.device
         idx_agg = torch.arange(N)[None, :].repeat(B, 1).to(device)
         agg_weight = x.new_ones(B, N, 1)
         loc_orig = loc
@@ -518,7 +532,7 @@ class MyPVT(nn.Module):
 
 
 @register_model
-def mypvt3h5_small(pretrained=False, **kwargs):
+def mypvt3h6_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],  **kwargs)
@@ -528,15 +542,18 @@ def mypvt3h5_small(pretrained=False, **kwargs):
 
 
 
+
+
+
+
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt3h5_small(drop_path_rate=0.).to(device)
-    model.reset_drop_path(0.)
+    model = mypvt3h6_small(drop_path_rate=0.).to(device)
     # pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
     # model.load_state_dict(pre_dict)
-    for i in range(100):
-        x = torch.rand([1, 3, 256, 192]).to(device)
+    for i in range(10):
+        x = torch.rand([2, 3, 112, 112]).to(device)
         tmp = model(x)
     print('Finish')
 
