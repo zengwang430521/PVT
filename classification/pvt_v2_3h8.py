@@ -9,7 +9,8 @@ from pvt_v2 import (Block, DropPath, DWConv, OverlapPatchEmbed,
 from utils_mine import (
     get_grid_loc,
     gumble_top_k,
-    show_tokens_merge, show_conf_merge, merge_tokens, merge_tokens_agg_dist, token2map_agg_sparse, map2token_agg_mat_nearest,
+    show_tokens_merge, show_conf_merge, merge_tokens, merge_tokens_agg_dist, token2map_agg_sparse,token2map_agg_mat,
+    map2token_agg_mat_nearest,
     farthest_point_sample
 
 )
@@ -137,7 +138,7 @@ class MyAttention(nn.Module):
                 if conf_source is None:
                     conf_source = x_source.new_zeros(B, Ns, 1)
                 tmp = torch.cat([x_source, conf_source], dim=-1)
-                tmp, _ = token2map_agg_sparse(tmp, loc_source, loc_orig, idx_agg_source, [H, W], weight=conf_source.exp())
+                tmp, _ = token2map_agg_mat(tmp, loc_source, loc_orig, idx_agg_source, [H, W], weight=conf_source.exp())
                 x_source = tmp[:, :C]
                 conf_source = tmp[:, C:]
 
