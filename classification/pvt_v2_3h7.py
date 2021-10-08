@@ -9,12 +9,13 @@ from pvt_v2 import (Block, DropPath, DWConv, OverlapPatchEmbed,
 from utils_mine import (
     get_grid_loc,
     gumble_top_k,
-    show_tokens_merge, show_conf_merge, merge_tokens, merge_tokens_agg_dist_multi, token2map_Agg, map2token_Agg,
+    show_tokens_merge_multi, show_conf_merge_multi,
+    merge_tokens, merge_tokens_agg_dist_multi, token2map_Agg, map2token_Agg,
     farthest_point_sample
 
 )
 vis = False
-# vis = True
+vis = True
 
 '''
 do not select tokens, merge tokens. weight NOT clamp, conf do not clamp
@@ -217,8 +218,6 @@ class MyBlock(nn.Module):
             save_dict = {
                 'x':x.detach().cpu(),
                 'x_source': x_source,
-                'loc': loc,
-                'loc_source': loc_source,
                 'x1': x1,
                 'x2': x2
             }
@@ -290,14 +289,14 @@ class DownLayer(nn.Module):
         # conf = conf.clamp(-7, 7)
         # weight = conf.clamp(-7, 7).exp()
         weight = conf.exp()
-        x_down, A = merge_tokens_agg_dist_multi(x, index_down, x_down, weight)
+        x_down, A = merge_tokens_agg_dist_multi(x, index_down, x_down, weight, k=4)
         Agg_down = A @ Agg
         Agg_down = Agg_down / Agg_down.max(dim=1, keepdim=True)[0]
 
         x_down = self.block(x_down, Agg_down, loc_orig, x, Agg, H, W, conf_source=conf)
 
         if vis:
-            show_conf_merge(conf, pos, pos_orig, idx_agg)
+            show_conf_merge_multi(conf, Agg, loc_orig)
         return x_down, Agg_down
 
 
@@ -455,7 +454,7 @@ class MyPVT(nn.Module):
             if vis: outs.append((x, [H, W], Agg, loc_orig))
 
         if vis:
-            show_tokens_merge(img, outs, N_grid)
+            show_tokens_merge_multi(img, outs, N_grid)
 
         return x.mean(dim=1)
 
@@ -475,7 +474,6 @@ def mypvt3h7_small(pretrained=False, **kwargs):
     return model
 
 
-
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -483,7 +481,8 @@ if __name__ == '__main__':
     # pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
     # model.load_state_dict(pre_dict)
     for i in range(10):
-        x = torch.rand([2, 3, 256, 192]).to(device)
+        x = torch.rand([2, 3, 112, 112]).to(device)
         tmp = model(x)
     print('Finish')
+
 

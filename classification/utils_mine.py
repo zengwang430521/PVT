@@ -1498,7 +1498,6 @@ def feature_try_sample(xyz, npoint):
     return centroids
 
 
-
 '''merge according to feature distance'''
 def merge_tokens_agg_dist_multi(x, index_down, x_down, weight=None, k=3):
     B, N, C = x.shape
@@ -1506,15 +1505,17 @@ def merge_tokens_agg_dist_multi(x, index_down, x_down, weight=None, k=3):
     if weight is None:
         weight = x.new_ones(B, N, 1)
 
-    dists, idx_agg_t = torch.cdist(x, x_down, p=2).topk(k, dim=2)
+    dists, idx_agg_t = (-1 * torch.cdist(x, x_down, p=2)).topk(k, dim=2)
 
-    dist_recip = 1.0 / (dists + 1e-6)
-    one_mask = dists == 0
-    zero_mask = one_mask.sum(dim=-1) > 0
-    dist_recip[zero_mask, :] = 0
-    dist_recip[one_mask] = 1
-    norm = torch.sum(dist_recip, dim=2, keepdim=True)  #+ 1e-6
-    weight = (dist_recip / norm) * weight
+    # dist_recip = 1.0 / (dists + 1e-6)
+    # one_mask = dists == 0
+    # zero_mask = one_mask.sum(dim=-1) > 0
+    # dist_recip[zero_mask, :] = 0
+    # dist_recip[one_mask] = 1
+    # norm = torch.sum(dist_recip, dim=2, keepdim=True)  #+ 1e-6
+    # weight = (dist_recip / norm) * weight
+
+    weight = weight.expand(B, N, k)
 
     idx_batch = torch.arange(B, device=x.device)[:, None, None].expand(B, N, k)
     idx_token = torch.arange(N, device=x.device)[None, :, None].expand(B, N, k)
@@ -1529,91 +1530,38 @@ def merge_tokens_agg_dist_multi(x, index_down, x_down, weight=None, k=3):
     return x_down, A
 
 
-
-def show_tokens_merge(x, out, N_grid=14*14):
-    import matplotlib.pyplot as plt
-    IMAGENET_DEFAULT_MEAN = torch.tensor([0.485, 0.456, 0.406], device=x.device)[None, :, None, None]
-    IMAGENET_DEFAULT_STD = torch.tensor([0.229, 0.224, 0.225], device=x.device)[None, :, None, None]
-    x = x * IMAGENET_DEFAULT_STD + IMAGENET_DEFAULT_MEAN
-    # for i in range(x.shape[0]):
-    for i in range(1):
-        img = x[i].permute(1, 2, 0).detach().cpu()
-        ax = plt.subplot(2, 5, 1)
-        ax.clear()
-        ax.imshow(img)
-        # ax = plt.subplot(2, 5, 6)
-        # ax.clear()
-        # ax.imshow(img)
-        for lv in range(len(out)):
-            ax = plt.subplot(2, 5, lv+2)
-            ax.clear()
-            ax.imshow(img, extent=[0, 1, 0, 1])
-            # loc = out[lv][1]
-            # loc = 0.5 * loc + 0.5
-            # loc_grid = loc[i, :N_grid].detach().cpu().numpy()
-            # ax.scatter(loc_grid[:, 0], 1 - loc_grid[:, 1], c='blue', s=0.4+lv*0.1)
-            # loc_ada = loc[i, N_grid:].detach().cpu().numpy()
-            # ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
-            idx_agg = out[lv][4]
-            loc_orig = out[lv][3]
-            loc = out[lv][1]
-            B, N, _ = loc.shape
-            # tmp = torch.arange(N, device=loc.device)[None, :, None].expand(B, N, 1).float()
-            tmp = torch.rand([N, 3], device=loc.device)[None, :, :].expand(B, N, 3).float()
-            H, W, _ = img.shape
-            idx_map, _ = token2map_agg_sparse(tmp, loc_orig, loc_orig, idx_agg, [H//4, W//4])
-            idx_map = idx_map[i].permute(1, 2, 0).detach().cpu()
-            ax.imshow(idx_map)
-    plt.show()
-
-    return
-
-
-def show_conf_merge(conf, loc, loc_orig, idx_agg):
-    H = int(conf.shape[1]**0.5)
-    lv = int(math.log2(28 / H) + 7 + 0)
-
-    # conf = F.softmax(conf, dim=1)
-    # conf = conf.exp()
-    conf = conf - conf.min(dim=1, keepdim=True)[0]
-    conf_map, _ = token2map_agg_sparse(conf, loc, loc_orig, idx_agg, [28, 28])
-    ax = plt.subplot(2, 5, lv)
-    ax.clear()
-    ax.imshow(conf_map[0, 0].detach().cpu().float(), vmin=0, vmax=7)
-    # plt.colorbar()
-
-
-# normalize for 2 matrix, so every orig token share the same weight when get feature map
-def token2map_Agg2(x, loc_orig, Agg, map_size, weight=None):
-    H, W = map_size
-    B, N, C = x.shape
-    N0 = loc_orig.shape[1]
-    device = x.device
-    loc_orig = loc_orig.clamp(-1, 1)
-    loc_orig = 0.5 * (loc_orig + 1) * torch.FloatTensor([W, H]).to(device)[None, None, :] - 0.5
-    loc_orig = loc_orig.round().long()
-    loc_orig[..., 0] = loc_orig[..., 0].clamp(0, W-1)
-    loc_orig[..., 1] = loc_orig[..., 1].clamp(0, H-1)
-    idx_HW_orig = loc_orig[..., 0] + loc_orig[..., 1] * W
-    idx_batch = torch.arange(B, device=device)[:, None].expand(B, N0)
-    idx_token_orig = torch.arange(N0, device=device)[None, :].expand(B, N0)
-
-    indices = torch.stack([idx_batch.reshape(-1), idx_HW_orig.reshape(-1), idx_token_orig.reshape(-1)], dim=0)
-    A = torch.sparse_coo_tensor(indices, x.new_ones(B * N0), (B, H*W, N0))
-    A = A.to_dense()                    # B, HW, N0
-    A = A / (A.sum(dim=-1, keepdim=True) + 1e-6)
-
-    Agg = Agg * weight          # B, N, N0
-    Agg = Agg / Agg.sum(dim=1, keepdim=True)   # normalize along N axis
-
-    A = A @ Agg.permute(0, 2, 1)        # B, HW, N
-
-    x_out = A @ x
-    x_out = x_out.reshape(B, H, W, C).permute(0, 3, 1, 2).contiguous()
-    return x_out
-
+# # normalize for 2 matrix, so every orig token share the same weight when get feature map
+# def token2map_Agg2(x, loc_orig, Agg, map_size, weight=None):
+#     H, W = map_size
+#     B, N, C = x.shape
+#     N0 = loc_orig.shape[1]
+#     device = x.device
+#     loc_orig = loc_orig.clamp(-1, 1)
+#     loc_orig = 0.5 * (loc_orig + 1) * torch.FloatTensor([W, H]).to(device)[None, None, :] - 0.5
+#     loc_orig = loc_orig.round().long()
+#     loc_orig[..., 0] = loc_orig[..., 0].clamp(0, W-1)
+#     loc_orig[..., 1] = loc_orig[..., 1].clamp(0, H-1)
+#     idx_HW_orig = loc_orig[..., 0] + loc_orig[..., 1] * W
+#     idx_batch = torch.arange(B, device=device)[:, None].expand(B, N0)
+#     idx_token_orig = torch.arange(N0, device=device)[None, :].expand(B, N0)
+#
+#     indices = torch.stack([idx_batch.reshape(-1), idx_HW_orig.reshape(-1), idx_token_orig.reshape(-1)], dim=0)
+#     A = torch.sparse_coo_tensor(indices, x.new_ones(B * N0), (B, H*W, N0))
+#     A = A.to_dense()                    # B, HW, N0
+#     A = A / (A.sum(dim=-1, keepdim=True) + 1e-6)
+#
+#     Agg = Agg * weight          # B, N, N0
+#     Agg = Agg / Agg.sum(dim=1, keepdim=True)   # normalize along N axis
+#
+#     A = A @ Agg.permute(0, 2, 1)        # B, HW, N
+#
+#     x_out = A @ x
+#     x_out = x_out.reshape(B, H, W, C).permute(0, 3, 1, 2).contiguous()
+#     return x_out
+#
 
 # normalize for the last matrix, so orig token share the DIFFERENT weight when get feature map
+
 def token2map_Agg(x, Agg, loc_orig, map_size, weight=None):
     H, W = map_size
     B, N, C = x.shape
@@ -1671,3 +1619,95 @@ def map2token_Agg(feature_map, Agg, loc_orig):
     tokens = A @ feature_map.flatten(2).permute(0, 2, 1)
     return tokens
 
+
+def show_tokens_merge(x, out, N_grid=14*14):
+    # import matplotlib.pyplot as plt
+    IMAGENET_DEFAULT_MEAN = torch.tensor([0.485, 0.456, 0.406], device=x.device)[None, :, None, None]
+    IMAGENET_DEFAULT_STD = torch.tensor([0.229, 0.224, 0.225], device=x.device)[None, :, None, None]
+    x = x * IMAGENET_DEFAULT_STD + IMAGENET_DEFAULT_MEAN
+    # for i in range(x.shape[0]):
+    for i in range(1):
+        img = x[i].permute(1, 2, 0).detach().cpu()
+        ax = plt.subplot(2, 5, 1)
+        ax.clear()
+        ax.imshow(img)
+        # ax = plt.subplot(2, 5, 6)
+        # ax.clear()
+        # ax.imshow(img)
+        for lv in range(len(out)):
+            ax = plt.subplot(2, 5, lv+2)
+            ax.clear()
+            ax.imshow(img, extent=[0, 1, 0, 1])
+            # loc = out[lv][1]
+            # loc = 0.5 * loc + 0.5
+            # loc_grid = loc[i, :N_grid].detach().cpu().numpy()
+            # ax.scatter(loc_grid[:, 0], 1 - loc_grid[:, 1], c='blue', s=0.4+lv*0.1)
+            # loc_ada = loc[i, N_grid:].detach().cpu().numpy()
+            # ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
+            idx_agg = out[lv][4]
+            loc_orig = out[lv][3]
+            loc = out[lv][1]
+            B, N, _ = loc.shape
+            # tmp = torch.arange(N, device=loc.device)[None, :, None].expand(B, N, 1).float()
+            tmp = torch.rand([N, 3], device=loc.device)[None, :, :].expand(B, N, 3).float()
+            H, W, _ = img.shape
+            idx_map, _ = token2map_agg_sparse(tmp, loc_orig, loc_orig, idx_agg, [H//4, W//4])
+            idx_map = idx_map[i].permute(1, 2, 0).detach().cpu()
+            ax.imshow(idx_map)
+    # plt.show()
+
+    return
+
+
+def show_conf_merge(conf, loc, loc_orig, idx_agg):
+    H = int(conf.shape[1]**0.5)
+    lv = int(math.log2(28 / H) + 7 + 0)
+
+    # conf = F.softmax(conf, dim=1)
+    # conf = conf.exp()
+    conf = conf - conf.min(dim=1, keepdim=True)[0]
+    conf_map, _ = token2map_agg_sparse(conf, loc, loc_orig, idx_agg, [28, 28])
+    ax = plt.subplot(2, 5, lv)
+    ax.clear()
+    ax.imshow(conf_map[0, 0].detach().cpu().float(), vmin=0, vmax=7)
+    # plt.colorbar()
+
+
+def show_tokens_merge_multi(x, out, N_grid=14*14):
+    import matplotlib.pyplot as plt
+    IMAGENET_DEFAULT_MEAN = torch.tensor([0.485, 0.456, 0.406], device=x.device)[None, :, None, None]
+    IMAGENET_DEFAULT_STD = torch.tensor([0.229, 0.224, 0.225], device=x.device)[None, :, None, None]
+    x = x * IMAGENET_DEFAULT_STD + IMAGENET_DEFAULT_MEAN
+    # for i in range(x.shape[0]):
+    for i in range(1):
+        img = x[i].permute(1, 2, 0).detach().cpu()
+        ax = plt.subplot(2, 5, 1)
+        ax.clear()
+        ax.imshow(img)
+        # ax = plt.subplot(2, 5, 6)
+        # ax.clear()
+        # ax.imshow(img)
+        for lv in range(len(out)):
+            _, map_size, Agg, loc_orig = out[lv]
+            B, N, _ = Agg.shape
+            tmp = torch.rand([N, 3], device=x.device)[None, :, :].expand(B, N, 3).float()
+            H, W, _ = img.shape
+            x_map = token2map_Agg(tmp, Agg, loc_orig, [H//4, W//4])
+            x_map = x_map[i].permute(1, 2, 0).detach().cpu()
+            ax = plt.subplot(2, 5, lv+2)
+            ax.clear()
+            ax.imshow(x_map)
+
+    return
+
+
+def show_conf_merge_multi(conf, Agg, loc_orig):
+    H = int(conf.shape[1]**0.5)
+    lv = int(math.log2(28 / H) + 7 + 0)
+
+    conf = conf - conf.min(dim=1, keepdim=True)[0]
+    conf_map = token2map_Agg(conf, Agg, loc_orig, [28, 28])
+
+    ax = plt.subplot(2, 5, lv)
+    ax.clear()
+    ax.imshow(conf_map[0, 0].detach().cpu().float(), vmin=0, vmax=7)
