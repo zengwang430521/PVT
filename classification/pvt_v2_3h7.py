@@ -474,7 +474,7 @@ def mypvt3h7_small(pretrained=False, **kwargs):
 
     return model
 
-
+@register_model
 def mypvt3h7k3_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
