@@ -149,13 +149,14 @@ def guassian_filt(x, kernel_size=3, sigma=2):
     gaussian_kernel = gaussian_kernel.view(1, 1, kernel_size, kernel_size).contiguous()
     gaussian_kernel = gaussian_kernel.repeat(channels, 1, 1, 1)
 
-    paddding = int((kernel_size - 1) // 2)
+    pad = int((kernel_size - 1) // 2)
 
+    x = F.pad(x, (pad, pad, pad, pad), mode='replicate')
     y = F.conv2d(
         input=x,
         weight=gaussian_kernel,
         stride=1,
-        padding=paddding,
+        padding=0,
         dilation=1,
         groups=channels
     )
