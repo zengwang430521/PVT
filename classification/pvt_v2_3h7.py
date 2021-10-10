@@ -236,7 +236,7 @@ class MyBlock(nn.Module):
 class DownLayer(nn.Module):
     """ Down sample
     """
-    def __init__(self, sample_ratio, embed_dim, dim_out, drop_rate, down_block):
+    def __init__(self, sample_ratio, embed_dim, dim_out, drop_rate, down_block, k=1):
         super().__init__()
         # self.sample_num = sample_num
         self.sample_ratio = sample_ratio
@@ -254,6 +254,7 @@ class DownLayer(nn.Module):
         # self.conv = PartialConv2d(embed_dim, self.block.dim_out, kernel_size=3, stride=1, padding=1)
         self.norm = nn.LayerNorm(self.dim_out)
         self.conf = nn.Linear(self.dim_out, 1)
+        self.k = k
 
     def forward(self, x, Agg, loc_orig, H, W, N_grid):
 
@@ -289,7 +290,7 @@ class DownLayer(nn.Module):
         # conf = conf.clamp(-7, 7)
         # weight = conf.clamp(-7, 7).exp()
         weight = conf.exp()
-        x_down, A = merge_tokens_agg_dist_multi(x, index_down, x_down, weight, k=4)
+        x_down, A = merge_tokens_agg_dist_multi(x, index_down, x_down, weight, k=self.k)
         Agg_down = A @ Agg
         Agg_down = Agg_down / Agg_down.max(dim=1, keepdim=True)[0]
 
@@ -297,7 +298,7 @@ class DownLayer(nn.Module):
 
         if vis:
             show_conf_merge_multi(conf, Agg, loc_orig)
-        return x_down, Agg_down
+        return x_down, Agg_down, A
 
 
 
@@ -305,7 +306,7 @@ class MyPVT(nn.Module):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
-                 depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], num_stages=4, linear=False):
+                 depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], num_stages=4, linear=False, k=1):
         super().__init__()
         self.num_classes = num_classes
         self.depths = depths
@@ -335,7 +336,7 @@ class MyPVT(nn.Module):
 
         for i in range(1, num_stages):
             down_layers = DownLayer(sample_ratio=0.25, embed_dim=embed_dims[i-1], dim_out=embed_dims[i],
-                                          drop_rate=drop_rate,
+                                          drop_rate=drop_rate, k=k,
                                           down_block=MyBlock(
                                               dim=embed_dims[i], num_heads=num_heads[i],
                                               mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
@@ -438,20 +439,20 @@ class MyPVT(nn.Module):
         loc_orig = loc
         Agg = torch.eye(N, device=x.device, dtype=x.dtype)[None, :, :].repeat([B, 1, 1])
 
-        if vis: outs.append((x, [H, W], Agg, loc_orig))
+        if vis: outs.append((x, [H, W], Agg, loc_orig, Agg))
 
         for i in range(1, self.num_stages):
             down_layers = getattr(self, f"down_layers{i}")
             block = getattr(self, f"block{i + 1}")
             norm = getattr(self, f"norm{i + 1}")
-            x, Agg = down_layers(x, Agg, loc_orig, H, W, N_grid)  # down sample
+            x, Agg, A = down_layers(x, Agg, loc_orig, H, W, N_grid)  # down sample
             H, W = H // 2, W // 2
 
             for j, blk in enumerate(block):
                 x = blk(x, Agg, loc_orig, x, Agg, H, W, conf_source=None)
             x = norm(x)
 
-            if vis: outs.append((x, [H, W], Agg, loc_orig))
+            if vis: outs.append((x, [H, W], Agg, loc_orig, A))
 
         if vis:
             show_tokens_merge_multi(img, outs, N_grid)
@@ -468,11 +469,19 @@ class MyPVT(nn.Module):
 def mypvt3h7_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],  **kwargs)
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], k=1, **kwargs)
     model.default_cfg = _cfg()
 
     return model
 
+
+def mypvt3h7k3_small(pretrained=False, **kwargs):
+    model = MyPVT(
+        patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], k=3, **kwargs)
+    model.default_cfg = _cfg()
+
+    return model
 
 # For test
 if __name__ == '__main__':

@@ -133,9 +133,47 @@ import utils_mine as utils_mine
 # plt.imshow(tmp[0, 0, :, :].detach().cpu())
 # plt.show()
 
-B, N, C = 2, 196, 64
-Ns = 49
-x = torch.rand(B, N, C)
+# B, N, C = 2, 196, 64
+# Ns = 49
+# x = torch.rand(B, N, C)
+#
+# x_down = utils_mine.farthest_point_sample(x, Ns)
+# x_down = x_down
 
-x_down = utils_mine.farthest_point_sample(x, Ns)
-x_down = x_down
+
+
+
+
+
+
+import matplotlib.pyplot as plt
+device = torch.device('cpu')
+B, C, H, W = 2, 16, 64, 48
+
+x_map0 = torch.rand(B, C, H, W, device=device)
+x = x_map0.flatten(2).transpose(1, 2)
+N = x.shape[1]
+sample_num = N // 4
+
+loc_orig = utils_mine.get_grid_loc(B, H, W, device)
+index_down = utils_mine.farthest_point_sample(x, sample_num).unsqueeze(-1)
+x_down = torch.gather(x, 1, index_down.expand([B, sample_num, C]))
+x_down, A = utils_mine.merge_tokens_agg_dist_multi(x, index_down, x_down, None, k=1)
+Agg = A
+
+
+plt.subplot(1, 3, 1)
+plt.imshow(x_map0[0, :3].permute(1, 2, 0).detach().cpu())
+x_map = utils_mine.token2map_Agg(x_down, Agg, loc_orig, [H, W], weight=None)
+plt.subplot(1, 3, 2)
+plt.imshow(x_map[0, :3].permute(1, 2, 0).detach().cpu())
+x_map_re = x_map
+
+for i in range(100):
+    x_d_re = utils_mine.map2token_Agg(x_map_re, Agg, loc_orig)
+    x_map_re = utils_mine.token2map_Agg(x_d_re, Agg, loc_orig, [H, W], weight=None)
+    plt.subplot(1, 3, 3)
+    plt.imshow(x_map_re[0, : 3].permute(1, 2, 0).detach().cpu())
+
+
+

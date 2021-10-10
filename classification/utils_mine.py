@@ -1507,15 +1507,15 @@ def merge_tokens_agg_dist_multi(x, index_down, x_down, weight=None, k=3):
 
     dists, idx_agg_t = (-1 * torch.cdist(x, x_down, p=2)).topk(k, dim=2)
 
-    # dist_recip = 1.0 / (dists + 1e-6)
-    # one_mask = dists == 0
-    # zero_mask = one_mask.sum(dim=-1) > 0
-    # dist_recip[zero_mask, :] = 0
-    # dist_recip[one_mask] = 1
-    # norm = torch.sum(dist_recip, dim=2, keepdim=True)  #+ 1e-6
-    # weight = (dist_recip / norm) * weight
+    dist_recip = 1.0 / (dists + 1e-6)
+    one_mask = dists == 0
+    zero_mask = one_mask.sum(dim=-1) > 0
+    dist_recip[zero_mask, :] = 0
+    dist_recip[one_mask] = 1
+    norm = torch.sum(dist_recip, dim=2, keepdim=True)  #+ 1e-6
+    weight = (dist_recip / norm) * weight
 
-    weight = weight.expand(B, N, k)
+    # weight = weight.expand(B, N, k)
 
     idx_batch = torch.arange(B, device=x.device)[:, None, None].expand(B, N, k)
     idx_token = torch.arange(N, device=x.device)[None, :, None].expand(B, N, k)
@@ -1681,22 +1681,28 @@ def show_tokens_merge_multi(x, out, N_grid=14*14):
     # for i in range(x.shape[0]):
     for i in range(1):
         img = x[i].permute(1, 2, 0).detach().cpu()
-        ax = plt.subplot(2, 5, 1)
+        ax = plt.subplot(3, 5, 1)
         ax.clear()
         ax.imshow(img)
-        # ax = plt.subplot(2, 5, 6)
-        # ax.clear()
-        # ax.imshow(img)
         for lv in range(len(out)):
-            _, map_size, Agg, loc_orig = out[lv]
+            x_token, map_size, Agg, loc_orig, A = out[lv]
             B, N, _ = Agg.shape
             tmp = torch.rand([N, 3], device=x.device)[None, :, :].expand(B, N, 3).float()
+            # tmp = x_token[:, :, :3]
+            # # max = tmp.max(dim=-1, keepdim=True)[0]
+            # # min = tmp.min(dim=-1, keepdim=True)[0]
+            # max, min = tmp.max(), tmp.min()
+            # tmp = (tmp - min) / (max-min)
             H, W, _ = img.shape
             x_map = token2map_Agg(tmp, Agg, loc_orig, [H//4, W//4])
-            x_map = x_map[i].permute(1, 2, 0).detach().cpu()
-            ax = plt.subplot(2, 5, lv+2)
+            x_map = x_map[i].permute(1, 2, 0).detach().cpu().float()
+            ax = plt.subplot(3, 5, lv+2)
             ax.clear()
             ax.imshow(x_map)
+
+            ax = plt.subplot(3, 5, lv+2 + 10)
+            ax.clear()
+            ax.imshow(A[i].float().detach().cpu())
 
     return
 
@@ -1708,6 +1714,6 @@ def show_conf_merge_multi(conf, Agg, loc_orig):
     conf = conf - conf.min(dim=1, keepdim=True)[0]
     conf_map = token2map_Agg(conf, Agg, loc_orig, [28, 28])
 
-    ax = plt.subplot(2, 5, lv)
+    ax = plt.subplot(3, 5, lv)
     ax.clear()
     ax.imshow(conf_map[0, 0].detach().cpu().float(), vmin=0, vmax=7)
