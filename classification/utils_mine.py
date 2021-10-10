@@ -1438,7 +1438,7 @@ def merge_tokens_agg_qkv(q, k, v, index_down, idx_agg, weight=None, return_weigh
     attn = attn.softmax(dim=-1)
     attn = mask * attn
     if weight is not None:
-        attn = attn * weight[:, None, :]
+        attn = attn * weight.permute(0, 2, 1)
     attn = attn / attn.sum(dim=-1, keepdim=True)
 
     x_out = (attn @ v).transpose(1, 2).reshape(B, Ns, C)
@@ -1457,6 +1457,7 @@ def qkv_sample(x, sample_num):
     B, N, C = x.shape
     scale = x.shape[-1] ** -0.5
     attn = (x @ x.transpose(-2, -1)) * scale
+    attn = attn.softmax(dim=-1)
 
     # select centroid
     npoint = sample_num
@@ -1468,7 +1469,9 @@ def qkv_sample(x, sample_num):
         farthest = attn.sum(dim=1).argmax(dim=-1)
         centroids[:, i] = farthest
         attn[batch_indices, farthest, :] = 0
+        attn[batch_indices, :, farthest] = 0
     return centroids
+
 
 
 def conf_resample(conf_map, N):

@@ -9,19 +9,20 @@ from pvt_v2 import (Block, DropPath, DWConv, OverlapPatchEmbed,
 from utils_mine import (
     get_grid_loc,
     gumble_top_k,
-    show_tokens_merge, show_conf_merge, merge_tokens, merge_tokens_agg_qkv, token2map_agg_sparse, map2token_agg_mat_nearest,
-    qkv_sample, guassian_filt
+    show_tokens_merge, show_conf_merge, merge_tokens, merge_tokens_agg_qkv, merge_tokens_agg_dist,
+    token2map_agg_sparse, map2token_agg_mat_nearest,
+    farthest_point_sample, guassian_filt, qkv_sample,
 
 )
 from utils_mine import get_loc_new as get_loc
 vis = False
-vis = True
+# vis = True
 
 '''
 do not select tokens, merge tokens. weight NOT clamp, conf do not clamp
 merge feature, but not merge locs, reserve all locs.
 inherit weights when map2token, which can regarded as tokens merge
-qkv_sample DOWN, N_grid = 0, feature distance merge
+farthest_point_sample DOWN, N_grid = 0, feature distance merge
 token2map nearest + skip token conv (this must be used together.)
 '''
 
@@ -281,22 +282,29 @@ class DownLayer(nn.Module):
 
         # # _, index_down = torch.topk(conf_ada, self.sample_num, 1)
         # index_down = gumble_top_k(conf_ada, sample_num, 1, T=1)
-        # pos_down = torch.gather(pos_ada, 1, index_down.expand([B, sample_num, 2]))
-        # pos_down = torch.cat([pos_grid, pos_down], 1)
 
         x_grid = x[:, :N_grid]
         x_ada = x[:, N_grid:]
         with torch.no_grad():
-            index_down = qkv_sample(x_ada, sample_num).unsqueeze(-1)
+            index_down = farthest_point_sample(x_ada, sample_num).unsqueeze(-1)
+            # index_down = qkv_sample(x_ada, sample_num).unsqueeze(-1)
+
         x_down = torch.gather(x_ada, 1, index_down.expand([B, sample_num, C]))
         x_down = torch.cat([x_grid, x_down], 1)
+
+        pos_down = torch.gather(pos_ada, 1, index_down.expand([B, sample_num, 2]))
+        pos_down = torch.cat([pos_grid, pos_down], 1)
+
 
         # pos_down = get_grid_loc(B, H, W, x.device)
 
         # conf = conf.clamp(-7, 7)
         # weight = conf.clamp(-7, 7).exp()
         weight = conf.exp()
-        x_down, pos_down, idx_agg_down, weight_t = merge_tokens_agg_qkv(x_down, x, x, index_down, idx_agg, weight, True)
+
+        x_down, idx_agg_down, weight_t = merge_tokens_agg_qkv(x_down, x, x, index_down, idx_agg, weight, True)
+        # x_down, pos_down, idx_agg_down, weight_t = merge_tokens_agg_dist(x, pos, index_down, x_down, idx_agg, weight, True)
+
         agg_weight_down = agg_weight * weight_t
         agg_weight_down = agg_weight_down / agg_weight_down.max(dim=1, keepdim=True)[0]
 
@@ -530,7 +538,7 @@ if __name__ == '__main__':
     # model.load_state_dict(pre_dict)
     for i in range(10):
         x = torch.rand([1, 3, 112, 112]).to(device)
-        x = guassian_filt(x, 9, 2)
+        # x = guassian_filt(x, 3, 2)
         tmp = model(x)
     print('Finish')
 
