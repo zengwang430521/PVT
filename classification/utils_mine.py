@@ -1415,13 +1415,13 @@ def merge_tokens_agg_qkv(q, k, v, index_down, idx_agg, weight=None, return_weigh
     scale = q.shape[-1] ** -0.5
     attn = (q @ k.transpose(-2, -1)) * scale
 
-    # gumble argmax
-    p_value = 1e-6
-    noise = torch.rand_like(attn)
-    noise = -1 * (noise + p_value).log()
-    noise = -1 * (noise + p_value).log()
-    idx_agg_t = (attn + noise).argmax(axis=1)
-    # idx_agg_t = attn.argmax(axis=1)
+    # # gumble argmax
+    # p_value = 1e-6
+    # noise = torch.rand_like(attn)
+    # noise = -1 * (noise + p_value).log()
+    # noise = -1 * (noise + p_value).log()
+    # idx_agg_t = (attn + noise).argmax(axis=1)
+    idx_agg_t = attn.argmax(axis=1)
 
     # make sure selected tokens merge to itself
     idx_batch = torch.arange(B, device=v.device)[:, None].expand(B, Ns)
@@ -1451,6 +1451,24 @@ def merge_tokens_agg_qkv(q, k, v, index_down, idx_agg, weight=None, return_weigh
         return x_out, idx_agg, weight_t
     return x_out, idx_agg
 
+
+'''merge according to qkv'''
+def qkv_sample(x, sample_num):
+    B, N, C = x.shape
+    scale = x.shape[-1] ** -0.5
+    attn = (x @ x.transpose(-2, -1)) * scale
+
+    # select centroid
+    npoint = sample_num
+    device = x.device
+
+    centroids = torch.zeros(B, npoint, dtype=torch.long).to(device)
+    batch_indices = torch.arange(B, dtype=torch.long).to(device)
+    for i in range(npoint):
+        farthest = attn.sum(dim=1).argmax(dim=-1)
+        centroids[:, i] = farthest
+        attn[batch_indices, farthest, :] = 0
+    return centroids
 
 
 def conf_resample(conf_map, N):
