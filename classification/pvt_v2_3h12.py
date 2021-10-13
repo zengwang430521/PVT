@@ -8,22 +8,21 @@ from pvt_v2 import (Block, DropPath, DWConv, OverlapPatchEmbed,
                     to_2tuple, trunc_normal_, register_model, _cfg)
 from utils_mine import (
     get_grid_loc,
-    gumble_top_k,
-    show_tokens_merge, show_conf_merge, merge_tokens, merge_tokens_agg_dist, token2map_agg_sparse, map2token_agg_mat_nearest,
-    farthest_point_sample
-
+    gumble_top_k, get_sample_grid, map2token,
+    show_tokens_merge, show_conf_merge, merge_tokens, merge_tokens_agg_dist, token2map_agg_sparse, map2token_agg_mat_nearest
 )
 from utils_mine import get_loc_new as get_loc
 vis = False
-# vis = True
+vis = True
 
 '''
 do not select tokens, merge tokens. weight NOT clamp, conf do not clamp
 merge feature, but not merge locs, reserve all locs.
 inherit weights when map2token, which can regarded as tokens merge
-farthest_point_sample DOWN, N_grid = 0, feature distance merge,
+ADA DOWN, N_grid = 0, feature distance merge
 token2map nearest + skip token conv (this must be used together.)
- NO conf module
+Salience base grid as centroid
+
 '''
 
 class MyMlp(nn.Module):
@@ -254,8 +253,8 @@ class DownLayer(nn.Module):
         self.conv = nn.Conv2d(embed_dim, dim_out, kernel_size=3, stride=2, padding=1)
         self.conv_skip = nn.Linear(embed_dim, dim_out, bias=False)
         # self.conv = PartialConv2d(embed_dim, self.block.dim_out, kernel_size=3, stride=1, padding=1)
-        # self.norm = nn.LayerNorm(self.dim_out)
-        # self.conf = nn.Linear(self.dim_out, 1)
+        self.norm = nn.LayerNorm(self.dim_out)
+        self.conf = nn.Linear(self.dim_out, 1)
 
     def forward(self, x, pos, pos_orig, idx_agg, agg_weight, H, W, N_grid):
         # x, mask = token2map(x, pos, [H, W], 1, 2, return_mask=True)
@@ -277,19 +276,24 @@ class DownLayer(nn.Module):
         pos_grid = pos[:, :N_grid]
         pos_ada = pos[:, N_grid:]
 
-        # conf = self.conf(self.norm(x))
-        # conf_ada = conf[:, N_grid:]
+        conf = self.conf(self.norm(x))
+        conf_ada = conf[:, N_grid:]
 
         # # _, index_down = torch.topk(conf_ada, self.sample_num, 1)
         # index_down = gumble_top_k(conf_ada, sample_num, 1, T=1)
         # pos_down = torch.gather(pos_ada, 1, index_down.expand([B, sample_num, 2]))
         # pos_down = torch.cat([pos_grid, pos_down], 1)
+        # x_grid = x[:, :N_grid]
+        # x_ada = x[:, N_grid:]
+        # x_down = torch.gather(x_ada, 1, index_down.expand([B, sample_num, C]))
+        # x_down = torch.cat([x_grid, x_down], 1)
 
-        x_grid = x[:, :N_grid]
-        x_ada = x[:, N_grid:]
-        index_down = farthest_point_sample(x_ada, sample_num).unsqueeze(-1)
-        x_down = torch.gather(x_ada, 1, index_down.expand([B, sample_num, C]))
-        x_down = torch.cat([x_grid, x_down], 1)
+        weight = conf.exp()
+        weight_map, _ = token2map_agg_sparse(weight, pos, pos_orig, idx_agg, [H, W])
+        pos_down = get_sample_grid(weight_map).reshape(B, 2, -1).permute(0, 2,  1)
+        x_down = map2token(x_map, pos_down, mode='nearest')
+        index_down = None
+
 
 
 
@@ -298,15 +302,14 @@ class DownLayer(nn.Module):
         # conf = conf.clamp(-7, 7)
         # weight = conf.clamp(-7, 7).exp()
         # weight = conf.exp()
-        weight = None
         x_down, pos_down, idx_agg_down, weight_t = merge_tokens_agg_dist(x, pos, index_down, x_down, idx_agg, weight, True)
         agg_weight_down = agg_weight * weight_t
         agg_weight_down = agg_weight_down / agg_weight_down.max(dim=1, keepdim=True)[0]
 
-        x_down = self.block(x_down, pos_down, idx_agg_down, agg_weight_down, pos_orig, x, pos, idx_agg, agg_weight, H, W, conf_source=None)
+        x_down = self.block(x_down, pos_down, idx_agg_down, agg_weight_down, pos_orig, x, pos, idx_agg, agg_weight, H, W, conf_source=conf)
 
-        # if vis:
-        #     show_conf_merge(conf, pos, pos_orig, idx_agg)
+        if vis:
+            show_conf_merge(conf, pos, pos_orig, idx_agg)
         return x_down, pos_down, idx_agg_down, agg_weight_down
 
 
@@ -516,7 +519,7 @@ class MyPVT(nn.Module):
 
 
 @register_model
-def mypvt3h3_small(pretrained=False, **kwargs):
+def mypvt3h12_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],  **kwargs)
@@ -528,12 +531,10 @@ def mypvt3h3_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt3h3_small(drop_path_rate=0.).to(device)
-    model.reset_drop_path(0.)
-    # pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
-    # model.load_state_dict(pre_dict)
+    model = mypvt3h12_small(drop_path_rate=0.).to(device)
+
     for i in range(10):
         x = torch.rand([2, 3, 256, 192]).to(device)
-        tmp = model(x)
+        tmp = model.forward(x)
     print('Finish')
 
