@@ -11,9 +11,10 @@ from utils_mine import (
     gumble_top_k,
     show_tokens_merge, show_conf_merge, merge_tokens, merge_tokens_agg_dist, token2map_agg_sparse, map2token_agg_mat_nearest,
     farthest_point_sample
-
 )
 from utils_mine import get_loc_new as get_loc
+# from utils_mine import farthest_point_sample_try as farthest_point_sample
+
 vis = False
 # vis = True
 
@@ -742,7 +743,7 @@ def mypvt3h2_1_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt3h2_1_small(drop_path_rate=0.).to(device)
+    model = mypvt3h2_small(drop_path_rate=0.).to(device)
     model.reset_drop_path(0.)
     # pre_dict = torch.load('work_dirs/my20_s2/my20_300.pth')['model']
     # model.load_state_dict(pre_dict)
