@@ -1520,6 +1520,24 @@ def feature_try_sample(xyz, npoint):
     return centroids
 
 
+def farthest_point_sample_try(xyz, npoint):
+    """
+    Input:
+        xyz: pointcloud data, [B, N, 3]
+        npoint: number of samples
+    Return:
+        centroids: sampled pointcloud index, [B, npoint]
+    """
+    device = xyz.device
+    B, N, C = xyz.shape
+    dists = torch.cdist(xyz, xyz)
+    idx_tmp = torch.arange(N, device=device)
+    dists[:, idx_tmp, idx_tmp] = dists.max() + 1
+    dists = dists.min(dim=-1)[0]
+    _, index = torch.topk(dists, k=npoint, dim=-1)
+    return index
+
+
 '''merge according to feature distance'''
 def merge_tokens_agg_dist_multi(x, index_down, x_down, weight=None, k=3):
     B, N, C = x.shape
