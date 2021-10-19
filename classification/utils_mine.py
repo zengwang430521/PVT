@@ -1836,37 +1836,37 @@ def token_cluster_dist(x, Ns, idx_agg, weight=None, return_weight=False):
     device = x.device
     B, N, C = x.shape
 
-    # dists_matrix = torch.cdist(x, x)
-    # index_down = torch.zeros(B, Ns, dtype=torch.long).to(device)
-    # distance = torch.ones(B, N).to(device) * 1e10
-    # farthest = torch.randint(0, N, (B,), dtype=torch.long).to(device)
-    # batch_indices = torch.arange(B, dtype=torch.long).to(device)
-    # for i in range(Ns):
-    #     index_down[:, i] = farthest
-    #     dist = dists_matrix[batch_indices, farthest,:]
-    #     mask = dist < distance
-    #     distance[mask] = dist[mask]
-    #     farthest = torch.max(distance, -1)[1]
-    # dists_matrix = index_points(dists_matrix, index_down)
-    # idx_agg_t = dists_matrix.argmin(axis=1)
-    # idx = idx_agg_t + torch.arange(B, device=x.device)[:, None] * Ns
-
-    sample_ratio = Ns / N
-    batch = torch.arange(B, device=x.device)[:, None].expand(B, N)
-    index_down = fps(x.flatten(0, 1), batch.flatten(0, 1), ratio=sample_ratio)
-    index_down = index_down.reshape(B, -1)
-    Ns = index_down.shape[1]
-    index_down = index_down - torch.arange(B, device=device)[:, None] * N
-    x_down = index_points(x, index_down)
-
-    idx_agg_t = torch.cdist(x_down, x).argmin(axis=1)
+    dists_matrix = torch.cdist(x, x)
+    index_down = torch.zeros(B, Ns, dtype=torch.long).to(device)
+    distance = torch.ones(B, N).to(device) * 1e10
+    farthest = torch.randint(0, N, (B,), dtype=torch.long).to(device)
+    batch_indices = torch.arange(B, dtype=torch.long).to(device)
+    for i in range(Ns):
+        index_down[:, i] = farthest
+        dist = dists_matrix[batch_indices, farthest,:]
+        mask = dist < distance
+        distance[mask] = dist[mask]
+        farthest = torch.max(distance, -1)[1]
+    dists_matrix = index_points(dists_matrix, index_down)
+    idx_agg_t = dists_matrix.argmin(axis=1)
     idx = idx_agg_t + torch.arange(B, device=x.device)[:, None] * Ns
 
-    # batch_down = torch.arange(B, device=x.device)[:, None].expand(B, Ns)
-    # idx = nearest(x.flatten(0, 1), x_down.flatten(0, 1),
-    #                     batch.flatten(0, 1), batch_down.flatten(0, 1))
-    # idx = idx.reshape(B, N)
-    # idx_agg_t = idx - torch.arange(B, device=device)[:, None] * Ns
+    # sample_ratio = Ns / N
+    # batch = torch.arange(B, device=x.device)[:, None].expand(B, N)
+    # index_down = fps(x.flatten(0, 1), batch.flatten(0, 1), ratio=sample_ratio)
+    # index_down = index_down.reshape(B, -1)
+    # Ns = index_down.shape[1]
+    # index_down = index_down - torch.arange(B, device=device)[:, None] * N
+    # x_down = index_points(x, index_down)
+    #
+    # idx_agg_t = torch.cdist(x_down, x).argmin(axis=1)
+    # idx = idx_agg_t + torch.arange(B, device=x.device)[:, None] * Ns
+    #
+    # # batch_down = torch.arange(B, device=x.device)[:, None].expand(B, Ns)
+    # # idx = nearest(x.flatten(0, 1), x_down.flatten(0, 1),
+    # #                     batch.flatten(0, 1), batch_down.flatten(0, 1))
+    # # idx = idx.reshape(B, N)
+    # # idx_agg_t = idx - torch.arange(B, device=device)[:, None] * Ns
 
 
     if weight is None:
@@ -1888,6 +1888,7 @@ def token_cluster_dist(x, Ns, idx_agg, weight=None, return_weight=False):
         weight_t = index_points(norm_weight, idx_agg)
         return x_out, idx_agg, weight_t
     return x_out, idx_agg
+
 
 
 def map2token_agg_sparse_nearest(feature_map, N, loc_orig, idx_agg, agg_weight=None):

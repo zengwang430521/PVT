@@ -82,13 +82,14 @@ class MyDWConv(nn.Module):
         self.dwconv_skip = nn.Conv1d(dim, dim, 1, bias=False, groups=dim)
 
     def forward(self, x, loc_orig, idx_agg, agg_weight, H, W):
-        # x_map, _ = token2map_agg_sparse(x, loc, loc_orig, idx_agg, [H, W])
-        # x_map = self.dwconv(x_map)
-        # x = map2token_agg_mat_nearest(x_map, loc, loc_orig, idx_agg, agg_weight) + \
-        #     self.dwconv_skip(x.permute(0, 2, 1)).permute(0, 2, 1)
-
-        x = tokenconv_sparse(self.dwconv, loc_orig, x, idx_agg, agg_weight, [H, W]) +\
+        B, N, C = x.shape
+        x_map, _ = token2map_agg_sparse(x, None, loc_orig, idx_agg, [H, W])
+        x_map = self.dwconv(x_map)
+        x = map2token_agg_mat_nearest(x_map, x.new_zeros(B, N, 1), loc_orig, idx_agg, agg_weight) + \
             self.dwconv_skip(x.permute(0, 2, 1)).permute(0, 2, 1)
+
+        # x = tokenconv_sparse(self.dwconv, loc_orig, x, idx_agg, agg_weight, [H, W]) +\
+        #     self.dwconv_skip(x.permute(0, 2, 1)).permute(0, 2, 1)
         return x
 
 
@@ -469,6 +470,8 @@ if __name__ == '__main__':
     x = torch.rand([2, 3, 224, 224]).to(device)
     for i in range(5):
         tmp = model(x)
+        # tmp = tmp.sum()
+        # tmp.backward()
 
     t1 = time.time()
     for i in range(10):
