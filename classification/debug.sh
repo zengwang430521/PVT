@@ -11,10 +11,10 @@ train.py --config configs/pvt_v2/debug.py \
     --model=mypvt3h10_small --output_dir=work_dirs/my3h10_LR --resume work_dirs/my3h10_LR/checkpoint.pth
 
 srun -p mm_human \
-    --job-name=pvt --ntasks=16 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
+    --job-name=pvt --ntasks=8 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
-    --batch-size 64 --data-path data/imagenet --input-size 224 --use-mcloader \
-    --model=mypvt3h2_small --output_dir=work_dirs/my3h2_16 --resume work_dirs/my3h2_16/checkpoint.pth
+    --batch-size 128 --data-path data/imagenet --input-size 224 --use-mcloader \
+    --model=mypvt3h2_fast_small --output_dir=work_dirs/my3h2_fast --resume work_dirs/my3h2_fast/checkpoint.pth
 
 
 srun -p 3dv-share  -w SH-IDC1-10-198-6-129\
@@ -23,6 +23,8 @@ srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
     --job-name=pvt --ntasks=8 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
     --batch-size 128 --data-path data/imagenet --input-size 224 --use-mcloader \
+    --model=mypvt3h2_fast_small --output_dir=work_dirs/my3h2_fast --resume work_dirs/my3h2_fast/checkpoint.pth
+
     --model=mypvt3h2_small --output_dir=work_dirs/my3h2_8 --resume work_dirs/my3h2_8/checkpoint.pth
 
     --batch-size 128 --data-path data/imagenet --input-size 112 --use-mcloader \

@@ -1858,6 +1858,7 @@ def token_cluster_dist(x, Ns, idx_agg, weight=None, return_weight=False):
     Ns = index_down.shape[1]
     index_down = index_down - torch.arange(B, device=device)[:, None] * N
     x_down = index_points(x, index_down)
+
     idx_agg_t = torch.cdist(x_down, x).argmin(axis=1)
     idx = idx_agg_t + torch.arange(B, device=x.device)[:, None] * Ns
 
