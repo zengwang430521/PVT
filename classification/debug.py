@@ -142,7 +142,17 @@ import utils_mine as utils_mine
 
 
 
+import torch
+from torch_cluster import fps
 
+x = torch.tensor([[-1., -1.], [-1., 1.], [1., -1.], [1., 1.]])
+batch = torch.tensor([0, 0, 0, 0])
+index = fps(x, batch, ratio=0.5, random_start=False)
+
+x = torch.rand(3, 100, 4)
+batch = torch.arange(3)[:, None].expand(3, 100)
+index = fps(x.flatten(0, 1), batch.flatten(0, 1), ratio=0.25)
+index = index.reshape(3, 25) - torch.arange(3)[:, None]
 
 
 
