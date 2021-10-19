@@ -8,6 +8,12 @@ train.py --config configs/pvt_v2/debug.py \
 
     --model=mypvt3h10_small --output_dir=work_dirs/my3h10_LR --resume work_dirs/my3h10_LR/checkpoint.pth
 
+srun -p pat_earth \
+    --job-name=pvt --ntasks=16 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
+    python -u train.py --config configs/pvt_v2/debug.py \
+    --batch-size 128 --data-path data/imagenet --input-size 224 --use-mcloader \
+    --model=mypvt3h2a_small --output_dir=work_dirs/my3h2a --resume work_dirs/my3h2a/checkpoint.pth --lr=
+
 
 srun -p 3dv-share  -w SH-IDC1-10-198-6-129\
 srun -p mm_human \

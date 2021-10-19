@@ -1386,21 +1386,6 @@ def merge_tokens_agg_dist(x, loc, index_down, x_down, idx_agg, weight=None, retu
     loc_out = tmp[..., C:]
     idx_agg = index_points(idx_agg_t[..., None], idx_agg).squeeze(-1)
 
-    if torch.isinf(x_out).any():
-        save_dict = {
-            'x': x,
-            'loc': loc,
-            'index_down': index_down,
-            'x_down': x_down,
-            'idx': idx,
-            'weight': weight,
-            'norm_weight': norm_weight,
-            'all_weight': all_weight
-        }
-        for key in save_dict.keys():
-            save_dict[key] = save_dict[key].detach().cpu()
-        torch.save(save_dict, 'debug_merge_cosine.pth')
-
     if return_weight:
         weight_t = index_points(norm_weight, idx_agg)
         return x_out, loc_out, idx_agg, weight_t
