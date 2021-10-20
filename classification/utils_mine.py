@@ -1118,7 +1118,6 @@ def map2token_agg_mat_nearest(feature_map, loc, loc_orig, idx_agg, weight=None):
     A = torch.sparse_coo_tensor(indices, value.reshape(-1), (B, N0, H*W))
     A = A.to_dense()
 
-
     idx_batch = torch.arange(B, device=device)[:, None].expand(B, N0)
     idx_tokens_orig = torch.arange(N0, device=device)[None, :].expand(B, N0)
     if weight is None:
@@ -1798,6 +1797,10 @@ def tokenconv_sparse(conv_layer, loc_orig, x, idx_agg, agg_weight, map_size, tok
     else:
         value = index_points(token_weight, idx_agg).reshape(B*N0)
 
+    # if token_weight is None:
+    #     agg_weight = x.new_ones(B, N, 1)
+    # value = index_points(token_weight, idx_agg).reshape(B * N0)
+
     with torch.cuda.amp.autocast(enabled=False):
         value = value.type(torch.float32)
         A = torch.sparse.FloatTensor(coor, value, torch.Size([B * H * W, B * N]))
@@ -1831,7 +1834,6 @@ def tokenconv_sparse(conv_layer, loc_orig, x, idx_agg, agg_weight, map_size, tok
 
 
 
-
 def token_cluster_dist(x, Ns, idx_agg, weight=None, return_weight=False):
     device = x.device
     B, N, C = x.shape
@@ -1851,16 +1853,17 @@ def token_cluster_dist(x, Ns, idx_agg, weight=None, return_weight=False):
     # idx_agg_t = dists_matrix.argmin(axis=1)
     # idx = idx_agg_t + torch.arange(B, device=x.device)[:, None] * Ns
 
-    sample_ratio = Ns / N
-    batch = torch.arange(B, device=x.device)[:, None].expand(B, N)
-    index_down = fps(x.flatten(0, 1), batch.flatten(0, 1), ratio=sample_ratio)
-    index_down = index_down.reshape(B, -1)
-    Ns = index_down.shape[1]
-    index_down = index_down - torch.arange(B, device=device)[:, None] * N
-    x_down = index_points(x, index_down)
+    with torch.no_grad():
+        sample_ratio = Ns / N
+        batch = torch.arange(B, device=x.device)[:, None].expand(B, N)
+        index_down = fps(x.flatten(0, 1), batch.flatten(0, 1), ratio=sample_ratio)
+        index_down = index_down.reshape(B, -1)
+        Ns = index_down.shape[1]
+        index_down = index_down - torch.arange(B, device=device)[:, None] * N
+        x_down = index_points(x, index_down)
 
-    idx_agg_t = torch.cdist(x_down, x).argmin(axis=1)
-    idx = idx_agg_t + torch.arange(B, device=x.device)[:, None] * Ns
+        idx_agg_t = torch.cdist(x_down, x).argmin(axis=1)
+        idx = idx_agg_t + torch.arange(B, device=x.device)[:, None] * Ns
 
     # batch_down = torch.arange(B, device=x.device)[:, None].expand(B, Ns)
     # idx = nearest(x.flatten(0, 1), x_down.flatten(0, 1),
@@ -1921,7 +1924,7 @@ def map2token_agg_sparse_nearest(feature_map, N, loc_orig, idx_agg, agg_weight=N
     indices = torch.stack([idx_tokens.reshape(-1), idx_HW_orig.reshape(-1)], dim=0)
 
     with torch.cuda.amp.autocast(enabled=False):
-        if agg_weight is not None:
+        if agg_weight is None:
             value = torch.ones(B * N0, device=feature_map.device, dtype=torch.float32)
         else:
             value = agg_weight.reshape(B * N0).type(torch.float32)

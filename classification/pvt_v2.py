@@ -61,8 +61,6 @@ class MlpNorm(nn.Module):
         return x
 
 
-
-
 class BlockNorm(nn.Module):
 
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,

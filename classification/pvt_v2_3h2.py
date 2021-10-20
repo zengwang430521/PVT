@@ -746,14 +746,18 @@ if __name__ == '__main__':
     model = mypvt3h2_small(drop_path_rate=0.).to(device)
     import time
     x = torch.rand([2, 3, 224, 224]).to(device)
-    for i in range(5):
-        tmp = model(x)
 
-    t1 = time.time()
-    for i in range(10):
-        tmp = model(x)
-    t2 = time.time()
-    print(t2-t1)
-    print('Finish')
+    with torch.cuda.amp.autocast(enabled=True):
+        for i in range(5):
+            tmp = model(x)
+            tmp = tmp.sum()
+            tmp.backward()
+
+        t1 = time.time()
+        for i in range(10):
+            tmp = model(x)
+        t2 = time.time()
+        print(t2-t1)
+        print('Finish')
 
 

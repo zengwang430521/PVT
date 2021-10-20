@@ -10,7 +10,7 @@ from utils_mine import (
     get_grid_loc,
     gumble_top_k, index_points,
     show_tokens_merge, show_conf_merge, merge_tokens, merge_tokens_agg_dist, token2map_agg_sparse, map2token_agg_mat_nearest,
-    tokenconv_sparse, token_cluster_dist, map2token_agg_sparse_nearest
+    tokenconv_sparse, token_cluster_dist, # map2token_agg_sparse_nearest
     # farthest_point_sample
 )
 from utils_mine import get_loc_new as get_loc
@@ -264,16 +264,15 @@ class DownLayer(nn.Module):
 
         x_map = self.conv(x_map)
         _, _, H, W = x_map.shape
-        x = map2token_agg_sparse_nearest(x_map, x.shape[1], pos_orig, idx_agg, agg_weight) +\
-            self.conv_skip(x)
+        x = map2token_agg_mat_nearest(x_map, x.new_zeros(B, N, 1), pos_orig, idx_agg, agg_weight) + self.conv_skip(x)
+        x = self.norm(x)
         B, N, C = x.shape
+        conf = self.conf(x)
+        weight = conf.exp()
 
         sample_num = max(math.ceil(N * self.sample_ratio) - N_grid, 0)
         if sample_num < N_grid:
             sample_num = N_grid
-
-        conf = self.conf(self.norm(x))
-        weight = conf.exp()
         x_down, idx_agg_down, weight_t = token_cluster_dist(x, sample_num, idx_agg, weight, True)
         agg_weight_down = agg_weight * weight_t
         agg_weight_down = agg_weight_down / agg_weight_down.max(dim=1, keepdim=True)[0]
@@ -468,15 +467,20 @@ if __name__ == '__main__':
     model = mypvt3h2_fast_small(drop_path_rate=0.).to(device)
     import time
     x = torch.rand([2, 3, 224, 224]).to(device)
-    for i in range(5):
-        tmp = model(x)
-        # tmp = tmp.sum()
-        # tmp.backward()
 
-    t1 = time.time()
-    for i in range(10):
-        tmp = model(x)
-    t2 = time.time()
-    print(t2-t1)
-    print('Finish')
+    with torch.cuda.amp.autocast():
+        x = x.half()
+        model = model.half()
+
+        for i in range(5):
+            tmp = model(x)
+            tmp = tmp.sum()
+            tmp.backward()
+
+        t1 = time.time()
+        for i in range(10):
+            tmp = model(x)
+        t2 = time.time()
+        print(t2-t1)
+        print('Finish')
 
