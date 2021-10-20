@@ -45,7 +45,8 @@ class MyMlp(nn.Module):
 
         self.dwconv = MyDWConv(hidden_features)
         self.act = act_layer()
-        self.norm2 = nn.LayerNorm(hidden_features)
+        self.drop = nn.Dropout(drop)
+        # self.norm2 = nn.LayerNorm(hidden_features)
 
         self.fc2 = nn.Linear(hidden_features, out_features)
         self.norm3 = nn.LayerNorm(out_features)
@@ -79,9 +80,13 @@ class MyMlp(nn.Module):
             x = self.relu(x)
 
         x = self.dwconv(x, loc_orig, idx_agg, agg_weight, H, W)
-        # x = self.drop(x)
-        x = self.norm2(x)
+
+        # x = self.norm2(x)
+        # x = self.act(x)
+
         x = self.act(x)
+        x = self.drop(x)
+
 
         x = self.fc2(x)
         # x = self.drop(x)
