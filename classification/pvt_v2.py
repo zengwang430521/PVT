@@ -19,8 +19,8 @@ class MlpNorm(nn.Module):
 
         self.dwconv = DWConv(hidden_features)
         self.act = act_layer()
-        self.drop = nn.Dropout(drop)
-        # self.norm2 = nn.LayerNorm(hidden_features)
+        # self.drop = nn.Dropout(drop)
+        self.norm2 = nn.LayerNorm(hidden_features)
 
         self.fc2 = nn.Linear(hidden_features, out_features)
         self.norm3 = nn.LayerNorm(out_features)
@@ -54,11 +54,11 @@ class MlpNorm(nn.Module):
 
         x = self.dwconv(x, H, W)
 
-        # x = self.norm2(x)
-        # x = self.act(x)
-
+        x = self.norm2(x)
         x = self.act(x)
-        x = self.drop(x)
+
+        # x = self.act(x)
+        # x = self.drop(x)
 
         x = self.fc2(x)
         x = self.norm3(x)
