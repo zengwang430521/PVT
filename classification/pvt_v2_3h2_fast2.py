@@ -4,13 +4,13 @@ import torch.nn.functional as F
 from functools import partial
 import math
 
-from pvt_v2 import (BlockNorm, DropPath, DWConv, OverlapPatchEmbed,
+from pvt_v2 import (Block, DropPath, DWConv, OverlapPatchEmbed,
                     to_2tuple, trunc_normal_, register_model, _cfg)
 from utils_mine import (
     get_grid_loc,
     gumble_top_k, index_points,
-    map2token_agg_fast_nearest,  # map2token_agg_mat_nearest, map2token_agg_sparse_nearest
     show_tokens_merge, show_conf_merge, merge_tokens, merge_tokens_agg_dist, token2map_agg_sparse,
+    map2token_agg_fast_nearest,  # map2token_agg_mat_nearest, map2token_agg_sparse_nearest
     tokenconv_sparse, token_cluster_dist,
     # farthest_point_sample
 )
@@ -29,11 +29,7 @@ inherit weights when map2token, which can regarded as tokens merge
 farthest_point_sample DOWN, N_grid = 0, feature distance merge
 token2map nearest + skip token conv (this must be used together.)
 try to make it faster
-add norm in dwcv
 '''
-
-
-
 
 class MyMlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., linear=False):
@@ -41,15 +37,9 @@ class MyMlp(nn.Module):
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
         self.fc1 = nn.Linear(in_features, hidden_features)
-        self.norm1 = nn.LayerNorm(hidden_features)
-
         self.dwconv = MyDWConv(hidden_features)
         self.act = act_layer()
-        self.norm2 = nn.LayerNorm(hidden_features)
-
         self.fc2 = nn.Linear(hidden_features, out_features)
-        self.norm3 = nn.LayerNorm(out_features)
-
         self.drop = nn.Dropout(drop)
         self.linear = linear
         if self.linear:
@@ -73,20 +63,13 @@ class MyMlp(nn.Module):
 
     def forward(self, x, loc_orig, idx_agg, agg_weight, H, W):
         x = self.fc1(x)
-        x = self.norm1(x)
-        x = self.act(x)
         if self.linear:
             x = self.relu(x)
-
         x = self.dwconv(x, loc_orig, idx_agg, agg_weight, H, W)
-        # x = self.drop(x)
-        x = self.norm2(x)
         x = self.act(x)
-
+        x = self.drop(x)
         x = self.fc2(x)
-        # x = self.drop(x)
-        x = self.norm3(x)
-        x = self.act(x)
+        x = self.drop(x)
         return x
 
 
@@ -102,6 +85,9 @@ class MyDWConv(nn.Module):
         x_map = self.dwconv(x_map)
         x = map2token_agg_fast_nearest(x_map, N, loc_orig, idx_agg, agg_weight) + \
             self.dwconv_skip(x.permute(0, 2, 1)).permute(0, 2, 1)
+
+        # x = tokenconv_sparse(self.dwconv, loc_orig, x, idx_agg, agg_weight, [H, W]) +\
+        #     self.dwconv_skip(x.permute(0, 2, 1)).permute(0, 2, 1)
         return x
 
 
@@ -239,12 +225,14 @@ class MyBlock(nn.Module):
         return x2
 
 
+'''
+norm after merge
+'''
 
 # from partialconv2d import PartialConv2d
 class DownLayer(nn.Module):
     """ Down sample
     """
-
     def __init__(self, sample_ratio, embed_dim, dim_out, drop_rate, down_block):
         super().__init__()
         # self.sample_num = sample_num
@@ -277,8 +265,9 @@ class DownLayer(nn.Module):
 
         x_map = self.conv(x_map)
         x = map2token_agg_fast_nearest(x_map, N, pos_orig, idx_agg, agg_weight) + self.conv_skip(x)
-        x = self.norm(x)
-        conf = self.conf(x)
+        # x = self.norm(x)
+        # conf = self.conf(x)
+        conf = self.conf(self.norm(x))
         weight = conf.exp()
 
         _, _, H, W = x_map.shape
@@ -296,6 +285,7 @@ class DownLayer(nn.Module):
         if vis:
             show_conf_merge(conf, None, pos_orig, idx_agg)
         return x_down, idx_agg_down, agg_weight_down
+
 
 
 class MyPVT(nn.Module):
@@ -318,7 +308,7 @@ class MyPVT(nn.Module):
                                             in_chans=in_chans if i == 0 else embed_dims[i - 1],
                                             embed_dim=embed_dims[i])
 
-            block = nn.ModuleList([BlockNorm(
+            block = nn.ModuleList([Block(
                 dim=embed_dims[i], num_heads=num_heads[i], mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
                 drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + j], norm_layer=norm_layer,
                 sr_ratio=sr_ratios[i], linear=linear)
@@ -462,7 +452,7 @@ class MyPVT(nn.Module):
 
 
 @register_model
-def mypvt3h2_fast_norm_small(pretrained=False, **kwargs):
+def mypvt3h2_fast2_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],  **kwargs)
@@ -476,13 +466,15 @@ def mypvt3h2_fast_norm_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt3h2_fast_norm_small(drop_path_rate=0.).to(device)
+    model = mypvt3h2_fast_small(drop_path_rate=0.).to(device)
     import time
     x = torch.rand([2, 3, 224, 224]).to(device)
+
+
     for i in range(5):
         tmp = model(x)
-        # tmp = tmp.sum()
-        # tmp.backward()
+        tmp = tmp.sum()
+        tmp.backward()
 
     t1 = time.time()
     for i in range(10):

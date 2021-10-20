@@ -9,13 +9,11 @@ from pvt_v2 import (Block, DropPath, DWConv, OverlapPatchEmbed,
 from utils_mine import (
     get_grid_loc,
     gumble_top_k, index_points,
-    show_tokens_merge, show_conf_merge, merge_tokens, merge_tokens_agg_dist, token2map_agg_sparse, map2token_agg_mat_nearest,
-    tokenconv_sparse, token_cluster_dist, # map2token_agg_sparse_nearest
+    show_tokens_merge, show_conf_merge, merge_tokens, merge_tokens_agg_dist, token2map_agg_sparse,
+    map2token_agg_fast_nearest,  # map2token_agg_mat_nearest, map2token_agg_sparse_nearest
+    tokenconv_sparse, token_cluster_dist,
     # farthest_point_sample
 )
-from utils_mine import get_loc_new as get_loc
-from utils_mine import farthest_point_sample_try as farthest_point_sample
-from torch_cluster import fps
 
 vis = False
 # vis = True
@@ -85,7 +83,7 @@ class MyDWConv(nn.Module):
         B, N, C = x.shape
         x_map, _ = token2map_agg_sparse(x, None, loc_orig, idx_agg, [H, W])
         x_map = self.dwconv(x_map)
-        x = map2token_agg_mat_nearest(x_map, x.new_zeros(B, N, 1), loc_orig, idx_agg, agg_weight) + \
+        x = map2token_agg_fast_nearest(x_map, N, loc_orig, idx_agg, agg_weight) + \
             self.dwconv_skip(x.permute(0, 2, 1)).permute(0, 2, 1)
 
         # x = tokenconv_sparse(self.dwconv, loc_orig, x, idx_agg, agg_weight, [H, W]) +\
@@ -263,13 +261,13 @@ class DownLayer(nn.Module):
             x_map, _ = token2map_agg_sparse(x, None, pos_orig, idx_agg, [H, W])
 
         x_map = self.conv(x_map)
-        _, _, H, W = x_map.shape
-        x = map2token_agg_mat_nearest(x_map, x.new_zeros(B, N, 1), pos_orig, idx_agg, agg_weight) + self.conv_skip(x)
+        x = map2token_agg_fast_nearest(x_map, N, pos_orig, idx_agg, agg_weight) + self.conv_skip(x)
         x = self.norm(x)
-        B, N, C = x.shape
         conf = self.conf(x)
         weight = conf.exp()
 
+        _, _, H, W = x_map.shape
+        B, N, C = x.shape
         sample_num = max(math.ceil(N * self.sample_ratio) - N_grid, 0)
         if sample_num < N_grid:
             sample_num = N_grid
@@ -468,19 +466,16 @@ if __name__ == '__main__':
     import time
     x = torch.rand([2, 3, 224, 224]).to(device)
 
-    with torch.cuda.amp.autocast():
-        x = x.half()
-        model = model.half()
 
-        for i in range(5):
-            tmp = model(x)
-            tmp = tmp.sum()
-            tmp.backward()
+    for i in range(5):
+        tmp = model(x)
+        tmp = tmp.sum()
+        tmp.backward()
 
-        t1 = time.time()
-        for i in range(10):
-            tmp = model(x)
-        t2 = time.time()
-        print(t2-t1)
-        print('Finish')
+    t1 = time.time()
+    for i in range(10):
+        tmp = model(x)
+    t2 = time.time()
+    print(t2-t1)
+    print('Finish')
 

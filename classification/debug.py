@@ -65,33 +65,33 @@ import utils_mine as utils_mine
 # mask = mask[bid]
 
 
-# import matplotlib.pyplot as plt
-# device = torch.device('cpu')
-# H, W = 64, 48
-# loc_orig = utils_mine.get_grid_loc(1, H, W, device)
-# B, N0, _ = loc_orig.shape
-# x_orig = torch.cat([loc_orig * 0.5 + 0.5, loc_orig.new_zeros(B, N0, 1)], dim=-1)
-# idx_agg = torch.arange(N0)[None, :].repeat(B, 1).to(device)
-# agg_weight_orig = x_orig.new_ones(B, N0, 1)
-#
-# loc_down = torch.rand(1, 100, 2) * 2 - 1
-# loc_down = loc_down.to(device)
-# x, loc, idx_agg, weight_t = utils_mine.merge_tokens_agg(x_orig, loc_orig, loc_down, idx_agg, weight=None, return_weight=True)
-#
-# agg_weight = agg_weight_orig * weight_t
-# agg_weight = agg_weight / agg_weight.max(dim=1, keepdim=True)[0]
-#
-#
-# x_map, weight_map = utils_mine.token2map_agg_sparse(x, loc, loc_orig, idx_agg, [H, W])
-# plt.subplot(1, 2, 1)
-# plt.imshow(x_map[0].permute(1, 2, 0).detach().cpu())
-#
-# x_map_re = x_map
-# for i in range(100):
-#     x_re = utils_mine.map2token_agg_mat(x_map_re, loc, loc_orig, idx_agg)
-#     x_map_re, weight_map_re = utils_mine.token2map_agg_sparse(x_re, loc, loc_orig, idx_agg, [H//2, W//2], agg_weight)
-#     plt.subplot(1, 2, 2)
-#     plt.imshow(x_map_re[0].permute(1, 2, 0).detach().cpu())
+import matplotlib.pyplot as plt
+device = torch.device('cpu')
+H, W = 64, 48
+loc_orig = utils_mine.get_grid_loc(1, H, W, device)
+B, N0, _ = loc_orig.shape
+x_orig = torch.cat([loc_orig * 0.5 + 0.5, loc_orig.new_zeros(B, N0, 1)], dim=-1)
+idx_agg = torch.arange(N0)[None, :].repeat(B, 1).to(device)
+agg_weight_orig = x_orig.new_ones(B, N0, 1)
+
+loc_down = torch.rand(1, 100, 2) * 2 - 1
+loc_down = loc_down.to(device)
+x, loc, idx_agg, weight_t = utils_mine.merge_tokens_agg(x_orig, loc_orig, loc_down, idx_agg, weight=None, return_weight=True)
+
+agg_weight = agg_weight_orig * weight_t
+agg_weight = agg_weight / agg_weight.max(dim=1, keepdim=True)[0]
+
+
+x_map, weight_map = utils_mine.token2map_agg_sparse(x, loc, loc_orig, idx_agg, [H, W])
+plt.subplot(1, 2, 1)
+plt.imshow(x_map[0].permute(1, 2, 0).detach().cpu())
+
+x_map_re = x_map
+for i in range(100):
+    x_re = utils_mine.map2token_agg_fast_nearest(x_map_re, loc.shape[1], loc_orig, idx_agg, agg_weight)
+    x_map_re, weight_map_re = utils_mine.token2map_agg_sparse(x_re, loc, loc_orig, idx_agg, [H//2, W//2], agg_weight)
+    plt.subplot(1, 2, 2)
+    plt.imshow(x_map_re[0].permute(1, 2, 0).detach().cpu())
 
 
 # x_map = x
@@ -142,54 +142,54 @@ import utils_mine as utils_mine
 
 
 
-import torch
-from torch_cluster import fps
+# import torch
+# from torch_cluster import fps
+#
+# x = torch.tensor([[-1., -1.], [-1., 1.], [1., -1.], [1., 1.]])
+# batch = torch.tensor([0, 0, 0, 0])
+# index = fps(x, batch, ratio=0.5, random_start=False)
+#
+# x = torch.rand(3, 100, 4)
+# batch = torch.arange(3)[:, None].expand(3, 100)
+# index = fps(x.flatten(0, 1), batch.flatten(0, 1), ratio=0.25)
+# index = index.reshape(3, 25) - torch.arange(3)[:, None]
+#
 
-x = torch.tensor([[-1., -1.], [-1., 1.], [1., -1.], [1., 1.]])
-batch = torch.tensor([0, 0, 0, 0])
-index = fps(x, batch, ratio=0.5, random_start=False)
-
-x = torch.rand(3, 100, 4)
-batch = torch.arange(3)[:, None].expand(3, 100)
-index = fps(x.flatten(0, 1), batch.flatten(0, 1), ratio=0.25)
-index = index.reshape(3, 25) - torch.arange(3)[:, None]
-
-
-
-import matplotlib.pyplot as plt
-device = torch.device('cpu')
-B, C, H, W = 2, 16, 64, 48
-
-x_map0 = torch.rand(B, C, H, W, device=device)
-x_map0 = utils_mine.guassian_filt(x_map0, kernel_size=3, sigma=2)
-
-plt.subplot(1, 3, 1)
-plt.imshow(x_map0[0, :3].permute(1, 2, 0).detach().cpu())
-
-x = x_map0.flatten(2).transpose(1, 2)
-N = x.shape[1]
-sample_num = N // 4
-
-loc_orig = utils_mine.get_grid_loc(B, H, W, device)
-index_down = utils_mine.farthest_point_sample(x, sample_num).unsqueeze(-1)
-x_down = torch.gather(x, 1, index_down.expand([B, sample_num, C]))
-x_down, A = utils_mine.merge_tokens_agg_dist_multi(x, index_down, x_down, None, k=1)
-Agg = A
-
-
-plt.subplot(1, 3, 1)
-plt.imshow(x_map0[0, :3].permute(1, 2, 0).detach().cpu())
-x_map = utils_mine.token2map_Agg(x_down, Agg, loc_orig, [H, W], weight=None)
-plt.subplot(1, 3, 2)
-plt.imshow(x_map[0, :3].permute(1, 2, 0).detach().cpu())
-x_map_re = x_map
-
-for i in range(100):
-    x_d_re = utils_mine.map2token_Agg(x_map_re, Agg, loc_orig)
-    x_map_re = utils_mine.token2map_Agg(x_d_re, Agg, loc_orig, [H, W], weight=None)
-    # x_map_re = utils_mine.guassian_filt(x_map_re, kernel_size=3, sigma=2)
-    plt.subplot(1, 3, 3)
-    plt.imshow(x_map_re[0, : 3].permute(1, 2, 0).detach().cpu())
-
+#
+# import matplotlib.pyplot as plt
+# device = torch.device('cpu')
+# B, C, H, W = 2, 16, 64, 48
+#
+# x_map0 = torch.rand(B, C, H, W, device=device)
+# x_map0 = utils_mine.guassian_filt(x_map0, kernel_size=3, sigma=2)
+#
+# plt.subplot(1, 3, 1)
+# plt.imshow(x_map0[0, :3].permute(1, 2, 0).detach().cpu())
+#
+# x = x_map0.flatten(2).transpose(1, 2)
+# N = x.shape[1]
+# sample_num = N // 4
+#
+# loc_orig = utils_mine.get_grid_loc(B, H, W, device)
+# index_down = utils_mine.farthest_point_sample(x, sample_num).unsqueeze(-1)
+# x_down = torch.gather(x, 1, index_down.expand([B, sample_num, C]))
+# x_down, A = utils_mine.merge_tokens_agg_dist_multi(x, index_down, x_down, None, k=1)
+# Agg = A
+#
+#
+# plt.subplot(1, 3, 1)
+# plt.imshow(x_map0[0, :3].permute(1, 2, 0).detach().cpu())
+# x_map = utils_mine.token2map_Agg(x_down, Agg, loc_orig, [H, W], weight=None)
+# plt.subplot(1, 3, 2)
+# plt.imshow(x_map[0, :3].permute(1, 2, 0).detach().cpu())
+# x_map_re = x_map
+#
+# for i in range(100):
+#     x_d_re = utils_mine.map2token_Agg(x_map_re, Agg, loc_orig)
+#     x_map_re = utils_mine.token2map_Agg(x_d_re, Agg, loc_orig, [H, W], weight=None)
+#     # x_map_re = utils_mine.guassian_filt(x_map_re, kernel_size=3, sigma=2)
+#     plt.subplot(1, 3, 3)
+#     plt.imshow(x_map_re[0, : 3].permute(1, 2, 0).detach().cpu())
+#
 
 
