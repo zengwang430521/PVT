@@ -82,14 +82,14 @@ agg_weight = agg_weight_orig * weight_t
 agg_weight = agg_weight / agg_weight.max(dim=1, keepdim=True)[0]
 
 
-x_map, weight_map = utils_mine.token2map_agg_sparse(x, loc, loc_orig, idx_agg, [H, W])
+x_map, weight_map = utils_mine.token2map_agg_mat(x, loc, loc_orig, idx_agg, [H, W])
 plt.subplot(1, 2, 1)
 plt.imshow(x_map[0].permute(1, 2, 0).detach().cpu())
 
 x_map_re = x_map
 for i in range(100):
     x_re = utils_mine.map2token_agg_fast_nearest(x_map_re, loc.shape[1], loc_orig, idx_agg, agg_weight)
-    x_map_re, weight_map_re = utils_mine.token2map_agg_sparse(x_re, loc, loc_orig, idx_agg, [H//2, W//2], agg_weight)
+    x_map_re, weight_map_re = utils_mine.token2map_agg_mat(x_re, loc, loc_orig, idx_agg, [H//2, W//2], agg_weight)
     plt.subplot(1, 2, 2)
     plt.imshow(x_map_re[0].permute(1, 2, 0).detach().cpu())
 
