@@ -2030,6 +2030,7 @@ def token_cluster_density(x, Ns, idx_agg, weight=None, return_weight=False, conf
             score_log = score.log()
             conf = conf.squeeze(-1)
             conf_scale = conf_scale * (score_log.max(dim=1)[0] - score_log.min(dim=1)[0]) / (conf.max(dim=1)[0] - conf.min(dim=1)[0] + 1e-6)
+            conf_scale = conf_scale.clamp(0, 1)
             score_log = score_log + conf * conf_scale[:, None]
             _, index_down = torch.topk(score_log, k=Ns, dim=-1)
         else:
