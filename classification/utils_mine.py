@@ -1712,17 +1712,19 @@ def show_tokens_merge(x, out, N_grid=14*14):
     return
 
 
-def show_conf_merge(conf, loc, loc_orig, idx_agg):
+def show_conf_merge(conf, loc, loc_orig, idx_agg, l=2, c=5, n=0, vmin=0, vmax=7):
+    H0 = 56
     H = int(conf.shape[1]**0.5)
-    lv = int(math.log2(28 / H) + 7 + 0)
+    if n <= 0:
+        n = int(math.log2(H0 / H) + 7 + 0)
 
     # conf = F.softmax(conf, dim=1)
     # conf = conf.exp()
     conf = conf - conf.min(dim=1, keepdim=True)[0]
-    conf_map, _ = token2map_agg_sparse(conf, loc, loc_orig, idx_agg, [28, 28])
-    ax = plt.subplot(2, 5, lv)
+    conf_map, _ = token2map_agg_sparse(conf, loc, loc_orig, idx_agg, [H0, H0])
+    ax = plt.subplot(l, c, n)
     ax.clear()
-    ax.imshow(conf_map[0, 0].detach().cpu().float(), vmin=0, vmax=7)
+    ax.imshow(conf_map[0, 0].detach().cpu().float(), vmin=vmin, vmax=vmax)
     # plt.colorbar()
 
 
@@ -1983,7 +1985,8 @@ principal component analysis
 '''
 
 def token_cluster_density(x, Ns, idx_agg, weight=None, return_weight=False, conf=None,
-                          k=3, dist_assign=False, ada_dc=False, use_conf=False, conf_scale=0.25):
+                          k=3, dist_assign=False, ada_dc=False, use_conf=False, conf_scale=0.25,
+                          conf_density=False):
     # import torch
     # x = torch.rand(2, 1000, 64)
     # Ns = 250
@@ -1999,30 +2002,37 @@ def token_cluster_density(x, Ns, idx_agg, weight=None, return_weight=False, conf
         dist_matrix = torch.cdist(x, x)
         # normalize dist_matrix for stable
         dist_matrix = dist_matrix / (dist_matrix.flatten(1).max(dim=-1)[0][:, None, None] + 1e-6)
-        dist_nearest, index_nearest = torch.topk(dist_matrix, k=k, dim=-1)
 
-        if ada_dc:
-            '''
-            Adaptive density peak clustering based on K-nearest neighbors with aggregating strategy
-            '''
-            uk = dist_nearest[:, :, -1].mean(dim=-1)
-            tmp = dist_nearest[:, :, -1] - uk[:, None]
-            tmp = (tmp ** 2).mean(dim=-1) * (N - 1) / N
-            tmp = tmp ** 0.5
-            dc = uk + tmp
-            density = -(dist_nearest / dc[:, None, None])**2
-            density = density.exp().sum(dim=-1)
+        # get density
+        if conf_density:
+            conf = conf.squeeze(-1)
+            density = conf.exp()
         else:
-            density = (-(dist_nearest ** 2).mean(dim=-1)).exp()
-            # density = -(dist_nearest ** 2).mean(dim=-1)
-            # density = density - density.min(dim=1, keepdim=True)
-            # density = density.exp()
+            dist_nearest, index_nearest = torch.topk(dist_matrix, k=k, dim=-1)
+            if ada_dc:
+                '''
+                Adaptive density peak clustering based on K-nearest neighbors with aggregating strategy
+                '''
+                uk = dist_nearest[:, :, -1].mean(dim=-1)
+                tmp = dist_nearest[:, :, -1] - uk[:, None]
+                tmp = (tmp ** 2).mean(dim=-1) * (N - 1) / N
+                tmp = tmp ** 0.5
+                dc = uk + tmp
+                density = -(dist_nearest / dc[:, None, None])**2
+                density = density.exp().sum(dim=-1)
+            else:
+                density = (-(dist_nearest ** 2).mean(dim=-1)).exp()
+                # density = -(dist_nearest ** 2).mean(dim=-1)
+                # density = density - density.min(dim=1, keepdim=True)
+                # density = density.exp()
 
+        # get dist
         mask = density[:, None, :] > density[:, :, None]
         mask = mask.type(x.dtype)
         dist, index_parent = (dist_matrix * mask +
                               dist_matrix.flatten(1).max(dim=-1)[0][:, None, None] * (1-mask)).min(dim=-1)
 
+        # select center according to score
         score = dist * density
         if use_conf and conf is not None:
             ##TODO: make this combination learnable
@@ -2057,6 +2067,16 @@ def token_cluster_density(x, Ns, idx_agg, weight=None, return_weight=False, conf
             idx_agg_t = dist_matrix.argmin(dim=1)
 
         idx = idx_agg_t + torch.arange(B, device=x.device)[:, None] * Ns
+
+
+    # # for debug only
+    # loc_orig = get_grid_loc(x.shape[0], 56, 56, x.device)
+    # show_conf_merge(density[:, :, None], None, loc_orig, idx_agg, n=1)
+    # show_conf_merge(dist[:, :, None], None, loc_orig, idx_agg, n=2)
+    # show_conf_merge(score[:, :, None], None, loc_orig, idx_agg, n=3)
+    # show_conf_merge(conf[:, :, None], None, loc_orig, idx_agg, n=4)
+    # if use_conf:
+    #     show_conf_merge(score_log[:, :, None], None, loc_orig, idx_agg, n=5)
 
 
     all_weight = weight.new_zeros(B * Ns, 1)

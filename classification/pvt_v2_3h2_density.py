@@ -237,7 +237,7 @@ class DownLayer(nn.Module):
     """
 
     def __init__(self, sample_ratio, embed_dim, dim_out, drop_rate, down_block,
-                 k=3, dist_assign=True, ada_dc=False, use_conf=False, conf_scale=0.25):
+                 k=3, dist_assign=True, ada_dc=False, use_conf=False, conf_scale=0.25, conf_density=False):
         super().__init__()
         # self.sample_num = sample_num
         self.sample_ratio = sample_ratio
@@ -262,6 +262,7 @@ class DownLayer(nn.Module):
         self.ada_dc = ada_dc
         self.use_conf = use_conf
         self.conf_scale = conf_scale
+        self.conf_density = conf_density
 
     def forward(self, x, pos_orig, idx_agg, agg_weight, H, W, N_grid):
         # x, mask = token2map(x, pos, [H, W], 1, 2, return_mask=True)
@@ -288,7 +289,8 @@ class DownLayer(nn.Module):
 
         x_down, idx_agg_down, weight_t = token_cluster_density(
             x, sample_num, idx_agg, weight, True, conf,
-            k=self.k, dist_assign=self.dist_assign, ada_dc=self.ada_dc, use_conf=self.use_conf, conf_scale=self.conf_scale)
+            k=self.k, dist_assign=self.dist_assign, ada_dc=self.ada_dc,
+            use_conf=self.use_conf, conf_scale=self.conf_scale, conf_density=self.conf_density)
 
         agg_weight_down = agg_weight * weight_t
         agg_weight_down = agg_weight_down / agg_weight_down.max(dim=1, keepdim=True)[0]
@@ -306,7 +308,7 @@ class MyPVT(nn.Module):
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
                  depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], num_stages=4, linear=False,
-                 k=3, dist_assign=True, ada_dc=False, use_conf=False, conf_scale=0.25,
+                 k=3, dist_assign=True, ada_dc=False, use_conf=False, conf_scale=0.25, conf_density=False
                  ):
         super().__init__()
         self.num_classes = num_classes
@@ -343,7 +345,8 @@ class MyPVT(nn.Module):
                                         mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
                                         drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
                                         norm_layer=norm_layer, sr_ratio=sr_ratios[i], linear=linear),
-                                    k=k, dist_assign=dist_assign, ada_dc=ada_dc, use_conf=use_conf, conf_scale=conf_scale
+                                    k=k, dist_assign=dist_assign, ada_dc=ada_dc, use_conf=use_conf,
+                                    conf_scale=conf_scale, conf_density=conf_density
                                     )
             block = nn.ModuleList([MyBlock(
                 dim=embed_dims[i], num_heads=num_heads[i], mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
@@ -495,6 +498,17 @@ def mypvt3h2_density50_small(pretrained=False, **kwargs):
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
         k=3, dist_assign=True, ada_dc=False, use_conf=True, conf_scale=0.5,
+        **kwargs)
+    model.default_cfg = _cfg()
+    return model
+
+
+@register_model
+def mypvt3h2_densityc_small(pretrained=False, **kwargs):
+    model = MyPVT(
+        patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
+        k=3, dist_assign=True, ada_dc=False, use_conf=False, conf_scale=0, conf_density=True,
         **kwargs)
     model.default_cfg = _cfg()
     return model
