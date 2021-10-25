@@ -979,7 +979,7 @@ def token2map_agg_sparse(x, loc, loc_orig, idx_agg, map_size, weight=None):
     return x_out, all_weight
 
 
-def token2map_agg_mat(x, loc, loc_orig, idx_agg, map_size, weight=None):
+def token2map_agg_mat(x, loc, loc_orig, idx_agg, map_size, weight=None, agg_weight=None):
     # x = torch.rand(2, 4, 3).half()
     # loc = torch.rand(2, 4, 2)
     # loc_orig = torch.rand(2, 7, 2)
@@ -992,6 +992,10 @@ def token2map_agg_mat(x, loc, loc_orig, idx_agg, map_size, weight=None):
     B, N, C = x.shape
     N0 = loc_orig.shape[1]
     device = x.device
+
+    if N0 == N and N == H * W:
+        return x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+
     loc_orig = loc_orig.clamp(-1, 1)
     loc_orig = 0.5 * (loc_orig + 1) * torch.FloatTensor([W, H]).to(device)[None, None, :] - 0.5
     loc_orig = loc_orig.round().long()
@@ -1003,6 +1007,8 @@ def token2map_agg_mat(x, loc, loc_orig, idx_agg, map_size, weight=None):
     if weight is None:
         weight = x.new_ones(B, N, 1)
     value = index_points(weight, idx_agg).reshape(B*N0)
+    if agg_weight is not None:
+        value = value * agg_weight.reshape(B*N0).type(x.dtype)
 
     A = x.new_zeros(B, H*W, N)
     A[idx_batch.reshape(-1), idx_HW_orig.reshape(-1), idx_agg.reshape(-1)] = value.reshape(-1)
@@ -1678,6 +1684,23 @@ def show_tokens_merge(x, out, N_grid=14*14):
     IMAGENET_DEFAULT_MEAN = torch.tensor([0.485, 0.456, 0.406], device=x.device)[None, :, None, None]
     IMAGENET_DEFAULT_STD = torch.tensor([0.229, 0.224, 0.225], device=x.device)[None, :, None, None]
     x = x * IMAGENET_DEFAULT_STD + IMAGENET_DEFAULT_MEAN
+
+    B, _, h, w = x.shape
+    h, w = h // 4, w//4
+    device = x.device
+    # y_g, x_g = torch.arange(h, device=device).float(), torch.arange(w, device=device).float()
+    # y_g = 1 * ((y_g + 0.5) / h) - 0
+    # x_g = 1 * ((x_g + 0.5) / w) - 0
+    # y_map, x_map = torch.meshgrid(y_g, x_g)
+    # color_map = torch.stack((x_map, y_map, x_map*0), dim=-1)
+    # color_map = color_map.permute(2, 0, 1).unsqueeze(0).expand(B, 3, h, w).float()
+
+    color_map = F.avg_pool2d(x, kernel_size=4)
+
+    # color_map = torch.rand([1, 3, h, w], device=x.device).expand(B, 3, h, w).float()
+
+
+
     # for i in range(x.shape[0]):
     for i in range(1):
         img = x[i].permute(1, 2, 0).detach().cpu()
@@ -1687,25 +1710,30 @@ def show_tokens_merge(x, out, N_grid=14*14):
         # ax = plt.subplot(2, 5, 6)
         # ax.clear()
         # ax.imshow(img)
+
         for lv in range(len(out)):
             ax = plt.subplot(2, 5, lv+2)
             ax.clear()
-            ax.imshow(img, extent=[0, 1, 0, 1])
+            # ax.imshow(img, extent=[0, 1, 0, 1])
             # loc = out[lv][1]
             # loc = 0.5 * loc + 0.5
             # loc_grid = loc[i, :N_grid].detach().cpu().numpy()
             # ax.scatter(loc_grid[:, 0], 1 - loc_grid[:, 1], c='blue', s=0.4+lv*0.1)
             # loc_ada = loc[i, N_grid:].detach().cpu().numpy()
             # ax.scatter(loc_ada[:, 0], 1 - loc_ada[:, 1], c='red', s=0.4+lv*0.1)
-            idx_agg = out[lv][4]
             loc_orig = out[lv][3]
+            idx_agg = out[lv][4]
+            agg_weight = out[lv][5]
             x = out[lv][0]
             B, N, _ = x.shape
+
             # tmp = torch.arange(N, device=loc.device)[None, :, None].expand(B, N, 1).float()
             tmp = torch.rand([N, 3], device=x.device)[None, :, :].expand(B, N, 3).float()
+            # tmp = map2token_agg_fast_nearest(color_map, N, loc_orig, idx_agg, agg_weight)
+
             H, W, _ = img.shape
             idx_map, _ = token2map_agg_sparse(tmp, loc_orig, loc_orig, idx_agg, [H//4, W//4])
-            idx_map = idx_map[i].permute(1, 2, 0).detach().cpu()
+            idx_map = idx_map[i].permute(1, 2, 0).detach().cpu().float()
             ax.imshow(idx_map)
     # plt.show()
 
@@ -1724,7 +1752,12 @@ def show_conf_merge(conf, loc, loc_orig, idx_agg, l=2, c=5, n=0, vmin=0, vmax=7)
     conf_map, _ = token2map_agg_sparse(conf, loc, loc_orig, idx_agg, [H0, H0])
     ax = plt.subplot(l, c, n)
     ax.clear()
-    ax.imshow(conf_map[0, 0].detach().cpu().float(), vmin=vmin, vmax=vmax)
+    if vmax is not None and vmin is not None:
+        ax.imshow(conf_map[0, 0].detach().cpu().float(), vmin=vmin, vmax=vmax)
+    else:
+        ax.imshow(conf_map[0, 0].detach().cpu().float())
+
+
     # plt.colorbar()
 
 
@@ -1997,6 +2030,8 @@ def token_cluster_density(x, Ns, idx_agg, weight=None, return_weight=False, conf
 
     if weight is None:
         weight = x.new_ones(B, N, 1)
+    if conf is not None:
+        conf = conf.squeeze(-1)
 
     with torch.no_grad():
         dist_matrix = torch.cdist(x, x)
@@ -2005,7 +2040,6 @@ def token_cluster_density(x, Ns, idx_agg, weight=None, return_weight=False, conf
 
         # get density
         if conf_density:
-            conf = conf.squeeze(-1)
             density = conf.exp()
         else:
             dist_nearest, index_nearest = torch.topk(dist_matrix, k=k, dim=-1)
@@ -2038,7 +2072,7 @@ def token_cluster_density(x, Ns, idx_agg, weight=None, return_weight=False, conf
             ##TODO: make this combination learnable
             # we need to limit the influence of weight
             score_log = score.log()
-            conf = conf.squeeze(-1)
+            # conf = conf.squeeze(-1)
             conf_scale = conf_scale * (score_log.max(dim=1)[0] - score_log.min(dim=1)[0]) / (conf.max(dim=1)[0] - conf.min(dim=1)[0] + 1e-6)
             conf_scale = conf_scale.clamp(0, 1)
             score_log = score_log + conf * conf_scale[:, None]
@@ -2070,12 +2104,12 @@ def token_cluster_density(x, Ns, idx_agg, weight=None, return_weight=False, conf
         idx = idx_agg_t + torch.arange(B, device=x.device)[:, None] * Ns
 
 
-    # # for debug only
+    # # # for debug only
     # loc_orig = get_grid_loc(x.shape[0], 56, 56, x.device)
-    # show_conf_merge(density[:, :, None], None, loc_orig, idx_agg, n=1)
-    # show_conf_merge(dist[:, :, None], None, loc_orig, idx_agg, n=2)
-    # show_conf_merge(score[:, :, None], None, loc_orig, idx_agg, n=3)
-    # show_conf_merge(conf[:, :, None], None, loc_orig, idx_agg, n=4)
+    # show_conf_merge(density[:, :, None], None, loc_orig, idx_agg, n=1, vmin=None)
+    # show_conf_merge(dist[:, :, None], None, loc_orig, idx_agg, n=2, vmin=None)
+    # show_conf_merge(score[:, :, None], None, loc_orig, idx_agg, n=3, vmin=None)
+    # show_conf_merge(conf[:, :, None], None, loc_orig, idx_agg, n=4, vmin=None)
     # if use_conf:
     #     show_conf_merge(score_log[:, :, None], None, loc_orig, idx_agg, n=5)
 

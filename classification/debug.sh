@@ -15,6 +15,8 @@ srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
     --job-name=pvt --ntasks=16 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
     --batch-size 64 --data-path data/imagenet --input-size 224 --use-mcloader \
+    --model=mypvt3h2_densitya0_small --output_dir=work_dirs/my3h2_densitya0 --resume work_dirs/my3h2_densitya0/checkpoint.pth
+
     --model=mypvt3h2_densityc_small --output_dir=work_dirs/my3h2_densityc --resume work_dirs/my3h2_densityc/checkpoint.pth
 
     --model=mypvt3h2_fast_small --output_dir=work_dirs/my3h2_fast --resume work_dirs/my3h2_fast/checkpoint.pth

@@ -34,6 +34,7 @@ token2map nearest + skip token conv (this must be used together.)
 try to make it faster
 
 dist_assign, No ada dc
+use agg weight in token2map
 '''
 
 
@@ -89,7 +90,7 @@ class MyDWConv(nn.Module):
 
     def forward(self, x, loc_orig, idx_agg, agg_weight, H, W):
         B, N, C = x.shape
-        x_map, _ = token2map_agg_mat(x, None, loc_orig, idx_agg, [H, W])
+        x_map, _ = token2map_agg_mat(x, None, loc_orig, idx_agg, [H, W], agg_weight=agg_weight)
         x_map = self.dwconv(x_map)
         x = map2token_agg_fast_nearest(x_map, N, loc_orig, idx_agg, agg_weight) + \
             self.dwconv_skip(x.permute(0, 2, 1)).permute(0, 2, 1)
@@ -140,7 +141,7 @@ class MyAttention(nn.Module):
             if m.bias is not None:
                 m.bias.data.zero_()
 
-    def forward(self, x, loc_orig, x_source, idx_agg_source, H, W, conf_source=None):
+    def forward(self, x, loc_orig, x_source, idx_agg_source, H, W, conf_source=None, agg_weight_source=None):
         B, N, C = x.shape
         Ns = x_source.shape[1]
         q = self.q(x).reshape(B, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
@@ -150,7 +151,7 @@ class MyAttention(nn.Module):
                 if conf_source is None:
                     conf_source = x_source.new_zeros(B, Ns, 1)
                 tmp = torch.cat([x_source, conf_source], dim=-1)
-                tmp, _ = token2map_agg_mat(tmp, None, loc_orig, idx_agg_source, [H, W])
+                tmp, _ = token2map_agg_mat(tmp, None, loc_orig, idx_agg_source, [H, W], agg_weight=agg_weight_source)
                 x_source = tmp[:, :C]
                 conf_source = tmp[:, C:]
 
@@ -220,7 +221,8 @@ class MyBlock(nn.Module):
                                           loc_orig,
                                           self.norm1(x_source),
                                           idx_agg_source,
-                                          H, W, conf_source))
+                                          H, W, conf_source,
+                                          agg_weight_source=agg_weight_source))
 
         x2 = x1 + self.drop_path(self.mlp(self.norm2(x1),
                                           loc_orig,
@@ -273,7 +275,7 @@ class DownLayer(nn.Module):
         if N0 == N and N == H * W:
             x_map = x.reshape(B, H, W, C).permute(0, 3, 1, 2)
         else:
-            x_map, _ = token2map_agg_mat(x, None, pos_orig, idx_agg, [H, W])
+            x_map, _ = token2map_agg_mat(x, None, pos_orig, idx_agg, [H, W], agg_weight=agg_weight)
 
         x_map = self.conv(x_map)
         x = map2token_agg_fast_nearest(x_map, N, pos_orig, idx_agg, agg_weight) + self.conv_skip(x)
@@ -473,7 +475,7 @@ class MyPVT(nn.Module):
 
 
 @register_model
-def mypvt3h2_density0_small(pretrained=False, **kwargs):
+def mypvt3h2_densitya0_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
@@ -483,7 +485,7 @@ def mypvt3h2_density0_small(pretrained=False, **kwargs):
     return model
 
 @register_model
-def mypvt3h2_density25_small(pretrained=False, **kwargs):
+def mypvt3h2_densitya25_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
@@ -493,7 +495,7 @@ def mypvt3h2_density25_small(pretrained=False, **kwargs):
     return model
 
 @register_model
-def mypvt3h2_density50_small(pretrained=False, **kwargs):
+def mypvt3h2_densitya50_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
@@ -504,7 +506,7 @@ def mypvt3h2_density50_small(pretrained=False, **kwargs):
 
 
 @register_model
-def mypvt3h2_densityc_small(pretrained=False, **kwargs):
+def mypvt3h2_densityac_small(pretrained=False, **kwargs):
     model = MyPVT(
         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
@@ -517,7 +519,7 @@ def mypvt3h2_densityc_small(pretrained=False, **kwargs):
 # For test
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = mypvt3h2_density0_small(drop_path_rate=0.).to(device)
+    model = mypvt3h2_densitya0_small(drop_path_rate=0.).to(device)
     import time
     x = torch.rand([2, 3, 224, 224]).to(device)
     for i in range(5):
