@@ -994,7 +994,7 @@ def token2map_agg_mat(x, loc, loc_orig, idx_agg, map_size, weight=None, agg_weig
     device = x.device
 
     if N0 == N and N == H * W:
-        return x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+        return x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous(), x.new_ones(B, 1, H, W)
 
     loc_orig = loc_orig.clamp(-1, 1)
     loc_orig = 0.5 * (loc_orig + 1) * torch.FloatTensor([W, H]).to(device)[None, None, :] - 0.5

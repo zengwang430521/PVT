@@ -6,18 +6,24 @@ export NCCL_LL_THRESHOLD=0
 python -m torch.distributed.launch --nproc_per_node=8 --master_port=6333 --use_env \
 train.py --config configs/pvt_v2/debug.py \
     --batch-size 128 --data-path data/imagenet --input-size 112 \
+    --model=mypvt3h2_densitya0_small --output_dir=work_dirs/dena0_LR --resume work_dirs/dena0_LR/checkpoint.pth
+
     --model=mypvt3h7k3_small --output_dir=work_dirs/my3h7k3_LR --resume work_dirs/my3h7k3_LR/checkpoint.pth
 
     --model=mypvt3h10_small --output_dir=work_dirs/my3h10_LR --resume work_dirs/my3h10_LR/checkpoint.pth
 
 
-srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
-    --job-name=pvt --ntasks=16 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
+srun -p pat_earth -x SH-IDC1-10-198-4-[90-91,100-103,116-119] \
+    --job-name=pvt --ntasks=8 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
-    --batch-size 64 --data-path data/imagenet --input-size 224 --use-mcloader \
-    --model=mypvt3h2_densitya0_small --output_dir=work_dirs/my3h2_densitya0 --resume work_dirs/my3h2_densitya0/checkpoint.pth
+    --batch-size 128 --data-path data/imagenet --input-size 224 --use-mcloader \
+    --model=mypvt3h2_densityc_small --output_dir=work_dirs/my3h2_densityc_8 --resume work_dirs/my3h2_densityc/checkpoint.pth
+
 
     --model=mypvt3h2_densityc_small --output_dir=work_dirs/my3h2_densityc --resume work_dirs/my3h2_densityc/checkpoint.pth
+
+    --model=mypvt3h2_densitya0_small --output_dir=work_dirs/my3h2_densitya0 --resume work_dirs/my3h2_densitya0/checkpoint.pth
+
 
     --model=mypvt3h2_fast_small --output_dir=work_dirs/my3h2_fast --resume work_dirs/my3h2_fast/checkpoint.pth
 
