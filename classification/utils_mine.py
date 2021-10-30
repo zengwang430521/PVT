@@ -1728,8 +1728,8 @@ def show_tokens_merge(x, out, N_grid=14*14):
             B, N, _ = x.shape
 
             # tmp = torch.arange(N, device=loc.device)[None, :, None].expand(B, N, 1).float()
-            tmp = torch.rand([N, 3], device=x.device)[None, :, :].expand(B, N, 3).float()
-            # tmp = map2token_agg_fast_nearest(color_map, N, loc_orig, idx_agg, agg_weight)
+            # tmp = torch.rand([N, 3], device=x.device)[None, :, :].expand(B, N, 3).float()
+            tmp = map2token_agg_fast_nearest(color_map, N, loc_orig, idx_agg, agg_weight)
 
             H, W, _ = img.shape
             idx_map, _ = token2map_agg_sparse(tmp, loc_orig, loc_orig, idx_agg, [H//4, W//4])
