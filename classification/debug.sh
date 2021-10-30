@@ -12,7 +12,7 @@ srun -p mm_human \
 export NCCL_LL_THRESHOLD=0
 python -m torch.distributed.launch --nproc_per_node=8 --master_port=6333 --use_env \
 train.py --config configs/pvt_v2/debug.py \
-  --batch-size 128 --data-path data/imagenet --input-size 224 --use-mcloader \
+  --batch-size 128 --data-path data/imagenet --input-size 224  \
     --model=mypvt3h2_density0_tiny --output_dir=work_dirs/my3h2_density0_tiny --resume work_dirs/my3h2_density0_tiny/checkpoint.pth
 
     --batch-size 128 --data-path data/imagenet --input-size 112 \
