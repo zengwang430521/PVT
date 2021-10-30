@@ -2,9 +2,19 @@
 srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
     --job-name=pvt --ntasks=1 --gres=gpu:1 --ntasks-per-node=1 --cpus-per-task=5 --kill-on-bad-exit=1 \
 
+srun -p mm_human \
+    --job-name=pvt --ntasks=4 --gres=gpu:4 --ntasks-per-node=4 --cpus-per-task=5 --kill-on-bad-exit=1 \
+    python -u train.py --config configs/pvt_v2/debug.py \
+    --batch-size 256 --data-path data/imagenet --input-size 224 --use-mcloader \
+    --model=mypvt3h2_density0_tiny --output_dir=work_dirs/my3h2_density0_tiny --resume work_dirs/my3h2_density0_tiny/checkpoint.pth
+
+
 export NCCL_LL_THRESHOLD=0
 python -m torch.distributed.launch --nproc_per_node=8 --master_port=6333 --use_env \
 train.py --config configs/pvt_v2/debug.py \
+  --batch-size 128 --data-path data/imagenet --input-size 224 --use-mcloader \
+    --model=mypvt3h2_density0_tiny --output_dir=work_dirs/my3h2_density0_tiny --resume work_dirs/my3h2_density0_tiny/checkpoint.pth
+
     --batch-size 128 --data-path data/imagenet --input-size 112 \
     --model=mypvt3h2_densitya0_small --output_dir=work_dirs/dena0_LR --resume work_dirs/dena0_LR/checkpoint.pth
 
