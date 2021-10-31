@@ -1938,7 +1938,7 @@ def map2token_agg_fast_nearest(feature_map, N, loc_orig, idx_agg, agg_weight=Non
     N0 = loc_orig.shape[1]
 
     if N0 == N and N == H * W:
-        return feature_map.flatten(2).permute(0, 2, 1)
+        return feature_map.flatten(2).permute(0, 2, 1).contiguous()
 
     loc_orig = 0.5 * (loc_orig + 1) * torch.FloatTensor([W, H]).to(device)[None, None, :] - 0.5
     x = loc_orig[:, :, 0]
@@ -1960,7 +1960,7 @@ def map2token_agg_fast_nearest(feature_map, N, loc_orig, idx_agg, agg_weight=Non
     A = torch.sparse_coo_tensor(indices, value, (B, N, H * W)).to_dense()
     A = A / (A.sum(dim=-1, keepdim=True) + 1e-6)
 
-    tokens = A @ feature_map.permute(0, 2, 3, 1).reshape(B, H * W, C)
+    tokens = A @ feature_map.permute(0, 2, 3, 1).contiguous().reshape(B, H * W, C)
     return tokens
 
 
