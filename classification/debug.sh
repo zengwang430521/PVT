@@ -6,7 +6,7 @@ srun -p mm_human \
     --job-name=pvt --ntasks=4 --gres=gpu:4 --ntasks-per-node=4 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
     --batch-size 64 --data-path data/imagenet --input-size 224 --use-mcloader \
-    --model=mypvt3h2_density0_small --output_dir=work_dirs/my3h2_density0 --resume work_dirs/my3h2_density0/checkpoint.pth --eval
+    --model=mypvt3h2_density0f_small --output_dir=work_dirs/my3h2_density0f --resume work_dirs/my3h2_density0/checkpoint.pth --eval
 
 
 
