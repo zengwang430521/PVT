@@ -2018,7 +2018,7 @@ principal component analysis
 '''
 
 
-def token_cluster_density_old(x, Ns, idx_agg, weight=None, return_weight=False, conf=None,
+def token_cluster_density(x, Ns, idx_agg, weight=None, return_weight=False, conf=None,
                           k=3, dist_assign=False, ada_dc=False, use_conf=False, conf_scale=0.25,
                           conf_density=False):
     # import torch
@@ -2262,7 +2262,7 @@ def token_cluster_density_fixbug(x, Ns, idx_agg, weight=None, return_weight=Fals
     return x_out, idx_agg
 
 
-def token_cluster_density(x, Ns, idx_agg, weight=None, return_weight=False, conf=None,
+def token_cluster_density_2(x, Ns, idx_agg, weight=None, return_weight=False, conf=None,
                           k=3, dist_assign=False, ada_dc=False, use_conf=False, conf_scale=0.25,
                           conf_density=False):
     # import torch
