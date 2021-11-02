@@ -503,15 +503,15 @@ def mypvt3h2_density0f_small(pretrained=False, **kwargs):
 #     return model
 #
 
-@register_model
-def mypvt3h2_densityc_small(pretrained=False, **kwargs):
-    model = MyPVT(
-        patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
-        k=5, dist_assign=True, ada_dc=False, use_conf=False, conf_scale=0, conf_density=True,
-        **kwargs)
-    model.default_cfg = _cfg()
-    return model
+# @register_model
+# def mypvt3h2_densityc_small(pretrained=False, **kwargs):
+#     model = MyPVT(
+#         patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
+#         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
+#         k=5, dist_assign=True, ada_dc=False, use_conf=False, conf_scale=0, conf_density=True,
+#         **kwargs)
+#     model.default_cfg = _cfg()
+#     return model
 
 
 @register_model
