@@ -41,7 +41,7 @@ import pvt_v2_3f, pvt_v2_3f2, pvt_v2_3f3, pvt_v2_3f4, pvt_v2_3f5, \
     pvt_v2_3h9, pvt_v2_3h10, pvt_v2_3h12, pvt_v2_3h2a, pvt_v2_3h2_fast, \
     pvt_v2_3h2_fast_norm, pvt_v2_3h2_fast2, \
     pvt_v2_3h2_density_norm, pvt_v2_3h2_density_norm16, \
-    pvt_v2_3h2_density, pvt_v2_3h2_density_a
+    pvt_v2_3h2_density, pvt_v2_3h2_density_a, pvt_v2_3h2_density_f
 
 
 import pvt_v2_4
