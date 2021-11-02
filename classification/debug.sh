@@ -28,14 +28,18 @@ train.py --config configs/pvt_v2/debug.py \
 srun -p pat_earth -x SH-IDC1-10-198-4-[90-91,100-103,116-119] \
 srun -p mm_human \
 srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
-    --job-name=pvt --ntasks=32 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
+    --job-name=pvt --ntasks=16 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
-    --batch-size 32 --data-path data/imagenet --input-size 224 --use-mcloader \
-    --model=mypvt3h2_density0f_large --output_dir=work_dirs/my3h2_density0f_large_32 --resume work_dirs/my3h2_density0f_large_32/checkpoint.pth
+    --batch-size 64 --data-path data/imagenet --input-size 224 --use-mcloader \
+    --model=mypvt3h2_density0f_large --output_dir=work_dirs/my3h2_density0f_large_16 --resume work_dirs/my3h2_density0f_large_16/checkpoint.pth
 
-    --model=mypvt3h2_density0f_tiny --output_dir=work_dirs/my3h2_density0f_tiny_32 --resume work_dirs/my3h2_density0f_tiny/checkpoint.pth
+    --model=mypvt3h2_density0f_tiny --output_dir=work_dirs/my3h2_density0f_tiny_16 --resume work_dirs/my3h2_density0f_tiny/checkpoint.pth
 
     --model=mypvt3h2_density0f_tiny --output_dir=work_dirs/my3h2_density0f_tiny --resume work_dirs/my3h2_density0f_tiny/checkpoint.pth
+
+    --model=mypvt3h2_density0f_large --output_dir=work_dirs/my3h2_density0f_large_32 --resume work_dirs/my3h2_density0f_large_32/checkpoint.pth
+
+
 
     --model=mypvt3h2_density0_small --output_dir=work_dirs/my3h2_density0 --resume work_dirs/my3h2_density0/checkpoint.pth
 
