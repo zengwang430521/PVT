@@ -2418,6 +2418,7 @@ def downup_sparse(target_dict, source_dict):
     return x_out
 
 
+
 def downup(target_dict, source_dict):
     x_s = source_dict['x']
     x_t = target_dict['x']
@@ -2440,3 +2441,7 @@ def downup(target_dict, source_dict):
     A = A / (A.sum(dim=-1, keepdim=True) + 1e-6)
     x_out = A @ x_s
     return x_out
+
+
+def get_merge_way():
+    return
