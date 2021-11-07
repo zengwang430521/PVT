@@ -2388,6 +2388,8 @@ def token_cluster_density_2(x, Ns, idx_agg, weight=None, return_weight=False, co
     return x_out, idx_agg
 
 
+
+
 def downup_sparse(target_dict, source_dict):
     x_s = source_dict['x']
     x_t = target_dict['x']
@@ -2408,18 +2410,16 @@ def downup_sparse(target_dict, source_dict):
     weight = weight.reshape(-1)
 
     with torch.cuda.amp.autocast(enabled=False):
+        weight = weight.float().detach()    # sparse mm do not support grad for sparse mat
         A = torch.sparse.FloatTensor(coor, weight, torch.Size([B*T, B*S]))
         all_weight = A.type(torch.float32) @ x_s.new_ones(B*S, 1).type(torch.float32) + 1e-6
         # all_weight = A @ x_s.new_ones(B*S, 1) + 1e-6
-        all_weight = all_weight.type(x_s.dtype)
         weight = weight / all_weight[(idx_agg_t).reshape(-1), 0]
 
-    with torch.cuda.amp.autocast(enabled=False):
         A = torch.sparse.FloatTensor(coor, weight, torch.Size([B*T, B*S]))
         x_out = A.type(torch.float32) @ x_s.reshape(B*S, C).type(torch.float32)
         x_out = x_out.reshape(B, T, C).type(x_s.dtype)
     return x_out
-
 
 
 def downup(target_dict, source_dict):
@@ -2599,12 +2599,12 @@ def map2token_agg_sparse_nearest(feature_map, N, loc_orig, idx_agg, agg_weight=N
 
     indices = torch.stack([idx_agg, idx_HW_orig], dim=0).reshape(2, -1)
 
-    if agg_weight is None:
-        value = torch.ones(B * N0, device=feature_map.device, dtype=torch.float32)
-    else:
-        value = agg_weight.reshape(B * N0).type(torch.float32)
-
     with torch.cuda.amp.autocast(enabled=False):
+        if agg_weight is None:
+            value = torch.ones(B * N0, device=feature_map.device, dtype=torch.float32)
+        else:
+            value = agg_weight.reshape(B * N0).type(torch.float32)
+
         value = value.detach().float()  # sparse mm do not support gradient for sparse matrix
         A = torch.sparse_coo_tensor(indices, value, (B * N, B *H * W))
         all_weight = A @ torch.ones([B*H*W, 1], device=device, dtype=torch.float32) + 1e-6
