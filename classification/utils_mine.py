@@ -2569,3 +2569,49 @@ def get_merge_way(input_dict, Ns):
     agg_weight_down = agg_weight_down / agg_weight_down.max(dim=1, keepdim=True)[0]
 
     return idx_agg, agg_weight_down
+
+
+
+
+def map2token_agg_sparse_nearest(feature_map, N, loc_orig, idx_agg, agg_weight=None):
+
+    dtype = feature_map.dtype
+    B, C, H, W = feature_map.shape
+    device = feature_map.device
+    N0 = loc_orig.shape[1]
+
+    if N0 == N and N == H * W:
+        return feature_map.flatten(2).permute(0, 2, 1).contiguous()
+
+    loc_orig = 0.5 * (loc_orig + 1) * torch.FloatTensor([W, H]).to(device)[None, None, :] - 0.5
+    x = loc_orig[:, :, 0]
+    y = loc_orig[:, :, 1]
+
+    h, w = H, W
+    x_grid = x.round().long().clamp(min=0, max=w - 1)
+    y_grid = y.round().long().clamp(min=0, max=h - 1)
+    idx_HW_orig = (y_grid * w + x_grid).detach()
+    index_batch = torch.arange(B, device=device)[:, None].expand(B, N0)
+
+    # use sparse matrix
+    idx_agg = idx_agg + index_batch * N
+    idx_HW_orig = idx_HW_orig + index_batch * H * W
+
+    indices = torch.stack([idx_agg, idx_HW_orig], dim=0).reshape(2, -1)
+
+    if agg_weight is None:
+        value = torch.ones(B * N0, device=feature_map.device, dtype=torch.float32)
+    else:
+        value = agg_weight.reshape(B * N0).type(torch.float32)
+
+    with torch.cuda.amp.autocast(enabled=False):
+        value = value.detach().float()  # sparse mm do not support gradient for sparse matrix
+        A = torch.sparse_coo_tensor(indices, value, (B * N, B *H * W))
+        all_weight = A @ torch.ones([B*H*W, 1], device=device, dtype=torch.float32) + 1e-6
+        value = value / all_weight[idx_agg.reshape(-1), 0]
+
+        A = torch.sparse_coo_tensor(indices, value, (B * N, B *H * W))
+        out = A @ feature_map.permute(0, 2, 3, 1).contiguous().reshape(B * H * W, C).float()
+        out = out.reshape(B, N, C)
+    out = out.type(feature_map.dtype)
+    return out

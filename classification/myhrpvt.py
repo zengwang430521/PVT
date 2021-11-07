@@ -34,6 +34,11 @@ from utils_mine import get_merge_way, \
 from pvt_v2_3h2_density_f import (map2token_agg_fast_nearest, token2map_agg_mat, MyAttention,
                                 MyMlp, DropPath, trunc_normal_, token_cluster_density,
                                   register_model, _cfg)
+
+from utils_mine import downup_sparse as downup
+from utils_mine import token2map_agg_sparse as token2map_agg_mat
+from utils_mine import map2token_agg_sparse_nearest as map2token_agg_fast_nearest
+
 import torch.nn.functional as F
 import os
 import logging
