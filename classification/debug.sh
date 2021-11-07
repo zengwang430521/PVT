@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+    -n1 --gpu --job-name=mesh --gpu-type 16gv100  -w SH-IDC1-10-198-6-245 \
+spring.submit arun -p spring_scheduler --gres=gpu:4 --ntasks-per-node=4 --cpus-per-task=5 \
+    -n2 --gpu --job-name=hrpvt --gpu-type 16gv100 \
+    "
+    python -u train.py --config configs/pvt_v2/debug.py \
+    --batch-size 128 --data-path data/imagenet --input-size 112  --use-mcloader \
+    --model=myhrpvt_32_re --output_dir=work_dirs/myhrpvt_32_re_LR --resume work_dirs/myhrpvt_32_re_LR/checkpoint.pth
+    "
+
+
 srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
     --job-name=pvt --ntasks=1 --gres=gpu:1 --ntasks-per-node=1 --cpus-per-task=5 --kill-on-bad-exit=1 \
 

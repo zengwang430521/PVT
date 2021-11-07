@@ -2,8 +2,11 @@ import torch
 import torch.nn.functional as F
 import math
 import matplotlib.pyplot as plt
-from torch_cluster import fps
-from torch_cluster import nearest
+try:
+    from torch_cluster import fps
+except (ImportError, ModuleNotFoundError):
+    print('no torch cluster')
+
 
 def get_grid_loc(B, H, W, device):
     y_g, x_g = torch.arange(H, device=device).float(), torch.arange(W, device=device).float()
