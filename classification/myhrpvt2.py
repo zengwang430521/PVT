@@ -5,6 +5,10 @@
 # import math
 # from .pvt_v2 import (Block, DropPath, DWConv, OverlapPatchEmbed, trunc_normal_, Attention, Mlp)
 
+'''
+low complexity in clustering
+'''
+
 # import pdb
 import torch
 import torch.nn as nn
@@ -32,9 +36,10 @@ from utils_mine import get_merge_way, \
     downup
 
 from pvt_v2_3h2_density_f import (map2token_agg_fast_nearest, token2map_agg_mat, MyAttention,
-                                MyMlp, DropPath, trunc_normal_, token_cluster_density,
+                                MyMlp, DropPath, trunc_normal_,
                                   register_model, _cfg)
 
+from utils_mine import token_cluster_density_fixbug_sr as token_cluster_density
 from utils_mine import downup_sparse as downup
 from utils_mine import token2map_agg_sparse as token2map_agg_mat
 from utils_mine import map2token_agg_sparse_nearest as map2token_agg_fast_nearest
@@ -224,7 +229,7 @@ class DownLayer(nn.Module):
     """
 
     def __init__(self, sample_ratio, embed_dim, dim_out, drop_rate, down_block,
-                 k=5, dist_assign=True, ada_dc=False, use_conf=False, conf_scale=0.25, conf_density=False):
+                 k=3, dist_assign=True, ada_dc=False, use_conf=False, conf_scale=0.25, conf_density=False):
         super().__init__()
         # self.sample_num = sample_num
         self.sample_ratio = sample_ratio
@@ -279,10 +284,17 @@ class DownLayer(nn.Module):
         if sample_num < N_grid:
             sample_num = N_grid
 
+        sr_ratio = self.block.attn.sr_ratio
+        ht, wt = H * 2 // sr_ratio, W * 2 // sr_ratio
+
+
         x_down, idx_agg_down, weight_t = token_cluster_density(
             x, sample_num, idx_agg, weight, True, conf,
             k=self.k, dist_assign=self.dist_assign, ada_dc=self.ada_dc,
-            use_conf=self.use_conf, conf_scale=self.conf_scale, conf_density=self.conf_density)
+            use_conf=self.use_conf, conf_scale=self.conf_scale, conf_density=self.conf_density,
+            map_size=[ht, wt], agg_weight=agg_weight,
+            loc_orig=pos_orig if sr_ratio > 1 else None
+        )
 
         agg_weight_down = agg_weight * weight_t
         agg_weight_down = agg_weight_down / agg_weight_down.max(dim=1, keepdim=True)[0]
@@ -1396,7 +1408,7 @@ class MyHRPVT(nn.Module):
 
 
 @register_model
-def myhrpvt_32(pretrained=False, **kwargs):
+def myhrpvt_32_sr(pretrained=False, **kwargs):
     norm_cfg = dict(type='BN', requires_grad=True)
     model = MyHRPVT(
         in_channels=3,
@@ -1452,57 +1464,57 @@ def myhrpvt_32(pretrained=False, **kwargs):
 
 
 
-@register_model
-def myhrpvt_32_re(pretrained=False, **kwargs):
-    norm_cfg = dict(type='BN', requires_grad=True)
-    model = MyHRPVT(
-        in_channels=3,
-        norm_cfg=norm_cfg,
-        return_map=True,
-        extra=dict(
-            drop_path_rate=0.1,
-            stage1=dict(
-                num_modules=1,
-                num_branches=1,
-                block='BOTTLENECK',
-                num_blocks=(2,),
-                num_channels=(64,),
-                num_heads=[2],
-                num_mlp_ratios=[4]),
-            stage2=dict(
-                num_modules=1,
-                num_branches=2,
-                remerge=(True, False),
-                block='MYBLOCK',
-                num_blocks=(2, 2),
-                num_channels=(32, 64),
-                num_heads=[1, 2],
-                num_mlp_ratios=[4, 4],
-                sr_ratios=[8, 4]),
-            stage3=dict(
-                num_modules=4,
-                remerge=(True, False, False, False),
-                num_branches=3,
-                block='MYBLOCK',
-                num_blocks=(2, 2, 2),
-                num_channels=(32, 64, 128),
-                num_heads=[1, 2, 4],
-                num_mlp_ratios=[4, 4, 4],
-                sr_ratios=[8, 4, 2]),
-            stage4=dict(
-                num_modules=2,
-                remerge=(True, False),
-                num_branches=4,
-                block='MYBLOCK',
-                num_blocks=(2, 2, 2, 2),
-                num_channels=(32, 64, 128, 256),
-                num_heads=[1, 2, 4, 8],
-                num_mlp_ratios=[4, 4, 4, 4],
-                sr_ratios=[8, 4, 2, 1],
-                multiscale_output=True),
-        )
-    )
-
-    model.default_cfg = _cfg()
-
-    return model
+# @register_model
+# def myhrpvt_32_re(pretrained=False, **kwargs):
+#     norm_cfg = dict(type='BN', requires_grad=True)
+#     model = MyHRPVT(
+#         in_channels=3,
+#         norm_cfg=norm_cfg,
+#         return_map=True,
+#         extra=dict(
+#             drop_path_rate=0.1,
+#             stage1=dict(
+#                 num_modules=1,
+#                 num_branches=1,
+#                 block='BOTTLENECK',
+#                 num_blocks=(2,),
+#                 num_channels=(64,),
+#                 num_heads=[2],
+#                 num_mlp_ratios=[4]),
+#             stage2=dict(
+#                 num_modules=1,
+#                 num_branches=2,
+#                 remerge=(True, False),
+#                 block='MYBLOCK',
+#                 num_blocks=(2, 2),
+#                 num_channels=(32, 64),
+#                 num_heads=[1, 2],
+#                 num_mlp_ratios=[4, 4],
+#                 sr_ratios=[8, 4]),
+#             stage3=dict(
+#                 num_modules=4,
+#                 remerge=(True, False, False, False),
+#                 num_branches=3,
+#                 block='MYBLOCK',
+#                 num_blocks=(2, 2, 2),
+#                 num_channels=(32, 64, 128),
+#                 num_heads=[1, 2, 4],
+#                 num_mlp_ratios=[4, 4, 4],
+#                 sr_ratios=[8, 4, 2]),
+#             stage4=dict(
+#                 num_modules=2,
+#                 remerge=(True, False),
+#                 num_branches=4,
+#                 block='MYBLOCK',
+#                 num_blocks=(2, 2, 2, 2),
+#                 num_channels=(32, 64, 128, 256),
+#                 num_heads=[1, 2, 4, 8],
+#                 num_mlp_ratios=[4, 4, 4, 4],
+#                 sr_ratios=[8, 4, 2, 1],
+#                 multiscale_output=True),
+#         )
+#     )
+#
+#     model.default_cfg = _cfg()
+#
+#     return model
