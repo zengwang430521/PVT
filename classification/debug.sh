@@ -10,16 +10,15 @@ spring.submit arun -p spring_scheduler --gres=gpu:6 --ntasks-per-node=6 --cpus-p
 
 
 srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
-    --job-name=pvt --ntasks=1 --gres=gpu:1 --ntasks-per-node=1 --cpus-per-task=5 --kill-on-bad-exit=1 \
+    --job-name=pvt --ntasks=4 --gres=gpu:4 --ntasks-per-node=4 --cpus-per-task=5 --kill-on-bad-exit=1 \
 
 srun -p mm_human \
 srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
-    --job-name=pvt --ntasks=4 --gres=gpu:4 --ntasks-per-node=4 --cpus-per-task=5 --kill-on-bad-exit=1 \
+srun -p mm_human --quotatype=auto\
+    --job-name=pvt --ntasks=1 --gres=gpu:1 --ntasks-per-node=1 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
     --batch-size 64 --data-path data/imagenet --input-size 224 --use-mcloader \
-    --model=mypvt3h2_density0f_small --output_dir=work_dirs/my3h2_density0f --resume work_dirs/my3h2_density0/checkpoint.pth --eval
-
-
+    --model=myhrpvt_32 --output_dir=debug
 
 export NCCL_LL_THRESHOLD=0
 python -m torch.distributed.launch --nproc_per_node=8 --master_port=6333 --use_env \
