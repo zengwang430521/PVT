@@ -619,8 +619,10 @@ class FuseLayer_Straight(nn.Module):
 
             if self.remerge and i > 0:
                 # merge again
-                idx_agg, agg_weight = get_merge_way(out_lists[i-1], tar_dict['x'].shape[1])
+                with torch.no_grad():
+                    idx_agg, agg_weight = get_merge_way(out_lists[i-1], tar_dict['x'].shape[1])
                 x = downup({'x': x, 'idx_agg': idx_agg, 'agg_weight': agg_weight}, tar_dict)
+                pass
 
 
             out_dict = {
@@ -636,7 +638,7 @@ class FuseLayer_Straight(nn.Module):
                     src_dict = input_lists[j]
                     x_t = self.fuse_layers[i][j](src_dict)
                     x_t = downup(out_dict, {'x': x_t, 'idx_agg': src_dict['idx_agg']})
-                    x += x_t
+                    x = x + x_t
 
             out_dict['x'] = self.relu(x)
             out_lists.append(out_dict)
@@ -1428,6 +1430,63 @@ def myhrpvt_32(pretrained=False, **kwargs):
             stage4=dict(
                 num_modules=2,
                 remerge=(False, False),
+                num_branches=4,
+                block='MYBLOCK',
+                num_blocks=(2, 2, 2, 2),
+                num_channels=(32, 64, 128, 256),
+                num_heads=[1, 2, 4, 8],
+                num_mlp_ratios=[4, 4, 4, 4],
+                sr_ratios=[8, 4, 2, 1],
+                multiscale_output=True),
+        )
+    )
+
+    model.default_cfg = _cfg()
+
+    return model
+
+
+
+@register_model
+def myhrpvt_32_re(pretrained=False, **kwargs):
+    norm_cfg = dict(type='BN', requires_grad=True)
+    model = MyHRPVT(
+        in_channels=3,
+        norm_cfg=norm_cfg,
+        return_map=True,
+        extra=dict(
+            drop_path_rate=0.1,
+            stage1=dict(
+                num_modules=1,
+                num_branches=1,
+                block='BOTTLENECK',
+                num_blocks=(2,),
+                num_channels=(64,),
+                num_heads=[2],
+                num_mlp_ratios=[4]),
+            stage2=dict(
+                num_modules=1,
+                num_branches=2,
+                remerge=(True, False),
+                block='MYBLOCK',
+                num_blocks=(2, 2),
+                num_channels=(32, 64),
+                num_heads=[1, 2],
+                num_mlp_ratios=[4, 4],
+                sr_ratios=[8, 4]),
+            stage3=dict(
+                num_modules=4,
+                remerge=(True, False, False, False),
+                num_branches=3,
+                block='MYBLOCK',
+                num_blocks=(2, 2, 2),
+                num_channels=(32, 64, 128),
+                num_heads=[1, 2, 4],
+                num_mlp_ratios=[4, 4, 4],
+                sr_ratios=[8, 4, 2]),
+            stage4=dict(
+                num_modules=2,
+                remerge=(True, False),
                 num_branches=4,
                 block='MYBLOCK',
                 num_blocks=(2, 2, 2, 2),
