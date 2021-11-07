@@ -229,7 +229,7 @@ class DownLayer(nn.Module):
     """
 
     def __init__(self, sample_ratio, embed_dim, dim_out, drop_rate, down_block,
-                 k=3, dist_assign=True, ada_dc=False, use_conf=False, conf_scale=0.25, conf_density=False):
+                 k=5, dist_assign=True, ada_dc=False, use_conf=False, conf_scale=0.25, conf_density=False):
         super().__init__()
         # self.sample_num = sample_num
         self.sample_ratio = sample_ratio
