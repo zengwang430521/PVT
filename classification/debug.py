@@ -192,4 +192,15 @@ for i in range(100):
 #     plt.imshow(x_map_re[0, : 3].permute(1, 2, 0).detach().cpu())
 #
 
+import torch
+from torch import nn
+fc = nn.Linear(4, 1)
+nn.init.constant_(fc.weight, 0)
+nn.init.constant_(fc.bias, 0)
+
+x = torch.rand(1, 4)
+y = fc(x).sum()
+l = -y
+l.backward()
+
 
