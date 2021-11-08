@@ -182,13 +182,16 @@ def main(args):
             checkpoint_model = checkpoint['model']
         else:
             checkpoint_model = checkpoint
-        state_dict = model.state_dict()
-        for k in ['head.weight', 'head.bias', 'head_dist.weight', 'head_dist.bias']:
-            if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
-                print(f"Removing key {k} from pretrained checkpoint")
-                del checkpoint_model[k]
+        # state_dict = model.state_dict()
+        # for k in ['head.weight', 'head.bias', 'head_dist.weight', 'head_dist.bias']:
+        #     if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
+        #         print(f"Removing key {k} from pretrained checkpoint")
+        #         del checkpoint_model[k]
 
         _ = model.load_state_dict(checkpoint_model, strict=False)
+        print(_)
+
+
 
     model.to(device)
 
