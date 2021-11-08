@@ -99,7 +99,8 @@ srun -p pat_earth -x SH-IDC1-10-198-4-[90-91,100-103,116-119] \
     --job-name=pvt --ntasks=8 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
     --batch-size 64 --data-path data/imagenet --input-size 224 --use-mcloader \
-    --model=den0f_large_fine --output_dir=work_dirs/den0f_large_fine --resume work_dirs/den0f_large_fine/checkpoint.pth
+    --model=den0f_large_fine --output_dir=work_dirs/den0f_large_fine --resume work_dirs/den0f_large_fine/checkpoint.pth \
+    --finetune=work_dirs/tran_pvt_v2_b4.pth
 
 
     --batch-size 64 --data-path data/imagenet --input-size 224 --use-mcloader \
