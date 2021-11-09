@@ -12,6 +12,7 @@ spring.submit arun -p spring_scheduler --gres=gpu:6 --ntasks-per-node=6 --cpus-p
 srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
     --job-name=pvt --ntasks=4 --gres=gpu:4 --ntasks-per-node=4 --cpus-per-task=5 --kill-on-bad-exit=1 \
 
+export MASTER_PORT=29505
 srun -p mm_human \
 srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
 srun -p mm_human --quotatype=auto\

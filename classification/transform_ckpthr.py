@@ -13,18 +13,32 @@ model = myhrpvt_win_32()
 
 device = torch.device('cuda')
 model = model.to(device)
-import time
-input = torch.rand(2,3,224,224).to(device)
-for i in range(5):
-    out = model(input)
-    del out
 
-t1 = time.time()
-for i in range(10):
-    out = model(input)
-    del out
-t2 = time.time()
-print((t2-t1) / 10)
+
+import time
+input = torch.rand(2,3,112,112).to(device)
+out = model(input)
+loss = out.sum()
+loss.backward()
+
+for tmp in model.named_parameters():
+    name = tmp[0]
+    para = tmp[1]
+    if para.grad is None:
+        print(name)
+
+print('finish')
+
+# for i in range(5):
+#     out = model(input)
+#     del out
+#
+# t1 = time.time()
+# for i in range(10):
+#     out = model(input)
+#     del out
+# t2 = time.time()
+# print((t2-t1) / 10)
 
 
 # src_dict = torch.load(src_file)

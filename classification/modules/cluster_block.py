@@ -177,11 +177,8 @@ def win_att1(q, k, v, idx, p, training):
 def win_att(q, k, v, idx, p, training):
     B, N, H, C = q.shape
     B, W, K, H, C = k.shape
-    step = max(N // K, 1)
-    begin = 0
 
     idx_batch = torch.arange(B, device=q.device)[:, None]
-
     attn = torch.einsum("bnhc,bnkhc->bnhk", [q, k[idx_batch.expand_as(idx).reshape(-1), idx.reshape(-1)].reshape(B, N, K, H, -1)])
     attn = attn.softmax(dim=-1)
     attn = dropout(attn, p=p, training=training)
@@ -459,6 +456,7 @@ class ClusterBlock(nn.Module):
         if self.attn_type in ["isa_local"]:
             x = tar_dict['x']
             # Attention
+            tar_dict['x'] = self.norm1(x)
             x = x + self.drop_path(self.attn(tar_dict, src_dict))
             # FFN
             x = self.norm2(x)

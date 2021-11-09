@@ -204,3 +204,15 @@ l = -y
 l.backward()
 
 
+import torch
+from torch_sparse import spmm
+
+index = torch.tensor([[0, 0, 1, 2, 2],
+                      [0, 2, 1, 0, 1]])
+value = torch.Tensor([1, 2, 4, 1, 3]).requires_grad_().half()
+matrix = torch.Tensor([[1, 4], [2, 5], [3, 6]]).half()
+
+out = spmm(index, value, 3, 3, matrix)
+print(out)
+loss = out.sum()
+loss.backward()
