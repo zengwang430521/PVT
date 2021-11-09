@@ -12,15 +12,27 @@ spring.submit arun -p spring_scheduler --gres=gpu:6 --ntasks-per-node=6 --cpus-p
 srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
     --job-name=pvt --ntasks=4 --gres=gpu:4 --ntasks-per-node=4 --cpus-per-task=5 --kill-on-bad-exit=1 \
 
+    --job-name=pvt --ntasks=1 --gres=gpu:1 --ntasks-per-node=1 --cpus-per-task=5 --kill-on-bad-exit=1 \
+
 export MASTER_PORT=29505
 srun -p mm_human \
-srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
 srun -p mm_human --quotatype=auto\
-    --job-name=pvt --ntasks=1 --gres=gpu:1 --ntasks-per-node=1 --cpus-per-task=5 --kill-on-bad-exit=1 \
+srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
+    --job-name=fine --ntasks=4 --gres=gpu:4 --ntasks-per-node=4 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
     --batch-size 64 --data-path data/imagenet --input-size 224 --use-mcloader \
+    --model=myhrpvt_32 --output_dir=work_dirs/hrpvt_fine --resume=work_dirs/hrpvt_fine/checkpoint.pth\
+    --finetune=work_dirs/tran_hrpvt_small.pth --epochs=50
+
+   --model=mypvt3h2_density0f_large --output_dir=work_dirs/tran \
+   --finetune=work_dirs/tran_pvt_v2_b4.pth --epochs=50 --eval
+
+
     --model=myhrpvt_win_32 --output_dir=work_dirs/debug\
     --finetune=work_dirs/tran_hrt_small.pth --epochs=50
+
+
+
 
 export NCCL_LL_THRESHOLD=0
 python -m torch.distributed.launch --nproc_per_node=8 --master_port=6333 --use_env \
