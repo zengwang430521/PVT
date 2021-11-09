@@ -39,6 +39,7 @@ from utils_mine import downup_sparse as downup
 from utils_mine import token2map_agg_sparse as token2map_agg_mat
 from utils_mine import map2token_agg_sparse_nearest as map2token_agg_fast_nearest
 
+from modules.cluster_block import ClusterBlock
 
 import torch.nn.functional as F
 import os
@@ -886,6 +887,7 @@ class MyHRPVT(nn.Module):
     blocks_dict = {
         "BOTTLENECK": Bottleneck,
         "MYBLOCK": MyBlock,
+        "CLUSTERBLOCK":ClusterBlock,
         # "MYBLOCKBN": MyBlockBN,
 
     }
@@ -1314,6 +1316,34 @@ class MyHRPVT(nn.Module):
         }
         return out_dict
 
+
+    def tran2map(self, input_list):
+        for i in range(len(input_list)):
+            input_dict = input_list[i]
+            if i == 0:
+                x = input_dict['x']
+                B, N, C = x.shape
+                H, W = input_dict['map_size']
+                x = x.reshape(B, H, W, C).permute(0, 3, 1, 2)
+                input_list[i] = x
+            else:
+                x = input_dict['x']
+                B, N, C = x.shape
+                H, W = input_dict['map_size']
+                idx_agg = input_dict['idx_agg']
+                loc_orig = input_dict['loc_orig']
+                x, _ = token2map_agg_mat(x, None, loc_orig, idx_agg, [H, W])
+                input_list[i] = x
+        return input_list
+
+    def train(self, mode=True):
+        """Convert the model into training mode."""
+        super().train(mode)
+        if mode and self.norm_eval:
+            for m in self.modules():
+                if isinstance(m, _BatchNorm):
+                    m.eval()
+
     def forward(self, x):
         """Forward function."""
         x = self.conv1(x)
@@ -1365,34 +1395,6 @@ class MyHRPVT(nn.Module):
         return y
 
 
-    def tran2map(self, input_list):
-        for i in range(len(input_list)):
-            input_dict = input_list[i]
-            if i == 0:
-                x = input_dict['x']
-                B, N, C = x.shape
-                H, W = input_dict['map_size']
-                x = x.reshape(B, H, W, C).permute(0, 3, 1, 2)
-                input_list[i] = x
-            else:
-                x = input_dict['x']
-                B, N, C = x.shape
-                H, W = input_dict['map_size']
-                idx_agg = input_dict['idx_agg']
-                loc_orig = input_dict['loc_orig']
-                x, _ = token2map_agg_mat(x, None, loc_orig, idx_agg, [H, W])
-                input_list[i] = x
-        return input_list
-
-    def train(self, mode=True):
-        """Convert the model into training mode."""
-        super().train(mode)
-        if mode and self.norm_eval:
-            for m in self.modules():
-                if isinstance(m, _BatchNorm):
-                    m.eval()
-
-
 
 
 
@@ -1438,6 +1440,66 @@ def myhrpvt_32(pretrained=False, **kwargs):
                 remerge=(False, False),
                 num_branches=4,
                 block='MYBLOCK',
+                num_blocks=(2, 2, 2, 2),
+                num_channels=(32, 64, 128, 256),
+                num_heads=[1, 2, 4, 8],
+                num_mlp_ratios=[4, 4, 4, 4],
+                sr_ratios=[8, 4, 2, 1],
+                multiscale_output=True),
+        )
+    )
+
+    model.default_cfg = _cfg()
+
+    return model
+
+
+@register_model
+def myhrpvt_win_32(pretrained=False, **kwargs):
+    import mmcv
+    cfg = mmcv.load('hrt_small.yaml')
+    cfg = cfg['MODEL']['HRT']
+
+    norm_cfg = dict(type='BN', requires_grad=True)
+    model = MyHRPVT(
+        in_channels=3,
+        norm_cfg=norm_cfg,
+        return_map=True,
+        extra=dict(
+            drop_path_rate=0.1,
+            stage1=dict(
+                num_modules=1,
+                num_branches=1,
+                block='BOTTLENECK',
+                num_blocks=(2,),
+                num_channels=(64,),
+                num_heads=[2],
+                num_mlp_ratios=[4]),
+            stage2=dict(
+                num_modules=1,
+                num_branches=2,
+                remerge=(False, False),
+                block='CLUSTERBLOCK',
+                num_blocks=(2, 2),
+                num_channels=(32, 64),
+                num_heads=[1, 2],
+                num_mlp_ratios=[4, 4],
+                sr_ratios=[8, 4]),
+            stage3=dict(
+                num_modules=4,
+                remerge=(False, False, False, False),
+                num_branches=3,
+                block='CLUSTERBLOCK',
+                num_blocks=(2, 2, 2),
+                num_channels=(32, 64, 128),
+                num_heads=[1, 2, 4],
+                num_mlp_ratios=[4, 4, 4],
+                sr_ratios=[8, 4, 2]),
+            stage4=dict(
+                num_modules=2,
+                remerge=(False, False),
+                num_branches=4,
+                block='CLUSTERBLOCK',
                 num_blocks=(2, 2, 2, 2),
                 num_channels=(32, 64, 128, 256),
                 num_heads=[1, 2, 4, 8],
