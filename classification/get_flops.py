@@ -34,11 +34,85 @@ def li_sra_flops(h, w, dim):
     return 2 * h * w * 7 * 7 * dim
 
 
+def get_cluster_flops(model, input_shape):
+    flops = 0
+    dims = [64, 128, 320, 512]
+    _, H, W = input_shape
+    N = H // 4 * W // 4
+
+    for i in range(3):
+        C = dims[i+1]
+        flops += N * N * C      # dist_matrix
+        flops += N * 5          # density
+        flops += N * N          # dist
+        flops += N * C          # gather
+        N = N // 4
+    return flops
+
+
+'''
+token2map nad map2token all have N0 * (2 + 1 + 1 + C) flops
+'''
+
+def map2token_flops(N0, C):
+    return N0 * (2 + 1 + 1 + C)
+
+def token2map_flops(N0, C):
+    return N0 * (2 + 1 + 1 + C)
+
+
 def get_flops(model, input_shape):
     flops, params = get_model_complexity_info(model, input_shape, as_strings=False)
+    if 'den' in model.name:
+        tmp = get_cluster_flops(model, input_shape)
+        flops += tmp
 
-    if 'my' in model.name:
-        flops += get_mypvt_flops(model, input_shape)
+        mlp_ratios = [8, 8, 4, 4]
+        # token and map
+        tmp = 0
+        _, H, W = input_shape
+        N0 = H // 4 * W // 4
+
+        dim, mlp_r, num = model.block2[0].attn.dim, 8, len(model.block2) + 1
+        tmp += (map2token_flops(N0, dim) + map2token_flops(N0, dim*mlp_r) + token2map_flops(N0, dim*mlp_r)) * num
+
+        dim, mlp_r, num = model.block3[0].attn.dim, 4, len(model.block3) + 1
+        tmp += (map2token_flops(N0, dim) + map2token_flops(N0, dim*mlp_r) + token2map_flops(N0, dim*mlp_r)) * num
+
+        dim, mlp_r, num = model.block4[0].attn.dim, 4, len(model.block4) + 1
+        tmp += (map2token_flops(N0, dim*mlp_r) + token2map_flops(N0, dim*mlp_r)) * num
+
+        flops += tmp
+
+        if 'li' in model.name:  # calculate flops of PVTv2_li
+            stage1 = li_sra_flops(H // 4, W // 4,
+                                  model.block1[0].attn.dim) * (len(model.block1) + 1)
+            stage2 = li_sra_flops(H // 8, W // 8,
+                                  model.block2[0].attn.dim) * (len(model.block2)+1)
+            stage3 = li_sra_flops(H // 16, W // 16,
+                                  model.block3[0].attn.dim) * (len(model.block3)+1)
+            stage4 = li_sra_flops(H // 32, W // 32,
+                                  model.block4[0].attn.dim) * (len(model.block4)+1)
+        else:  # calculate flops of PVT/PVTv2
+            stage1 = sra_flops(H // 4, W // 4,
+                               model.block1[0].attn.sr_ratio,
+                               model.block1[0].attn.dim) * (len(model.block1)+1)
+            stage2 = sra_flops(H // 8, W // 8,
+                               model.block2[0].attn.sr_ratio,
+                               model.block2[0].attn.dim) * (len(model.block2)+1)
+            stage3 = sra_flops(H // 16, W // 16,
+                               model.block3[0].attn.sr_ratio,
+                               model.block3[0].attn.dim) * (len(model.block3)+1)
+            stage4 = sra_flops(H // 32, W // 32,
+                               model.block4[0].attn.sr_ratio,
+                               model.block4[0].attn.dim) * (len(model.block4)+1)
+        flops += stage1 + stage2 + stage3 + stage4
+
+
+    # if 'my' in model.name:
+    #     flops += get_mypvt_flops(model, input_shape)
+    # elif 'den' in model.name:
+    #     flops += get_cluster_flops(model, input_shape)
 
     elif 'pvt' in model.name:
         _, H, W = input_shape

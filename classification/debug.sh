@@ -71,6 +71,11 @@ srun -p pat_earth \
 srun -p pat_earth -x SH-IDC1-10-198-4-[90-91,100-103,116-119] \
 srun -p mm_human \
 srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
+    --job-name=pvt --ntasks=8 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
+    --model=mypvt3h2_density0fl_tiny --output_dir=work_dirs/my3h2_density0f_tiny_light --finetune work_dirs/my3h2_density0f_tiny/checkpoint.pth \
+    --epoch=10 --lr=1e-4
+
+
     --job-name=pvt --ntasks=16 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
     --batch-size 64 --data-path data/imagenet --input-size 224 --use-mcloader \
