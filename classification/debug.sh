@@ -74,12 +74,15 @@ srun -p pat_earth  \
     --job-name=pvt --ntasks=8 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
     --batch-size 64 --data-path data/imagenet --input-size 224 --use-mcloader \
-    --model=mypvt3h2_density0fl2_tiny --output_dir=work_dirs/my3h2_density0f_tiny_light2 --finetune work_dirs/my3h2_density0f_tiny/checkpoint.pth \
+    --model=mypvt3h2_density0fl3_tiny --output_dir=work_dirs/my3h2_density0f_tiny_light3 --finetune work_dirs/my3h2_density0f_tiny/checkpoint.pth \
     --epoch=10 --lr=1e-4
-
 
     --model=mypvt3h2_density0fl_tiny --output_dir=work_dirs/my3h2_density0f_tiny_light --finetune work_dirs/my3h2_density0f_tiny/checkpoint.pth \
     --epoch=10 --lr=1e-4
+
+    --model=mypvt3h2_density0fl2_tiny --output_dir=work_dirs/my3h2_density0f_tiny_light2 --finetune work_dirs/my3h2_density0f_tiny/checkpoint.pth \
+    --epoch=10 --lr=1e-4
+
 
 
     --job-name=pvt --ntasks=16 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
