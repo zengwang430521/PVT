@@ -1,5 +1,10 @@
 # Copyright (c) 2015-present, Facebook, Inc.
 # All rights reserved.
+
+import sys
+from os.path import abspath, join, dirname
+sys.path.insert(0, 'index_process')
+
 import argparse
 import datetime
 import numpy as np
