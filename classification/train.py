@@ -24,32 +24,33 @@ from samplers import RASampler
 # import models
 import pvt
 import pvt_v2, pvt_v2_norm16
-import pvt_v2_20_2
-import pvt_v2_20_2g
-import pvt_v2_3
-import pvt_v2_3a, pvt_v2_3a0, pvt_v2_3a1, pvt_v2_3a2
-import pvt_v2_3b, pvt_v2_3b2, pvt_v2_3b3
-import pvt_v2_3c, pvt_v2_3c2, pvt_v2_3c3
-import pvt_v2_3d
-import pvt_v2_3e
-import pvt_v2_3f, pvt_v2_3f2, pvt_v2_3f3, pvt_v2_3f4, pvt_v2_3f5, \
-    pvt_v2_3f6, pvt_v2_3f7, pvt_v2_3f8, pvt_v2_3f9, pvt_v2_3f10, \
-    pvt_v2_3f11,pvt_v2_3f11_m, pvt_v2_3f12, pvt_v2_3f12_1,pvt_v2_3f12_2,\
-    pvt_v2_3f12_3, pvt_v2_3f12_4, pvt_v2_3f12_5, pvt_v2_3f13, pvt_v2_3f14, \
-    pvt_v2_3f15,  pvt_v2_3g, pvt_v2_3g1, pvt_v2_3h, pvt_v2_3h1, pvt_v2_3h2, \
-    pvt_v2_3h3, pvt_v2_3h4, pvt_v2_3h5, pvt_v2_3h6, pvt_v2_3h7, pvt_v2_3h8, \
-    pvt_v2_3h9, pvt_v2_3h10, pvt_v2_3h12, pvt_v2_3h2a, pvt_v2_3h2_fast, \
-    pvt_v2_3h2_fast_norm, pvt_v2_3h2_fast2, \
-    pvt_v2_3h2_density_norm, pvt_v2_3h2_density_norm16, \
+# import pvt_v2_20_2
+# import pvt_v2_20_2g
+# import pvt_v2_3
+# import pvt_v2_3a, pvt_v2_3a0, pvt_v2_3a1, pvt_v2_3a2
+# import pvt_v2_3b, pvt_v2_3b2, pvt_v2_3b3
+# import pvt_v2_3c, pvt_v2_3c2, pvt_v2_3c3
+# import pvt_v2_3d
+# import pvt_v2_3e
+# import pvt_v2_3f, pvt_v2_3f2, pvt_v2_3f3, pvt_v2_3f4, pvt_v2_3f5, \
+#     pvt_v2_3f6, pvt_v2_3f7, pvt_v2_3f8, pvt_v2_3f9, pvt_v2_3f10, \
+#     pvt_v2_3f11,pvt_v2_3f11_m, pvt_v2_3f12, pvt_v2_3f12_1,pvt_v2_3f12_2,\
+#     pvt_v2_3f12_3, pvt_v2_3f12_4, pvt_v2_3f12_5, pvt_v2_3f13, pvt_v2_3f14, \
+#     pvt_v2_3f15,  pvt_v2_3g, pvt_v2_3g1, pvt_v2_3h, pvt_v2_3h1, pvt_v2_3h2, \
+#     pvt_v2_3h3, pvt_v2_3h4, pvt_v2_3h5, pvt_v2_3h6, pvt_v2_3h7, pvt_v2_3h8, \
+#     pvt_v2_3h9, pvt_v2_3h10, pvt_v2_3h12, pvt_v2_3h2a, pvt_v2_3h2_fast, \
+#     pvt_v2_3h2_fast_norm, pvt_v2_3h2_fast2
+# import pvt_v2_4
+# import pvt_v2_4, pvt_v2_4b0, pvt_v2_4b1, pvt_v2_4b2, pvt_v2_4b3, pvt_v2_4b4
+# import pvt_v2_5, pvt_v2_5a, pvt_v2_5b, pvt_v2_5b0, pvt_v2_5c, pvt_v2_5c0,  pvt_v2_5f
+# import pvt_v2_6, pvt_v2_6a
+
+import pvt_v2_3h2_density_norm, pvt_v2_3h2_density_norm16, \
     pvt_v2_3h2_density, pvt_v2_3h2_density_a, pvt_v2_3h2_density_f, pvt_v2_3h2_density_debug, \
-    myhrpvt, myhrpvt2, hrt, pvt_v2_3h2_density_f_light, pvt_v2_3h2_density_f_light2, pvt_v2_3h2_density_f_light3
+    myhrpvt, myhrpvt2, hrt, pvt_v2_3h2_density_f_light, pvt_v2_3h2_density_f_light2, pvt_v2_3h2_density_f_light3, \
+    pvt_v2_3h2_density_v
 
-
-
-import pvt_v2_4
-import pvt_v2_4, pvt_v2_4b0, pvt_v2_4b1, pvt_v2_4b2, pvt_v2_4b3, pvt_v2_4b4
-import pvt_v2_5, pvt_v2_5a, pvt_v2_5b, pvt_v2_5b0, pvt_v2_5c, pvt_v2_5c0,  pvt_v2_5f
-import pvt_v2_6, pvt_v2_6a
+from tc_module import tcformer, tcformer_hir
 
 import utils
 import collections

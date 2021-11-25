@@ -136,7 +136,19 @@ def evaluate(data_loader, model, device):
     # switch to evaluation mode
     model.eval()
 
+    i = 0
     for images, target in metric_logger.log_every(data_loader, 10, header):
+        # i +=1
+        # if i % 10 != 0:
+        #     continue
+        # if i not in [300, 370, 490, 540, 570, 1090, 1160, 1290, 1370, 1420, 1590, 1740,
+        #              1830, 1900, 2010, 2220, 2680, 3060, 3200, 3390, 3410, 3550, 3590,
+        #              3850, 4010, 4310, 4670, 4830, 9970, 10080, 10100, 10450, 10630,
+        #              11280, 11510, 11820, 12240, 12540, 13470, 14690, 15440, 16230, 16720,
+        #              19040, 19050, 19480, 20410, 20470, 21800, 22390, 22460, 23020, 23120,
+        #              24160, 24330, 24390, 24610, 24620, 24760]:
+        #     continue
+        # model.count = i
         images = images.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
 
