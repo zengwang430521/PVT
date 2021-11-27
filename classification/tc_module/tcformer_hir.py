@@ -4,7 +4,7 @@ from functools import partial
 import math
 from .tc_layers import Block, TCBlock, OverlapPatchEmbed
 from .tcformer_utils import (
-    get_grid_loc, token2map, map2token, token_cluster_hir, token_cluster_merge,
+    get_grid_loc, show_tokens_merge,
     DPC_flops, token2map_flops, map2token_flops, sra_flops,
     load_checkpoint, get_root_logger)
 from .transformer_utils import trunc_normal_
@@ -12,7 +12,7 @@ from timm.models.registry import register_model
 # from .ctm_block import CTM as CTM
 from .ctm_block import CTM_hir as CTM
 
-# vis = False
+vis = False
 # vis = True
 
 '''
@@ -93,6 +93,7 @@ class TCFormer(nn.Module):
 
         self.apply(self._init_weights)
         self.init_weights(pretrained)
+        self.count = 0
 
     def init_weights(self, pretrained=None):
         if isinstance(pretrained, str):
@@ -126,6 +127,7 @@ class TCFormer(nn.Module):
 
     def forward_features(self, x):
         outs = []
+        img = x
         # stage 1
         i = 0
         patch_embed = getattr(self, f"patch_embed{i + 1}")
@@ -163,6 +165,11 @@ class TCFormer(nn.Module):
                          'loc_orig': loc_orig,
                          'idx_agg': idx_agg,
                          'agg_weight': agg_weight})
+
+        if vis:
+            show_tokens_merge(img, outs, self.count)
+            self.count += 1
+
         # return outs
         return x.mean(dim=1)
 

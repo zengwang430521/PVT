@@ -10,7 +10,7 @@ from .tcformer_utils import (
 from .transformer_utils import trunc_normal_
 from timm.models.registry import register_model
 # from .ctm_block import CTM as CTM
-from .ctm_block import CTM_dpchir as CTM
+from .ctm_block import CTM_lsh as CTM
 
 vis = False
 # vis = True
@@ -18,6 +18,9 @@ vis = False
 '''
 Merge tokens in hierarchical way
 '''
+
+
+
 
 
 class TCFormer(nn.Module):
@@ -203,7 +206,7 @@ class TCFormer(nn.Module):
 
 
 @register_model
-class tcformer_dpchir_light(TCFormer):
+class tcformer_lsh_light(TCFormer):
     def __init__(self, **kwargs):
         super().__init__(
             embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
@@ -211,7 +214,7 @@ class tcformer_dpchir_light(TCFormer):
             k=5, **kwargs)
 
 @register_model
-class tcformer_dpchir_small(TCFormer):
+class tcformer_lsh_small(TCFormer):
     def __init__(self, **kwargs):
         super().__init__(
             embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
@@ -219,7 +222,7 @@ class tcformer_dpchir_small(TCFormer):
             k=5, **kwargs)
 
 @register_model
-class tcformer_dpchir_large(TCFormer):
+class tcformer_lsh_large(TCFormer):
     def __init__(self, **kwargs):
         super().__init__(
             embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
