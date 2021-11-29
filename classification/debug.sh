@@ -138,6 +138,14 @@ srun -p pat_earth -x SH-IDC1-10-198-4-[90-91,100-103,116-119] \
 srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
     --job-name=pvt --ntasks=8 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
+    --batch-size 128 --data-path data/imagenet --input-size 128 --use-mcloader \
+    --model=pvt_v2_b2 --output_dir=work_dirs/128/pvtv2 --resume work_dirs/128/pvtv2/checkpoint.pth
+
+    --model=tcformer_app_small --output_dir=work_dirs/128/tc_app --resume work_dirs/128/tc_app/checkpoint.pth
+
+    --model=tcformer_small --output_dir=work_dirs/128/tc --resume work_dirs/128/tc/checkpoint.pth
+
+
     --batch-size 128 --data-path data/imagenet --input-size 112 --use-mcloader \
     --model=tcformer_small --output_dir=work_dirs/tc_LR --resume work_dirs/tc_LR/checkpoint.pth
 
