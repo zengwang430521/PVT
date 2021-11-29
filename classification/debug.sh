@@ -72,9 +72,10 @@ srun -p pat_earth \
 
 srun -p pat_earth  --job-name=pvt --ntasks=1 --gres=gpu:1 --ntasks-per-node=1 --cpus-per-task=1 --kill-on-bad-exit=1 python setup_dist.py install
 
-srun -p pat_earth -x SH-IDC1-10-198-4-[90-91,100-103,116-119] \
 srun -p mm_human \
 srun -p pat_earth  \
+srun -p pat_earth -x SH-IDC1-10-198-4-[90-91,100-103,116-119] \
+srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
     --job-name=pvt --ntasks=16 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
     --batch-size 64 --data-path data/imagenet --input-size 224 --use-mcloader \
@@ -138,8 +139,11 @@ srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
     --job-name=pvt --ntasks=8 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
     --batch-size 128 --data-path data/imagenet --input-size 112 --use-mcloader \
-    --model=tcformer_dpchir_small --output_dir=work_dirs/tcdpchir_LR --resume work_dirs/tcdpchir_LR/checkpoint.pth
+    --model=tcformer_small --output_dir=work_dirs/tc_LR --resume work_dirs/tc_LR/checkpoint.pth
 
+    --model=tcformer_lsh_small --output_dir=work_dirs/tclsh_LR --resume work_dirs/tclsh_LR/checkpoint.pth
+
+    --model=tcformer_dpchir_small --output_dir=work_dirs/tcdpchir_LR --resume work_dirs/tcdpchir_LR/checkpoint.pth
 
     --model=tcformer_hir_small --output_dir=work_dirs/tchir_LR --resume work_dirs/tchir_LR/checkpoint.pth
 

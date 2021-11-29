@@ -9,16 +9,15 @@ from .tcformer_utils import (
     load_checkpoint, get_root_logger)
 from .transformer_utils import trunc_normal_
 from timm.models.registry import register_model
-from .ctm_block import CTM
+# from .ctm_block import CTM as CTM
+from .ctm_block import CTM_app as CTM
 
 vis = False
 vis = True
 
 '''
-Merge tokens in DPC way
+approximate distance matrix
 '''
-
-
 
 class TCFormer(nn.Module):
     def __init__(self, img_size=224, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
@@ -203,7 +202,7 @@ class TCFormer(nn.Module):
 
 
 @register_model
-class tcformer_light(TCFormer):
+class tcformer_app_light(TCFormer):
     def __init__(self, **kwargs):
         super().__init__(
             embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
@@ -211,7 +210,7 @@ class tcformer_light(TCFormer):
             k=5, **kwargs)
 
 @register_model
-class tcformer_small(TCFormer):
+class tcformer_app_small(TCFormer):
     def __init__(self, **kwargs):
         super().__init__(
             embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
@@ -219,7 +218,7 @@ class tcformer_small(TCFormer):
             k=5, **kwargs)
 
 @register_model
-class tcformer_large(TCFormer):
+class tcformer_app_large(TCFormer):
     def __init__(self, **kwargs):
         super().__init__(
             embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
