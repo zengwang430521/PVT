@@ -192,27 +192,32 @@ for i in range(100):
 #     plt.imshow(x_map_re[0, : 3].permute(1, 2, 0).detach().cpu())
 #
 
-import torch
-from torch import nn
-fc = nn.Linear(4, 1)
-nn.init.constant_(fc.weight, 0)
-nn.init.constant_(fc.bias, 0)
+# import torch
+# from torch import nn
+# fc = nn.Linear(4, 1)
+# nn.init.constant_(fc.weight, 0)
+# nn.init.constant_(fc.bias, 0)
+#
+# x = torch.rand(1, 4)
+# y = fc(x).sum()
+# l = -y
+# l.backward()
+#
+#
+# import torch
+# from torch_sparse import spmm
+#
+# index = torch.tensor([[0, 0, 1, 2, 2],
+#                       [0, 2, 1, 0, 1]])
+# value = torch.Tensor([1, 2, 4, 1, 3]).requires_grad_().half()
+# matrix = torch.Tensor([[1, 4], [2, 5], [3, 6]]).half()
+#
+# out = spmm(index, value, 3, 3, matrix)
+# print(out)
+# loss = out.sum()
+# loss.backward()
 
-x = torch.rand(1, 4)
-y = fc(x).sum()
-l = -y
-l.backward()
-
-
-import torch
-from torch_sparse import spmm
-
-index = torch.tensor([[0, 0, 1, 2, 2],
-                      [0, 2, 1, 0, 1]])
-value = torch.Tensor([1, 2, 4, 1, 3]).requires_grad_().half()
-matrix = torch.Tensor([[1, 4], [2, 5], [3, 6]]).half()
-
-out = spmm(index, value, 3, 3, matrix)
-print(out)
-loss = out.sum()
-loss.backward()
+from tc_module import tcformer_utils
+device = torch.device('cuda')
+loc = tcformer_utils.get_grid_loc(2, 64, 64, device)
+tcformer_utils.get_spatial_neighbor(loc, 49)

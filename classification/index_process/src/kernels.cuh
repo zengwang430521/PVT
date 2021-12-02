@@ -241,7 +241,7 @@ __global__ void mydist(
             p_query += 1;
             p_key += 1;
         }
-        val = sqrt(val / static_cast<dtc> (channels));
+        val = sqrt(val);
         y[idx_all] = static_cast<dt> (val);
 
 

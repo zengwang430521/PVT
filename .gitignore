@@ -22,3 +22,7 @@ segmentation/work_dirs
 .*
 .idea/
 *.pth
+**/build
+**/dist
+**/localAttention.egg-info
+**/vis_select

@@ -7,6 +7,7 @@ import re
 import math
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
+from torch_cluster import fps
 
 
 def load_checkpoint(model,
@@ -274,11 +275,11 @@ def token_cluster_merge(x, Ns, idx_agg, weight=None, return_weight=False, k=5):
 
         idx = idx_agg_t + torch.arange(B, device=x.device)[:, None] * Ns
 
-    # # only for debug
-    # loc_orig = get_grid_loc(x.shape[0], 32, 32, x.device)
-    # show_conf_merge(density[:, :, None], None, loc_orig, idx_agg, n=1, vmin=None)
-    # show_conf_merge(dist[:, :, None], None, loc_orig, idx_agg, n=2, vmin=None)
-    # show_conf_merge(score[:, :, None], None, loc_orig, idx_agg, n=3, vmin=None)
+    # only for debug
+    loc_orig = get_grid_loc(x.shape[0], 64, 64, x.device)
+    show_conf_merge(density[:, :, None], None, loc_orig, idx_agg, n=1, vmin=None)
+    show_conf_merge(dist[:, :, None], None, loc_orig, idx_agg, n=2, vmin=None)
+    show_conf_merge(score[:, :, None], None, loc_orig, idx_agg, n=3, vmin=None)
 
     # normalize the weight
     all_weight = weight.new_zeros(B * Ns, 1)
@@ -614,6 +615,25 @@ def show_tokens_merge(x, out, count=0):
     return
 
 
+def show_conf_merge(conf, loc, loc_orig, idx_agg, l=2, c=5, n=0, vmin=0, vmax=7):
+    H0 = 64
+    H = int(conf.shape[1]**0.5)
+    if n <= 0:
+        n = int(math.log2(H0 / H) + 7 + 0)
+
+    # conf = F.softmax(conf, dim=1)
+    # conf = conf.exp()
+    # conf = conf - conf.min(dim=1, keepdim=True)[0]
+    conf_map, _ = token2map(conf, loc, loc_orig, idx_agg, [H0, H0])
+    ax = plt.subplot(l, c, n)
+    ax.clear()
+    if vmax is not None and vmin is not None:
+        ax.imshow(conf_map[0, 0].detach().cpu().float(), vmin=vmin, vmax=vmax)
+    else:
+        ax.imshow(conf_map[0, 0].detach().cpu().float())
+    # plt.colorbar()
+
+
 # approximate DPC-KNN
 def token_cluster_app(input_dict, Ns, weight=None, return_weight=False, k=5):
     x = input_dict['x']
@@ -687,6 +707,10 @@ def token_cluster_app(input_dict, Ns, weight=None, return_weight=False, k=5):
         # idx_batch = torch.arange(B, device=x.device)[:, None].expand(B, N)
         # mask[idx_batch.reshape(-1), idx_tmp.reshape(-1)] = False
         mask = mask.type(x.dtype)
+
+        # just for debug
+        # dist_matrix = dist_matrix[:, :, h*w:]
+        # mask = mask[:, :, h*w:]
         dist, index_parent = (dist_matrix * mask +
                               dist_matrix.flatten(1).max(dim=-1)[0][:, None, None] * (1 - mask)).min(dim=-1)
 
@@ -707,12 +731,12 @@ def token_cluster_app(input_dict, Ns, weight=None, return_weight=False, k=5):
 
         idx = idx_agg_t + torch.arange(B, device=x.device)[:, None] * Ns
 
-    # # # # for debug only
-    # loc_orig = get_grid_loc(x.shape[0], 32, 32, x.device)
-    # show_conf_merge(density[:, :, None], None, loc_orig, idx_agg, n=1+5, vmin=None)
-    # show_conf_merge(dist[:, :, None], None, loc_orig, idx_agg, n=2+5, vmin=None)
-    # show_conf_merge(score[:, :, None], None, loc_orig, idx_agg, n=3+5, vmin=None)
-    #
+    # # # for debug only
+    loc_orig = get_grid_loc(x.shape[0], 32, 32, x.device)
+    show_conf_merge(density[:, :, None], None, loc_orig, idx_agg, n=1+5, vmin=None)
+    show_conf_merge(dist[:, :, None], None, loc_orig, idx_agg, n=2+5, vmin=None)
+    show_conf_merge(score[:, :, None], None, loc_orig, idx_agg, n=3+5, vmin=None)
+
 
     '''merge'''
     # normalize the weight
@@ -734,20 +758,506 @@ def token_cluster_app(input_dict, Ns, weight=None, return_weight=False, k=5):
     return x_out, idx_agg
 
 
-def show_conf_merge(conf, loc, loc_orig, idx_agg, l=2, c=5, n=0, vmin=0, vmax=7):
-    H0 = 32
-    H = int(conf.shape[1]**0.5)
-    if n <= 0:
-        n = int(math.log2(H0 / H) + 7 + 0)
+# approximate DPC-KNN
+# failed try
+# def token_cluster_app2(input_dict, Ns, weight=None, return_weight=False, k=5):
+#     x = input_dict['x']
+#     idx_agg = input_dict['idx_agg']
+#     agg_weight = input_dict['agg_weight']
+#     loc_orig = input_dict['loc_orig']
+#     H, W = input_dict['map_size']
+#
+#     dtype = x.dtype
+#     device = x.device
+#     B, N, C = x.shape
+#     N0 = idx_agg.shape[1]
+#
+#     if weight is None:
+#         weight = x.new_ones(B, N, 1)
+#
+#     with torch.no_grad():
+#         if agg_weight is None:
+#             agg_weight = x.new_ones(B, N0, 1)
+#         scale_factor = N ** 0.25
+#         h, w = int(round(H/scale_factor)), int(round(W/scale_factor))
+#         K = max(int(2 * math.sqrt(N)), k)
+#         # x_rough, _ = token2map(x, None, loc_orig, idx_agg, [h, w], weight=agg_weight)
+#         # x_rough = x_rough.flatten(2).permute(0, 2, 1)
+#
+#         batch = torch.arange(B, device=x.device)[:, None].expand(B, N)
+#         with torch.cuda.amp.autocast(enabled=False):
+#             # h = h * 2
+#             idx_rough = fps(x.flatten(0, 1).type(torch.float32), batch.flatten(0, 1), ratio=h*w/N).reshape(B, -1).to(device)
+#             idx_rough = idx_rough - torch.arange(B, device=device)[:, None] * N
+#             x_rough = index_points(x, idx_rough)
+#
+#
+#         Nr = x_rough.shape[1]
+#         dist_matrix1 = torch.cdist(x, x_rough)
+#
+#         _, idx_k_rough = torch.topk(-dist_matrix1, k=K, dim=1)      # nearest tokens for every rough token
+#         idx_k_rough = idx_k_rough.permute(0, 2, 1)
+#
+#         idx_tmp = dist_matrix1.argmin(axis=2)                       # nearest rough token for each token
+#         idx_k = index_points(idx_k_rough, idx_tmp)                  # approximate nearest tokens for each token
+#
+#         # _, idx_tmp = dist_matrix1.topk(k=k, dim=-1, largest=False)      # nearest rough token for each token
+#         # idx_k = index_points(idx_k_rough, idx_tmp).reshape(B, N, -1)    # approximate nearest tokens for each token
+#
+#         '''add neareset neighbor in space'''
+#         # y_map, x_map = torch.meshgrid(torch.torch.arange(7, device=device)-3, torch.torch.arange(7, device=device)-3)
+#         # y_map, x_map = y_map.reshape(-1), x_map.reshape(-1)
+#         # idx_off = y_map * W + x_map
+#         # K2 = 49
+#         # idx_space = torch.arange(N, device=device)[None, :, None].expand(B, N, K2) +\
+#         #             idx_off[None, None, :].expand(B, N, K2)
+#         # idx_space = idx_space.clamp(0, N-1).long()
+#         #
+#         # idx_k = torch.cat([idx_k, idx_space], dim=-1)
+#         # K1 = K
+#         # K = K + K2
+#
+#
+#
+#         #####################################################
+#         # just for debug
+#         # tmp = x.new_zeros([B, N, 1])
+#         # idx_batch = torch.arange(B)[:, None, None].expand(B, N, K)
+#         # tmp[idx_batch.reshape(-1), idx_k.reshape(-1), 0] = (torch.arange(N, device=device) == N-1)[None, :, None].expand(B, N, K).reshape(-1).float()
+#         # show_conf_merge(tmp, None, loc_orig, idx_agg, n=4 + 5, vmin=None)
+#         #
+#         # # tmp = x.new_zeros([B, N, 1])
+#         # # idx_batch = torch.arange(B)[:, None, None].expand(B, h*w, K)
+#         # # tmp[idx_batch.reshape(-1), idx_k_rough.reshape(-1), 0] = (torch.arange(h*w,device=device)[None, :, None]>-1).expand(B, -1, K).reshape(-1).float()
+#         # # show_conf_merge(tmp, None, loc_orig, idx_agg, n=4 + 5, vmin=None)
+#         #
+#         #
+#         # tmp = x.new_zeros([B, N, 1])
+#         # idx_batch = torch.arange(B)[:, None, None].expand(B, h*w, 1)
+#         # idx_rough = idx_k_rough[:, :, 0].reshape(B, -1)
+#         # tmp[idx_batch.reshape(-1), idx_rough.reshape(-1), :] = 1
+#         # show_conf_merge(tmp, None, loc_orig, idx_agg, n=5 + 5, vmin=None)
+#         #
+#         #####################################################
+#
+#
+#         # idx_rough = idx_k_rough[:, :, 0].reshape(B, -1)
+#         # idx_part = torch.cat([idx_k, idx_rough[:, None, :].expand(-1, N, -1)], dim=-1)
+#         idx_part = idx_k
+#
+#         #
+#         # # make sure idx_k do not include the token itself.
+#         # mask_k = idx_k == torch.arange(N, device=device)[None, :, None]
+#         # mask_k2 = mask_k.sum(dim=-1)
+#         # idx_k[mask_k] = idx_k[mask_k]
+#
+#         with torch.cuda.amp.autocast(enabled=False):
+#             '''I only support float, float, int Now'''
+#             dist_part = f_distance(
+#                 x.float().contiguous(),
+#                 x.float().contiguous(),
+#                 idx_part.int().contiguous())
+#
+#         # get local density
+#         dist_part = dist_part.type(dtype) / (C**0.5)
+#         dist_k = dist_part[:, :, :K]
+#         idx_k = idx_part[:, :, :K]
+#
+#         # make sure selected k-nearest neighbor do not include the token itself.
+#         mask_k = idx_k == torch.arange(N, device=device)[None, :, None]
+#         dist_k = dist_k * (~mask_k) + (dist_k.max()+1) * mask_k
+#
+#         dist_nearest, index_nearest = torch.topk(dist_k, k=k, dim=-1, largest=False)
+#         density = (-(dist_nearest ** 2).mean(dim=-1)).exp()
+#
+#         # dist indicator
+#         density_k_rough = index_points(density[:, :, None], idx_k_rough).squeeze(-1)
+#         idx_den = density_k_rough.argmax(dim=-1)
+#         idx_batch = torch.arange(B)[:, None].expand(B, Nr)
+#         idx_nr = torch.arange(h*w)[None, :].expand(B, Nr)
+#         idx_den = idx_k_rough[idx_batch.reshape(-1), idx_nr.reshape(-1), idx_den.reshape(-1)].reshape(B, Nr)
+#         x_den = index_points(x, idx_den)
+#         dist_den = torch.cdist(x, x_den) / (C**0.5)
+#         density_den = index_points(density[:, :, None], idx_den).squeeze(-1)
+#
+#
+#         dist_matrix = dist_part
+#         density_matrix = index_points(density[:, :, None], idx_part).squeeze(-1)
+#
+#         dist_matrix = torch.cat([dist_matrix, dist_den], dim=-1)
+#         density_matrix = torch.cat([density_matrix, density_den[:, None, :].expand(B, N, Nr)], dim=-1)
+#
+#         # dist_matrix = dist_den
+#         # density_matrix = density_den[:, None, :].expand(B, N, Nr)
+#         #
+#
+#         mask = density_matrix > density[:, :, None]
+#         mask = mask.type(x.dtype)
+#         dist, index_parent = (dist_matrix * mask +
+#                               dist_matrix.flatten(1).max(dim=-1)[0][:, None, None] * (1 - mask)).min(dim=-1)
+#
+#         # # distance indicator, JUST FOR DEBUG
+#         # mask = density[:, None, :] > density[:, :, None]
+#         # dist_matrix = torch.cdist(x, x) / (C ** 0.5)
+#         # mask = mask.type(x.dtype)
+#         # dist2, index_parent = (dist_matrix * mask +
+#         #                       dist_matrix.flatten(1).max(dim=-1)[0][:, None, None] * (1 - mask)).min(dim=-1)
+#
+#
+#         # select clustering center according to score
+#         score = dist * density
+#         _, index_down = torch.topk(score, k=Ns, dim=-1)
+#
+#         # # # for debug only
+#         show_conf_merge(density[:, :, None], None, loc_orig, idx_agg, n=1 + 5, vmin=None)
+#         show_conf_merge(dist[:, :, None], None, loc_orig, idx_agg, n=2 + 5, vmin=None)
+#         show_conf_merge(score[:, :, None], None, loc_orig, idx_agg, n=3 + 5, vmin=None)
+#
+#
+#         # grouping
+#         # assign tokens to the nearest center
+#         centers = index_points(x, index_down)
+#         dist_matrix = torch.cdist(centers, x)
+#         idx_agg_t = dist_matrix.argmin(dim=1)
+#
+#         # make sure selected centers merge to itself
+#         idx_batch = torch.arange(B, device=x.device)[:, None].expand(B, Ns)
+#         idx_tmp = torch.arange(Ns, device=x.device)[None, :].expand(B, Ns)
+#         idx_agg_t[idx_batch.reshape(-1), index_down.reshape(-1)] = idx_tmp.reshape(-1)
+#
+#         idx = idx_agg_t + torch.arange(B, device=x.device)[:, None] * Ns
+#
+#
+#
+#     '''merge'''
+#     # normalize the weight
+#     all_weight = weight.new_zeros(B * Ns, 1)
+#     all_weight.index_add_(dim=0, index=idx.reshape(B * N), source=weight.reshape(B * N, 1))
+#     all_weight = all_weight + 1e-6
+#     norm_weight = weight / all_weight[idx]
+#
+#     # average token features
+#     x_out = x.new_zeros(B * Ns, C)
+#     source = x * norm_weight
+#     x_out.index_add_(dim=0, index=idx.reshape(B * N), source=source.reshape(B * N, C).type(x.dtype))
+#     x_out = x_out.reshape(B, Ns, C)
+#
+#     idx_agg = index_points(idx_agg_t[..., None], idx_agg).squeeze(-1)
+#     if return_weight:
+#         weight_t = index_points(norm_weight, idx_agg)
+#         return x_out, idx_agg, weight_t
+#     return x_out, idx_agg
 
-    # conf = F.softmax(conf, dim=1)
-    # conf = conf.exp()
-    # conf = conf - conf.min(dim=1, keepdim=True)[0]
-    conf_map, _ = token2map(conf, loc, loc_orig, idx_agg, [H0, H0])
-    ax = plt.subplot(l, c, n)
-    ax.clear()
-    if vmax is not None and vmin is not None:
-        ax.imshow(conf_map[0, 0].detach().cpu().float(), vmin=vmin, vmax=vmax)
+
+
+
+'''failed'''
+# def token_cluster_app2(input_dict, Ns, weight=None, return_weight=False, k=5):
+#     x = input_dict['x']
+#     idx_agg = input_dict['idx_agg']
+#     agg_weight = input_dict['agg_weight']
+#     loc_orig = input_dict['loc_orig']
+#     H, W = input_dict['map_size']
+#
+#     dtype = x.dtype
+#     device = x.device
+#     B, N, C = x.shape
+#     N0 = idx_agg.shape[1]
+#
+#     if weight is None:
+#         weight = x.new_ones(B, N, 1)
+#     if agg_weight is None:
+#         agg_weight = x.new_ones(B, N0, 1)
+#
+#     with torch.no_grad():
+#         x_ref = x[:, [0], :]
+#         dist_ref = torch.cdist(x, x_ref).squeeze(-1)
+#         _, idx_sort = dist_ref.sort(dim=-1)
+#         idx_back = index_points(torch.arange(N, device=device)[None, :, None].expand(B, N, 1), idx_sort).squeeze(-1)
+#
+#         # x_sort = index_points(x, idx_sort)
+#         K = max(int(2 * math.sqrt(N)), k)
+#         # K = int(N)
+#         idx_k = torch.arange(K, device=device)[None, None, :].expand(B, N, K) - 0.5 * K \
+#                 + torch.arange(N, device=device)[None, :, None].expand(B, N, K)
+#         idx_k = idx_k.clamp(0, N-1).long()
+#
+#         idx_k = index_points(idx_back[:, :, None], idx_k).squeeze(-1)
+#         idx_k = index_points(idx_k, idx_back)
+#
+#
+#         with torch.cuda.amp.autocast(enabled=False):
+#             '''I only support float, float, int Now'''
+#             dist_k = f_distance(
+#                 x.float().contiguous(),
+#                 x.float().contiguous(),
+#                 idx_k.int().contiguous())
+#             dist_k = dist_k.type(dtype) / (C**0.5)
+#
+#         dist_part = dist_k
+#         idx_part = idx_k
+#
+#         # dist_part = index_points(dist_k, idx_back)
+#         # idx_part = index_points(idx_sort[:, :, None], idx_k).squeeze(-1)
+#         # idx_part = index_points(idx_part, idx_back)
+#
+#         # get local density
+#         dist_k = dist_part[:, :, :K]
+#         idx_k = idx_part[:, :, :K]
+#         # make sure selected k-nearest neighbor do not include the token itself.
+#         mask_k = idx_k == torch.arange(N, device=device)[None, :, None]
+#         dist_k = dist_k * (~mask_k) + (dist_k.max()+1) * mask_k
+#
+#         dist_nearest, index_nearest = torch.topk(dist_k, k=k, dim=-1, largest=False)
+#         density = (-(dist_nearest ** 2).mean(dim=-1)).exp()
+#
+#         # dist indicator
+#         dist_matrix = dist_part
+#         density_matrix = index_points(density[:, :, None], idx_part).squeeze(-1)
+#
+#         mask = density_matrix > density[:, :, None]
+#         mask = mask.type(x.dtype)
+#         dist, index_parent = (dist_matrix * mask +
+#                               dist_matrix.flatten(1).max(dim=-1)[0][:, None, None] * (1 - mask)).min(dim=-1)
+#
+#         # # distance indicator, JUST FOR DEBUG
+#         # mask = density[:, None, :] > density[:, :, None]
+#         # dist_matrix = torch.cdist(x, x) / (C ** 0.5)
+#         # mask = mask.type(x.dtype)
+#         # dist2, index_parent = (dist_matrix * mask +
+#         #                       dist_matrix.flatten(1).max(dim=-1)[0][:, None, None] * (1 - mask)).min(dim=-1)
+#
+#
+#         # select clustering center according to score
+#         score = dist * density
+#         _, index_down = torch.topk(score, k=Ns, dim=-1)
+#
+#         # # # for debug only
+#         show_conf_merge(density[:, :, None], None, loc_orig, idx_agg, n=1 + 5, vmin=None)
+#         show_conf_merge(dist[:, :, None], None, loc_orig, idx_agg, n=2 + 5, vmin=None)
+#         show_conf_merge(score[:, :, None], None, loc_orig, idx_agg, n=3 + 5, vmin=None)
+#
+#
+#         # grouping
+#         # assign tokens to the nearest center
+#         centers = index_points(x, index_down)
+#         dist_matrix = torch.cdist(centers, x)
+#         idx_agg_t = dist_matrix.argmin(dim=1)
+#
+#         # make sure selected centers merge to itself
+#         idx_batch = torch.arange(B, device=x.device)[:, None].expand(B, Ns)
+#         idx_tmp = torch.arange(Ns, device=x.device)[None, :].expand(B, Ns)
+#         idx_agg_t[idx_batch.reshape(-1), index_down.reshape(-1)] = idx_tmp.reshape(-1)
+#
+#         idx = idx_agg_t + torch.arange(B, device=x.device)[:, None] * Ns
+#
+#
+#
+#     '''merge'''
+#     # normalize the weight
+#     all_weight = weight.new_zeros(B * Ns, 1)
+#     all_weight.index_add_(dim=0, index=idx.reshape(B * N), source=weight.reshape(B * N, 1))
+#     all_weight = all_weight + 1e-6
+#     norm_weight = weight / all_weight[idx]
+#
+#     # average token features
+#     x_out = x.new_zeros(B * Ns, C)
+#     source = x * norm_weight
+#     x_out.index_add_(dim=0, index=idx.reshape(B * N), source=source.reshape(B * N, C).type(x.dtype))
+#     x_out = x_out.reshape(B, Ns, C)
+#
+#     idx_agg = index_points(idx_agg_t[..., None], idx_agg).squeeze(-1)
+#     if return_weight:
+#         weight_t = index_points(norm_weight, idx_agg)
+#         return x_out, idx_agg, weight_t
+#     return x_out, idx_agg
+
+def agg_loc(input_dict):
+    x = input_dict['x']
+    loc_orig = input_dict['loc_orig']
+    idx_agg = input_dict['idx_agg']
+    agg_weight = input_dict['agg_weight']
+
+    B, N, _ = x.shape
+    device, dtype = x.device, x.dtype
+    N0 = loc_orig.shape[1]
+    if N == N0:
+        return loc_orig
+
+    idx_batch = torch.arange(B, device=device)[:, None].expand(B, N0)
+    idx_loc = torch.arange(N0, device=device)[None, :].expand(B, N0)
+
+    # use sparse matrix
+    idx_agg = idx_agg + idx_batch * N
+    idx_loc = idx_loc + idx_batch * N0
+
+    indices = torch.stack([idx_agg, idx_loc], dim=0).reshape(2, -1)
+
+    if agg_weight is None:
+        value = torch.ones(B * N0, device=device, dtype=dtype)
     else:
-        ax.imshow(conf_map[0, 0].detach().cpu().float())
-    # plt.colorbar()
+        value = agg_weight.reshape(B * N0)  # .type(torch.float32)
+
+    all_weight = spmm(indices, value, B * N, B * N0, x.new_ones([B * N0, 1])) + 1e-6
+    value = value / all_weight[idx_agg.reshape(-1), 0]
+    loc = spmm(indices, value, B * N, B * N0, loc_orig.reshape(B * N0, 2))
+    loc = loc.reshape(B, N, 2)
+    return loc
+
+
+def token_cluster_app2(input_dict, Ns, weight=None, k=5):
+    x = input_dict['x']
+    idx_agg = input_dict['idx_agg']
+    agg_weight = input_dict['agg_weight']
+    loc_orig = input_dict['loc_orig']
+    H, W = input_dict['map_size']
+    idx_k_loc = input_dict['idx_k_loc']
+
+    dtype = x.dtype
+    device = x.device
+    B, N, C = x.shape
+    N0 = idx_agg.shape[1]
+
+    idx_k_loc = idx_k_loc.expand(B, -1, -1)
+
+    if weight is None:
+        weight = x.new_ones(B, N, 1)
+
+    with torch.no_grad():
+        if agg_weight is None:
+            agg_weight = x.new_ones(B, N0, 1)
+
+        scale_factor = N ** 0.25
+        h, w = int(round(H/scale_factor)), int(round(W/scale_factor))
+        K = max(int(2 * math.sqrt(N)), k)
+        x_rough, _ = token2map(x, None, loc_orig, idx_agg, [h, w], weight=agg_weight)
+        x_rough = x_rough.flatten(2).permute(0, 2, 1)
+
+        Nr = x_rough.shape[1]
+        dist_matrix1 = torch.cdist(x, x_rough)
+
+        _, idx_k_rough = torch.topk(-dist_matrix1, k=K, dim=1)      # nearest tokens for every rough token
+        idx_k_rough = idx_k_rough.permute(0, 2, 1)
+
+        idx_tmp = dist_matrix1.argmin(axis=2)                       # nearest rough token for each token
+        idx_k_fea = index_points(idx_k_rough, idx_tmp)              # approximate nearest tokens for each token
+
+        idx_k = torch.cat([idx_k_fea, idx_k_loc], dim=-1)
+
+        # density is calculated using idx_k_fea
+        with torch.cuda.amp.autocast(enabled=False):
+            '''I only support float, float, int Now'''
+            dist_k = f_distance(
+                x.float().contiguous(),
+                x.float().contiguous(),
+                idx_k.int().contiguous())
+            dist_k = dist_k.type(dtype) / (C ** 0.5)
+
+        '''get local density'''
+        # the neighbor tokens can NOT include itself and duplicate tokens.
+
+        # in order to make sure no duplicate tokens, we only use idx_k_fea for density,
+        dist_fea = dist_k[:, :, : K]
+
+        # make sure selected k-nearest neighbor do not include the token itself.
+        mask_fea = idx_k_fea == torch.arange(N, device=device)[None, :, None]
+        dist_fea = dist_fea * (~mask_fea) + (dist_fea.max()+1) * mask_fea
+
+        dist_nearest, _ = torch.topk(dist_fea, k=k, dim=-1, largest=False)
+        density = (-(dist_nearest ** 2).mean(dim=-1)).exp()
+
+        '''dist indicator'''
+        # the neighbor tokens can include itself and duplicate tokens.
+
+        dist_matrix = dist_k
+        density_matrix = index_points(density[:, :, None], idx_k).squeeze(-1)
+
+        # add some rough tokens with high density
+        density_k_rough = index_points(density[:, :, None], idx_k_rough).squeeze(-1)
+        idx_den = density_k_rough.argmax(dim=-1)
+        idx_batch = torch.arange(B)[:, None].expand(B, Nr)
+        idx_nr = torch.arange(h*w)[None, :].expand(B, Nr)
+        idx_den = idx_k_rough[idx_batch.reshape(-1), idx_nr.reshape(-1), idx_den.reshape(-1)].reshape(B, Nr)
+        x_den = index_points(x, idx_den)
+        dist_den = torch.cdist(x, x_den) / (C**0.5)
+        density_den = index_points(density[:, :, None], idx_den).squeeze(-1)
+
+        dist_matrix = torch.cat([dist_matrix, dist_den], dim=-1)
+        density_matrix = torch.cat([density_matrix, density_den[:, None, :].expand(B, N, Nr)], dim=-1)
+
+        mask = density_matrix > density[:, :, None]
+        mask = mask.type(x.dtype)
+        dist, index_parent = (dist_matrix * mask +
+                              dist_matrix.flatten(1).max(dim=-1)[0][:, None, None] * (1 - mask)).min(dim=-1)
+
+        score = dist * density
+        _, index_down = torch.topk(score, k=Ns, dim=-1)
+
+        # # # # for debug only
+        # show_conf_merge(density[:, :, None], None, loc_orig, idx_agg, n=1 + 5, vmin=None)
+        # show_conf_merge(dist[:, :, None], None, loc_orig, idx_agg, n=2 + 5, vmin=None)
+        # show_conf_merge(score[:, :, None], None, loc_orig, idx_agg, n=3 + 5, vmin=None)
+
+        ''' tokens grouping '''
+        # assign tokens to the nearest center
+        centers = index_points(x, index_down)
+        dist_matrix = torch.cdist(x, centers)
+        idx_agg_t = dist_matrix.argmin(dim=-1)
+
+        # make sure selected centers merge to itself
+        idx_batch = torch.arange(B, device=x.device)[:, None].expand(B, Ns)
+        idx_tmp = torch.arange(Ns, device=x.device)[None, :].expand(B, Ns)
+        idx_agg_t[idx_batch.reshape(-1), index_down.reshape(-1)] = idx_tmp.reshape(-1)
+        idx = idx_agg_t + torch.arange(B, device=x.device)[:, None] * Ns
+
+
+        '''get idx_k_loc for the next stage'''
+        # first change idx
+        idx_k_loc_new = index_points(idx_agg_t[:, :, None], idx_k_loc).squeeze(-1)
+
+        # direct use the idx_k_loc of the center
+        idx_k_loc_new = index_points(idx_k_loc_new, index_down)
+
+    '''merge'''
+    # normalize the weight
+    all_weight = weight.new_zeros(B * Ns, 1)
+    all_weight.index_add_(dim=0, index=idx.reshape(B * N), source=weight.reshape(B * N, 1))
+    all_weight = all_weight + 1e-6
+    norm_weight = weight / all_weight[idx]
+
+    # average token features
+    x_out = x.new_zeros(B * Ns, C)
+    source = x * norm_weight
+    x_out.index_add_(dim=0, index=idx.reshape(B * N), source=source.reshape(B * N, C).type(x.dtype))
+    x_out = x_out.reshape(B, Ns, C)
+
+    idx_agg = index_points(idx_agg_t[..., None], idx_agg).squeeze(-1)
+
+    weight_t = index_points(norm_weight, idx_agg)
+
+    return x_out, idx_agg, weight_t, idx_k_loc_new
+
+
+# find the spatial neighbors of tokens
+def get_spatial_neighbor(loc, k=49):
+    # reorder to grid structure
+    B, N, _ = loc.shape
+    dist_matrix = torch.cdist(loc, loc)
+    _, idx_k = torch.topk(dist_matrix, dim=-1, largest=False, k=k)
+    return idx_k
+
+
+def get_initial_loc_neighbor(H, W, device, k=7):
+    pad = int((k - 1) / 2)
+    tmp = torch.arange(k, device=device) - pad
+    y_map, x_map = torch.meshgrid(tmp, tmp)
+    y_map, x_map = y_map.reshape(-1), x_map.reshape(-1)
+    idx_off = y_map * W + x_map
+
+    idx_k_loc = torch.arange(H * W, device=device).reshape(H, W, 1)
+    idx_k_loc = idx_k_loc - idx_off[None, None, :]
+    idx_k_loc = idx_k_loc[pad:-pad, pad:-pad, :]
+    idx_k_loc = F.pad(idx_k_loc.permute(2, 0, 1).unsqueeze(0).float(),
+                      [pad, pad, pad, pad], mode='replicate').long()
+    idx_k_loc = idx_k_loc.flatten(2).permute(0, 2, 1)
+    return idx_k_loc
