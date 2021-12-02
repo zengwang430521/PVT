@@ -55,7 +55,7 @@ import pvt_v2_3h2_density_norm, pvt_v2_3h2_density_norm16, \
     myhrpvt, myhrpvt2, hrt, pvt_v2_3h2_density_f_light, pvt_v2_3h2_density_f_light2, pvt_v2_3h2_density_f_light3, \
     pvt_v2_3h2_density_v
 
-from tc_module import tcformer, tcformer_hir, tcformer_dpchir, tcformer_lsh, tcformer_app, tcformer_app2
+from tc_module import tcformer, tcformer_hir, tcformer_dpchir, tcformer_lsh, tcformer_app, tcformer_app2, tcformer_app2a
 
 import utils
 import collections
