@@ -10,9 +10,11 @@ spring.submit arun -p spring_scheduler --gres=gpu:6 --ntasks-per-node=6 --cpus-p
 
 
 srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
+    --job-name=pvt --ntasks=1 --gres=gpu:1 --ntasks-per-node=1 --cpus-per-task=5 --kill-on-bad-exit=1 \
+    python setup_dist.py install
+
     --job-name=pvt --ntasks=4 --gres=gpu:4 --ntasks-per-node=4 --cpus-per-task=5 --kill-on-bad-exit=1 \
 
-    --job-name=pvt --ntasks=1 --gres=gpu:1 --ntasks-per-node=1 --cpus-per-task=5 --kill-on-bad-exit=1 \
 
 export MASTER_PORT=29505
 srun -p mm_human \
@@ -134,11 +136,13 @@ srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
 
 srun -p 3dv-share  -w SH-IDC1-10-198-6-129\
 srun -p mm_human \
-srun -p pat_earth -x SH-IDC1-10-198-4-[90-91,100-103,116-119] \
 srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
+srun -p pat_earth -x SH-IDC1-10-198-4-[90-91,100-103,116-119] \
     --job-name=pvt --ntasks=8 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
     --batch-size 128 --data-path data/imagenet --input-size 128 --use-mcloader \
+    --model=tcformer_app2_small --output_dir=work_dirs/128/tc_app2 --resume work_dirs/128/tc_app2/checkpoint.pth
+
     --model=pvt_v2_b2 --output_dir=work_dirs/128/pvtv2 --resume work_dirs/128/pvtv2/checkpoint.pth
 
     --model=tcformer_app_small --output_dir=work_dirs/128/tc_app --resume work_dirs/128/tc_app/checkpoint.pth

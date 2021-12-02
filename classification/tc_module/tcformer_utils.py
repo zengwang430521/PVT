@@ -275,11 +275,12 @@ def token_cluster_merge(x, Ns, idx_agg, weight=None, return_weight=False, k=5):
 
         idx = idx_agg_t + torch.arange(B, device=x.device)[:, None] * Ns
 
-    # only for debug
-    loc_orig = get_grid_loc(x.shape[0], 64, 64, x.device)
-    show_conf_merge(density[:, :, None], None, loc_orig, idx_agg, n=1, vmin=None)
-    show_conf_merge(dist[:, :, None], None, loc_orig, idx_agg, n=2, vmin=None)
-    show_conf_merge(score[:, :, None], None, loc_orig, idx_agg, n=3, vmin=None)
+    # # only for debug
+    # print('for debug only!')
+    # loc_orig = get_grid_loc(x.shape[0], 64, 64, x.device)
+    # show_conf_merge(density[:, :, None], None, loc_orig, idx_agg, n=1, vmin=None)
+    # show_conf_merge(dist[:, :, None], None, loc_orig, idx_agg, n=2, vmin=None)
+    # show_conf_merge(score[:, :, None], None, loc_orig, idx_agg, n=3, vmin=None)
 
     # normalize the weight
     all_weight = weight.new_zeros(B * Ns, 1)
@@ -1194,6 +1195,7 @@ def token_cluster_app2(input_dict, Ns, weight=None, k=5):
         _, index_down = torch.topk(score, k=Ns, dim=-1)
 
         # # # # for debug only
+        # print('for debug only!')
         # show_conf_merge(density[:, :, None], None, loc_orig, idx_agg, n=1 + 5, vmin=None)
         # show_conf_merge(dist[:, :, None], None, loc_orig, idx_agg, n=2 + 5, vmin=None)
         # show_conf_merge(score[:, :, None], None, loc_orig, idx_agg, n=3 + 5, vmin=None)
