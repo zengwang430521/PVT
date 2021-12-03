@@ -1470,11 +1470,13 @@ def token_cluster_grid(input_dict, Ns, conf, weight=None, k=5):
     mean_w = F.interpolate(mean_w, [H, W], mode='nearest')
     norm_weight = w_map / (mean_w + 1e-6)
     norm_weight = map2token(norm_weight, N, loc_orig, idx_agg, agg_weight)
+    weight_t = norm_weight / 4
+    weight_t = index_points(weight_t, idx_agg)
+
 
     x_map, _ = token2map(x*norm_weight, None, loc_orig, idx_agg, [H, W], agg_weight)
     x_map = F.avg_pool2d(x_map, kernel_size=2)
     x_out = x_map.flatten(2).permute(0, 2, 1)
-    weight_t = norm_weight / 4
 
     # follow token2map process
     H, W = H // 2, W // 2

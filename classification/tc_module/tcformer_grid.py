@@ -25,7 +25,8 @@ class TCFormer(nn.Module):
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
                  depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], num_stages=4,
                  k=5,
-                 pretrained=None
+                 pretrained=None,
+                 grid_stage=1
                  ):
         super().__init__()
         self.num_classes = num_classes
@@ -37,6 +38,7 @@ class TCFormer(nn.Module):
         self.sample_ratio = 0.25
         self.sr_ratios = sr_ratios
         self.mlp_ratios = mlp_ratios
+        self.grid_stage = grid_stage
 
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
         cur = 0
@@ -151,7 +153,7 @@ class TCFormer(nn.Module):
             block = getattr(self, f"block{i + 1}")
             norm = getattr(self, f"norm{i + 1}")
 
-            use_grid = (i <= 1)
+            use_grid = (i <= self.grid_stage)
             x, idx_agg, agg_weight, idx_k_loc = ctm(x, loc_orig, idx_agg, agg_weight, H, W, idx_k_loc, use_grid)  # down sample
             H, W = H // 2, W // 2
             for j, blk in enumerate(block):
@@ -218,6 +220,14 @@ class tcformer_grid_small(TCFormer):
             embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
             norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
             k=5, **kwargs)
+
+@register_model
+class tcformer_grid2_small(TCFormer):
+    def __init__(self, **kwargs):
+        super().__init__(
+            embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
+            norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
+            k=5, grid_stage=2, **kwargs)
 
 @register_model
 class tcformer_grid_large(TCFormer):
