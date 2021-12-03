@@ -2237,7 +2237,7 @@ def token_cluster_density_fixbug(x, Ns, idx_agg, weight=None, return_weight=Fals
         idx = idx_agg_t + torch.arange(B, device=x.device)[:, None] * Ns
 
 
-    # # # for debug only
+    # for debug only
     # loc_orig = get_grid_loc(x.shape[0], 56, 56, x.device)
     # show_conf_merge(density[:, :, None], None, loc_orig, idx_agg, n=1, vmin=None)
     # show_conf_merge(dist[:, :, None], None, loc_orig, idx_agg, n=2, vmin=None)
@@ -2245,6 +2245,110 @@ def token_cluster_density_fixbug(x, Ns, idx_agg, weight=None, return_weight=Fals
     # show_conf_merge(conf[:, :, None], None, loc_orig, idx_agg, n=4, vmin=None)
     # if use_conf:
     #     show_conf_merge(score_log[:, :, None], None, loc_orig, idx_agg, n=5)
+    #
+    # tmp = score[:, :, None] * 0
+    # idx_batch = torch.arange(B)[:, None].expand(B, Ns)
+    # tmp[idx_batch.reshape(-1), index_down.reshape(-1), 0] = 1
+    # show_conf_merge(tmp, None, loc_orig, idx_agg, n=5, vmin=None)
+    #
+    #
+    # s = density[:, :, None].clone()
+    # s_map, _ = token2map_agg_sparse_new(s, None, loc_orig, idx_agg, [56, 56])
+    # sharpen = torch.FloatTensor([[-1, -1, -1],
+    #                              [-1, 9, -1],
+    #                              [-1, -1, -1]])
+    # sharpen = sharpen[None, None, :, :].to(s_map.device).expand([1, 1, 3, 3])
+    #
+    # s_map = F.conv2d(F.pad(s_map, [1, 1, 1, 1], mode='replicate'), sharpen, groups=1)
+    # s_res = map2token_agg_sparse_nearest_new(s_map, N, loc_orig, idx_agg)
+    # show_conf_merge(s_res, None, loc_orig, idx_agg, n=1+5, vmin=None)
+    #
+    # _, idx_down = torch.topk(s_res[:, :, 0], k=Ns, dim=-1)
+    # tmp = s * 0
+    # idx_batch = torch.arange(B)[:, None].expand(B, Ns)
+    # tmp[idx_batch.reshape(-1), idx_down.reshape(-1), 0] = 1
+    # show_conf_merge(tmp, None, loc_orig, idx_agg, n=2+5, vmin=None)
+    #
+    #
+    # # _, idx_down = torch.topk(conf, Ns, -1)
+    # idx_down = gumble_top_k(conf, Ns, -1)
+    # tmp = s * 0
+    # idx_batch = torch.arange(B)[:, None].expand(B, Ns)
+    # tmp[idx_batch.reshape(-1), idx_down.reshape(-1), 0] = 1
+    # show_conf_merge(tmp, None, loc_orig, idx_agg, n=5+5, vmin=None)
+    #
+    #
+    #
+    # dist_matrix = torch.cdist(x, x)
+    # _, idx_K = torch.topk(dist_matrix, k=7, dim=-1, largest=False)
+    # s = density[:, :, None].clone()
+    # s_K = index_points(s, idx_K).squeeze(-1)
+    # s_K = s_K.max(dim=-1, keepdim=True)[0]
+    # s_res = s - s_K
+    # # s_diff = (s_diff == 0).float()
+    # show_conf_merge(s_res, None, loc_orig, idx_agg, n=1+5, vmin=None)
+    #
+    # _, idx_down = torch.topk(s_res[:, :, 0], k=Ns, dim=-1)
+    # tmp = s * 0
+    # idx_batch = torch.arange(B)[:, None].expand(B, Ns)
+    # tmp[idx_batch.reshape(-1), idx_down.reshape(-1), 0] = 1
+    # show_conf_merge(tmp, None, loc_orig, idx_agg, n=2+5, vmin=None)
+    # loc_orig = get_grid_loc(x.shape[0], 56, 56, x.device)
+    # show_conf_merge(density[:, :, None], None, loc_orig, idx_agg, n=1, vmin=None)
+    # show_conf_merge(dist[:, :, None], None, loc_orig, idx_agg, n=2, vmin=None)
+    # show_conf_merge(score[:, :, None], None, loc_orig, idx_agg, n=3, vmin=None)
+    # show_conf_merge(conf[:, :, None], None, loc_orig, idx_agg, n=4, vmin=None)
+    # if use_conf:
+    #     show_conf_merge(score_log[:, :, None], None, loc_orig, idx_agg, n=5)
+    #
+    # tmp = score[:, :, None] * 0
+    # idx_batch = torch.arange(B)[:, None].expand(B, Ns)
+    # tmp[idx_batch.reshape(-1), index_down.reshape(-1), 0] = 1
+    # show_conf_merge(tmp, None, loc_orig, idx_agg, n=5, vmin=None)
+    #
+    #
+    # s = density[:, :, None].clone()
+    # s_map, _ = token2map_agg_sparse_new(s, None, loc_orig, idx_agg, [56, 56])
+    # sharpen = torch.FloatTensor([[-1, -1, -1],
+    #                              [-1, 9, -1],
+    #                              [-1, -1, -1]])
+    # sharpen = sharpen[None, None, :, :].to(s_map.device).expand([1, 1, 3, 3])
+    #
+    # s_map = F.conv2d(F.pad(s_map, [1, 1, 1, 1], mode='replicate'), sharpen, groups=1)
+    # s_res = map2token_agg_sparse_nearest_new(s_map, N, loc_orig, idx_agg)
+    # show_conf_merge(s_res, None, loc_orig, idx_agg, n=1+5, vmin=None)
+    #
+    # _, idx_down = torch.topk(s_res[:, :, 0], k=Ns, dim=-1)
+    # tmp = s * 0
+    # idx_batch = torch.arange(B)[:, None].expand(B, Ns)
+    # tmp[idx_batch.reshape(-1), idx_down.reshape(-1), 0] = 1
+    # show_conf_merge(tmp, None, loc_orig, idx_agg, n=2+5, vmin=None)
+    #
+    #
+    # # _, idx_down = torch.topk(conf, Ns, -1)
+    # idx_down = gumble_top_k(conf, Ns, -1)
+    # tmp = s * 0
+    # idx_batch = torch.arange(B)[:, None].expand(B, Ns)
+    # tmp[idx_batch.reshape(-1), idx_down.reshape(-1), 0] = 1
+    # show_conf_merge(tmp, None, loc_orig, idx_agg, n=5+5, vmin=None)
+    #
+    #
+    #
+    # dist_matrix = torch.cdist(x, x)
+    # _, idx_K = torch.topk(dist_matrix, k=7, dim=-1, largest=False)
+    # s = density[:, :, None].clone()
+    # s_K = index_points(s, idx_K).squeeze(-1)
+    # s_K = s_K.max(dim=-1, keepdim=True)[0]
+    # s_res = s - s_K
+    # # s_diff = (s_diff == 0).float()
+    # show_conf_merge(s_res, None, loc_orig, idx_agg, n=1+5, vmin=None)
+    #
+    # _, idx_down = torch.topk(s_res[:, :, 0], k=Ns, dim=-1)
+    # tmp = s * 0
+    # idx_batch = torch.arange(B)[:, None].expand(B, Ns)
+    # tmp[idx_batch.reshape(-1), idx_down.reshape(-1), 0] = 1
+    # show_conf_merge(tmp, None, loc_orig, idx_agg, n=2+5, vmin=None)
+
 
 
     all_weight = weight.new_zeros(B * Ns, 1)

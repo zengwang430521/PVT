@@ -4,18 +4,19 @@ from functools import partial
 import math
 from .tc_layers import Block, TCBlock, OverlapPatchEmbed
 from .tcformer_utils import (
-    get_grid_loc, show_tokens_merge,
+    get_grid_loc, show_tokens_merge, get_initial_loc_neighbor,
     DPC_flops, token2map_flops, map2token_flops, sra_flops,
     load_checkpoint, get_root_logger)
 from .transformer_utils import trunc_normal_
 from timm.models.registry import register_model
-from .ctm_block import CTM
+# from .ctm_block import CTM as CTM
+from .ctm_block import CTM_nms as CTM
 
 vis = False
 # vis = True
 
 '''
-Merge tokens in DPC way
+approximate distance matrix
 '''
 
 class TCFormer(nn.Module):
@@ -138,6 +139,7 @@ class TCFormer(nn.Module):
         idx_agg = torch.arange(N)[None, :].repeat(B, 1).to(device)
         agg_weight = x.new_ones(B, N, 1)
         loc_orig = get_grid_loc(B, H, W, x.device)
+        idx_k_loc = get_initial_loc_neighbor(H, W, x.device)
         outs.append({'x': x,
                      'map_size': [H, W],
                      'loc_orig': loc_orig,
@@ -149,7 +151,7 @@ class TCFormer(nn.Module):
             block = getattr(self, f"block{i + 1}")
             norm = getattr(self, f"norm{i + 1}")
 
-            x, idx_agg, agg_weight = ctm(x, loc_orig, idx_agg, agg_weight, H, W)  # down sample
+            x, idx_agg, agg_weight, idx_k_loc = ctm(x, loc_orig, idx_agg, agg_weight, H, W, idx_k_loc)  # down sample
             H, W = H // 2, W // 2
             for j, blk in enumerate(block):
                 x = blk(x, idx_agg, agg_weight, loc_orig, x, idx_agg, agg_weight, H, W, conf_source=None)
@@ -201,7 +203,7 @@ class TCFormer(nn.Module):
 
 
 @register_model
-class tcformer_light(TCFormer):
+class tcformer_nms_light(TCFormer):
     def __init__(self, **kwargs):
         super().__init__(
             embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
@@ -209,7 +211,7 @@ class tcformer_light(TCFormer):
             k=5, **kwargs)
 
 @register_model
-class tcformer_small(TCFormer):
+class tcformer_nms_small(TCFormer):
     def __init__(self, **kwargs):
         super().__init__(
             embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
@@ -217,7 +219,7 @@ class tcformer_small(TCFormer):
             k=5, **kwargs)
 
 @register_model
-class tcformer_large(TCFormer):
+class tcformer_nms_large(TCFormer):
     def __init__(self, **kwargs):
         super().__init__(
             embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
