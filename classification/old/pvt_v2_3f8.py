@@ -15,7 +15,7 @@ from utils_mine import get_loc_new as get_loc
 from utils_mine import merge_tokens2 as merge_tokens
 
 vis = False
-# vis = True
+
 
 '''
 do not select tokens, merge tokens 2.

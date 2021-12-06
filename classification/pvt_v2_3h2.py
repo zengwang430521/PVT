@@ -16,7 +16,7 @@ from utils_mine import get_loc_new as get_loc
 # from utils_mine import farthest_point_sample_try as farthest_point_sample
 
 vis = False
-# vis = True
+
 
 '''
 do not select tokens, merge tokens. weight NOT clamp, conf do not clamp

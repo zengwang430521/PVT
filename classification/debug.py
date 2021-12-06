@@ -218,6 +218,18 @@ for i in range(100):
 # loss.backward()
 
 from tc_module import tcformer_utils
+from matplotlib import pyplot as plt
 device = torch.device('cuda')
-loc = tcformer_utils.get_grid_loc(2, 64, 64, device)
-tcformer_utils.get_spatial_neighbor(loc, 49)
+loc = tcformer_utils.get_grid_loc(2, 65, 65, device)
+B = 2
+N = 65*65
+spatial_map = torch.arange(16).reshape(1, 1, 4, 4).expand(2, -1, -1, -1).to(device).float()
+idx_agg = torch.arange(N)[None, :].repeat(B, 1).to(device)
+spatial_idx = tcformer_utils.map2token(spatial_map, N, loc, idx_agg)
+# tcformer_utils.get_spatial_neighbor(loc, 49)
+spatial_idx_map = spatial_idx.reshape(B, 65, 65)
+plt.imshow(spatial_idx_map[0].detach().cpu())
+
+for i in range(16):
+    print(i)
+    print((spatial_idx[0, :, 0].round().long() == i).sum())

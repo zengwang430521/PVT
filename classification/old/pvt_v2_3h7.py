@@ -15,7 +15,7 @@ from utils_mine import (
 
 )
 vis = False
-# vis = True
+
 
 '''
 do not select tokens, merge tokens. weight NOT clamp, conf do not clamp

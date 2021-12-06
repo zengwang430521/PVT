@@ -19,7 +19,7 @@ from utils_mine import token_cluster_density_fixbug as token_cluster_density
 # from utils_mine import token2map_agg_sparse as token2map_agg_mat
 
 vis = False
-# vis = True
+
 
 
 

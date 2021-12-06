@@ -136,11 +136,17 @@ srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
 
 srun -p 3dv-share  -w SH-IDC1-10-198-6-129\
 srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
-srun -p mm_human \
 srun -p pat_earth -x SH-IDC1-10-198-4-[90,100-103,116-119] \
+srun -p mm_human \
     --job-name=pvt --ntasks=8 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
     --batch-size 128 --data-path data/imagenet --input-size 128 --use-mcloader \
+    --model=tcformer_app3_small --output_dir=work_dirs/128/tc_app3 --resume work_dirs/128/tc_app3/checkpoint.pth
+
+    --model=tcformer_grid2_small --output_dir=work_dirs/128/tc_grid2 --resume work_dirs/128/tc_grid2/checkpoint.pth
+
+    --model=tcformer_grid_small --output_dir=work_dirs/128/tc_grid --resume work_dirs/128/tc_grid/checkpoint.pth
+
     --model=tcformer_nms_small --output_dir=work_dirs/128/tc_nms --resume work_dirs/128/tc_nms/checkpoint.pth
 
     --model=tcformer_near_small --output_dir=work_dirs/128/tc_near --resume work_dirs/128/tc_near/checkpoint.pth

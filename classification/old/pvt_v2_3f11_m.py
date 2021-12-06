@@ -15,7 +15,7 @@ from utils_mine import token2map_agg_mat as token2map_agg_sparse
 from utils_mine import get_loc_new as get_loc
 
 vis = False
-# vis = True
+
 
 '''
 do not select tokens, merge tokens. weight clamp, conf do not clamp

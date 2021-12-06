@@ -14,7 +14,7 @@ from utils_mine import (
 from utils_mine import get_loc as get_loc
 
 vis = False
-# vis = True
+
 
 '''
 do not select tokens, merge tokens. conf.clamp(-7, 7), old get loc

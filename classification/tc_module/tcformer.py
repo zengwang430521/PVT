@@ -12,7 +12,7 @@ from timm.models.registry import register_model
 from .ctm_block import CTM
 
 vis = False
-# vis = True
+
 
 '''
 Merge tokens in DPC way

@@ -15,7 +15,7 @@ from utils_mine import get_loc_new as get_loc
 from utils_mine import merge_tokens_agg_cosine
 
 vis = False
-# vis = True
+
 
 '''
 do not select tokens, merge tokens. weight clamp, conf do not clamp

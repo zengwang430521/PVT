@@ -15,7 +15,7 @@ from utils_mine import get_loc_new as get_loc
 from pvt import Mlp as Mlp_old
 
 vis = False
-# vis = True
+
 
 '''
 change from 3f6

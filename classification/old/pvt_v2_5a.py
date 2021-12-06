@@ -13,7 +13,7 @@ from utils_mine import (
 )
 
 vis = False
-# vis = True
+
 '''
 Saliency-Based Sampling, detach
 '''

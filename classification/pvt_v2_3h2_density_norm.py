@@ -18,7 +18,7 @@ from utils_mine import (
 from utils_mine import token_cluster_density
 
 vis = False
-# vis = True
+
 
 
 

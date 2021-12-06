@@ -15,7 +15,7 @@ from utils_mine import (
 from utils_mine import get_critical_idx as feature_try_sample
 from utils_mine import get_loc_new as get_loc
 vis = False
-# vis = True
+
 
 '''
 just for debug

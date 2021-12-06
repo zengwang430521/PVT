@@ -10,10 +10,9 @@ from .tcformer_utils import (
 from .transformer_utils import trunc_normal_
 from timm.models.registry import register_model
 # from .ctm_block import CTM as CTM
-from .ctm_block import CTM_nms as CTM
+from .ctm_block import CTM_part as CTM
 
-vis = False
-
+vis = True
 
 '''
 approximate distance matrix
@@ -25,7 +24,8 @@ class TCFormer(nn.Module):
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
                  depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], num_stages=4,
                  k=5,
-                 pretrained=None
+                 pretrained=None,
+                 grid_stage=1
                  ):
         super().__init__()
         self.num_classes = num_classes
@@ -37,6 +37,7 @@ class TCFormer(nn.Module):
         self.sample_ratio = 0.25
         self.sr_ratios = sr_ratios
         self.mlp_ratios = mlp_ratios
+        self.grid_stage = grid_stage
 
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
         cur = 0
@@ -63,7 +64,8 @@ class TCFormer(nn.Module):
         # In stage 2~4, use TCBlock for dynamic tokens
         for i in range(1, num_stages):
             ctm = CTM(sample_ratio=0.25, embed_dim=embed_dims[i-1], dim_out=embed_dims[i],
-                        drop_rate=drop_rate, k=k,
+                      drop_rate=drop_rate, k=k,
+                      part_ratio=sr_ratios[i],
                         down_block=TCBlock(
                             dim=embed_dims[i], num_heads=num_heads[i],
                             mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
@@ -203,7 +205,7 @@ class TCFormer(nn.Module):
 
 
 @register_model
-class tcformer_nms_light(TCFormer):
+class tcformer_part_light(TCFormer):
     def __init__(self, **kwargs):
         super().__init__(
             embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
@@ -211,7 +213,7 @@ class tcformer_nms_light(TCFormer):
             k=5, **kwargs)
 
 @register_model
-class tcformer_nms_small(TCFormer):
+class tcformer_part_small(TCFormer):
     def __init__(self, **kwargs):
         super().__init__(
             embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
@@ -219,7 +221,7 @@ class tcformer_nms_small(TCFormer):
             k=5, **kwargs)
 
 @register_model
-class tcformer_nms_large(TCFormer):
+class tcformer_part_large(TCFormer):
     def __init__(self, **kwargs):
         super().__init__(
             embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
