@@ -12,6 +12,7 @@ from timm.models.registry import register_model
 # from .ctm_block import CTM as CTM
 from .ctm_block import CTM_part as CTM
 
+vis = False
 
 '''
 approximate distance matrix
