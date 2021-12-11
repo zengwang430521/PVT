@@ -1,3 +1,5 @@
+import sys
+sys.path.insert(0, 'index_process')
 import torch
 from torch_sparse import spmm
 from mmcv.utils import get_logger
@@ -7,7 +9,14 @@ import re
 import math
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
-from torch_cluster import fps
+try:
+    from torch_cluster import fps
+except:
+    print('no torch_cluster')
+try:
+    from function import f_distance
+except:
+    print('no f_distance')
 
 
 def load_checkpoint(model,
@@ -301,7 +310,6 @@ def token_cluster_merge(x, Ns, idx_agg, weight=None, return_weight=False, k=5):
     return x_out, idx_agg
 
 
-from function import f_distance
 def token_cluster_hir(x, Ns, idx_agg, conf, weight=None, return_weight=False, **kwargs):
     dtype = x.dtype
     device = x.device
