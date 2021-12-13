@@ -12,7 +12,7 @@ from .transformer_utils import trunc_normal_
 from .ctm_block import CTM_partpad as CTM
 from mmdet.models.builder import BACKBONES
 from mmdet.utils import get_root_logger
-from mmcv.runner import load_checkpoint
+# from mmcv.runner import load_checkpoint
 
 
 vis = False
