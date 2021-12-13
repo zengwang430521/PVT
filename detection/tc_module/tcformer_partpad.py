@@ -29,7 +29,7 @@ class TCFormer(nn.Module):
                  k=5, pretrained=None, nh_list=[4, 2, 1], nw_list=[4, 2, 1], **kwargs
                  ):
         super().__init__()
-        self.num_classes = num_classes
+        # self.num_classes = num_classes
         self.depths = depths
         self.num_stages = num_stages
         self.grid_stride = sr_ratios[0]
