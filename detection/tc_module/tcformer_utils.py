@@ -1628,8 +1628,6 @@ def token_cluster_part(input_dict, Ns, weight=None, k=5, h=-1, w=-1):
     return x_out, idx_agg, weight_t
 
 
-
-
 # sort and pad tokens
 def token_cluster_part_pad(input_dict, Ns, weight=None, k=5, nh_list=[1, 1], nw_list=[1, 1]):
     x = input_dict['x']

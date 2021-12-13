@@ -58,7 +58,7 @@ import pvt_v2_3h2_density_norm, pvt_v2_3h2_density_norm16, \
 from tc_module import (
     tcformer, tcformer_hir, tcformer_dpchir, tcformer_lsh,
     tcformer_app, tcformer_app2, tcformer_app2a, tcformer_app3,
-    tcformer_near, tcformer_nms, tcformer_grid, tcformer_part)
+    tcformer_near, tcformer_nms, tcformer_grid, tcformer_part, tcformer_partpad)
 
 
 import utils

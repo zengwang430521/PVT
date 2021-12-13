@@ -726,7 +726,6 @@ class CTM_part(nn.Module):
 
         return x_down, idx_agg_down, agg_weight_down, idx_k_loc_down
 
-
 # part wise merge with padding
 class CTM_partpad(nn.Module):
     def __init__(self, sample_ratio, embed_dim, dim_out, drop_rate, down_block,
