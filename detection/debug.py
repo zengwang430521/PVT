@@ -7,7 +7,8 @@ import tc_module.tcformer_partpad
 import tc_module.mta_head
 
 # cfg_file = 'configs/mask_rcnn_pvt_v2_b2_fpn_1x_coco.py'
-cfg_file = 'configs/mask_rcnn_tc_partpad2_mta_1x_coco.py'
+# cfg_file = 'configs/mask_rcnn_tc_partpad2_mta_1x_coco.py'
+cfg_file = 'configs/mask_rcnn_tc_partpad_mta_1x_coco.py'
 
 device = torch.device('cuda')
 img_scale = (667, 400)
