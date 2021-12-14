@@ -264,14 +264,15 @@ class MTA(BaseModule):
             input_dicts[i]['x'] = input_dicts[i]['x'] + token_downup(input_dicts[i], input_dicts[i+1])
             input_dicts[i]['x'] = self.merge_blocks[i](input_dicts[i], gather_dict, input_dicts[i])
 
-        out, _ = token2map(
-            input_dicts[0]['x'],
-            None,
-            input_dicts[0]['loc_orig'],
-            input_dicts[0]['idx_agg'],
-            input_dicts[0]['map_size'],
-        )
+        # out, _ = token2map(
+        #     input_dicts[0]['x'],
+        #     None,
+        #     input_dicts[0]['loc_orig'],
+        #     input_dicts[0]['idx_agg'],
+        #     input_dicts[0]['map_size'],
+        # )
         # return multiple stage feature map
+
         outs = [
             token2map(
                 input_dicts[i]['x'],
@@ -279,7 +280,7 @@ class MTA(BaseModule):
                 input_dicts[i]['loc_orig'],
                 input_dicts[i]['idx_agg'],
                 input_dicts[i]['map_size'],
-            ) for i in range(len(input_dicts))
+            )[0] for i in range(len(input_dicts))
         ]
 
         # part 2: add extra levels
