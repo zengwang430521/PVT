@@ -1,7 +1,7 @@
 import sys
 sys.path.insert(0, 'index_process')
 import torch
-from torch_sparse import spmm
+from torch_sparse import spmm, coalesce
 from mmcv.utils import get_logger
 from mmcv.runner import _load_checkpoint, load_state_dict
 import logging
@@ -170,8 +170,13 @@ def map2token(feature_map, N, loc_orig, idx_agg, agg_weight=None):
         value = torch.ones(B * N0, device=feature_map.device, dtype=feature_map.dtype)
     else:
         value = agg_weight.reshape(B * N0) #.type(torch.float32)
+        # print('only for debug')
+        # value = value.detach()
 
+    # indices, value = coalesce(indices, value, B*N, B*H*W, op="add")
     all_weight = spmm(indices, value, B*N, B*H*W, feature_map.new_ones([B*H*W, 1])) + 1e-6
+
+    # value = value / all_weight[indices[0], 0]
     value = value / all_weight[idx_agg.reshape(-1), 0]
     out = spmm(indices, value, B*N, B*H*W,
                feature_map.permute(0, 2, 3, 1).contiguous().reshape(B * H * W, C))

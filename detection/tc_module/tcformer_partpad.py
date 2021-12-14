@@ -26,7 +26,9 @@ class TCFormer(nn.Module):
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
                  depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], num_stages=4,
-                 k=5, pretrained=None, nh_list=[4, 2, 1], nw_list=[4, 2, 1], **kwargs
+                 k=5, pretrained=None, nh_list=[4, 2, 1], nw_list=[4, 2, 1],
+                 use_agg_weight=True, agg_weight_detach=False,
+                 **kwargs
                  ):
         super().__init__()
         # self.num_classes = num_classes
@@ -70,6 +72,7 @@ class TCFormer(nn.Module):
                       nh=self.nh_list[i-1], nw=self.nw_list[i-1],
                       nh_list=self.nh_list if i == 1 else None,
                       nw_list=self.nw_list if i == 1 else None,
+                      use_agg_weight=use_agg_weight, agg_weight_detach=agg_weight_detach,
                       down_block=TCBlock(
                             dim=embed_dims[i], num_heads=num_heads[i],
                             mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
@@ -230,7 +233,7 @@ class tcformer_partpad_small2(TCFormer):
         super().__init__(
             embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
             norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
-            nh_list=[8, 4, 2], nw_list=[8, 4, 2],
+            nh_list=[8, 4, 2], nw_list=[8, 4, 2], use_agg_weight=True, agg_weight_detach=True,
             k=5, **kwargs)
 
 

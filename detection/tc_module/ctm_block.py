@@ -730,7 +730,8 @@ class CTM_part(nn.Module):
 class CTM_partpad(nn.Module):
     def __init__(self, sample_ratio, embed_dim, dim_out, drop_rate, down_block,
                  k=5, dist_assign=True, ada_dc=False, use_conf=False, conf_scale=0.25,
-                 conf_density=False, nh=1, nw=1, nh_list=None, nw_list=None
+                 conf_density=False, nh=1, nw=1, nh_list=None, nw_list=None,
+                 use_agg_weight=True, agg_weight_detach=False,
                  ):
         super().__init__()
         # self.sample_num = sample_num
@@ -763,8 +764,17 @@ class CTM_partpad(nn.Module):
         self.nw = nw or nh
         self.nh_list = nh_list
         self.nw_list = nw_list or nh_list
+        self.use_agg_weight = use_agg_weight
+        self.agg_weight_detach = agg_weight_detach
 
     def forward(self, x, loc_orig, idx_agg, agg_weight, H, W, idx_k_loc):
+        # do not use any agg weight to save memory
+        if not self.use_agg_weight:
+            agg_weight = None
+
+        if agg_weight is not None and self.agg_weight_detach:
+            agg_weight = agg_weight.detach()
+
         B, N, C = x.shape
         N0 = idx_agg.shape[1]
         x_map, _ = token2map(x, None, loc_orig, idx_agg, [H, W])
@@ -786,6 +796,7 @@ class CTM_partpad(nn.Module):
         nh, nw = self.nh, self.nw
         num_part = nh * nw
         sample_num = round(sample_num // num_part) * num_part
+
         if self.nh_list is not None and self.nw_list is not None:
             x_down, idx_agg_down, weight_t = token_cluster_part_pad(
                 input_dict, sample_num, weight=weight, k=self.k,
@@ -797,8 +808,13 @@ class CTM_partpad(nn.Module):
             )
         idx_k_loc_down = None
 
-        agg_weight_down = agg_weight * weight_t
-        agg_weight_down = agg_weight_down / agg_weight_down.max(dim=1, keepdim=True)[0]
+        if agg_weight is not None:
+            agg_weight_down = agg_weight * weight_t
+            agg_weight_down = agg_weight_down / agg_weight_down.max(dim=1, keepdim=True)[0]
+            if self.agg_weight_detach:
+                agg_weight_down = agg_weight_down.detach()
+        else:
+            agg_weight_down = None
 
         _, _, H, W = x_map.shape
         x_down = self.block(x_down, idx_agg_down, agg_weight_down, loc_orig,

@@ -256,8 +256,10 @@ class TCDWConv(nn.Module):
         B, N, C = x.shape
         x_map, _ = token2map(x, None, loc_orig, idx_agg, [H, W])
         x_map = self.dwconv(x_map)
-        x = map2token(x_map, N, loc_orig, idx_agg, agg_weight) + \
-            self.dwconv_skip(x.permute(0, 2, 1).contiguous()).permute(0, 2, 1).contiguous()
+        # x = map2token(x_map, N, loc_orig, idx_agg, agg_weight) + \
+        #     self.dwconv_skip(x.permute(0, 2, 1).contiguous()).permute(0, 2, 1).contiguous()
+        x = self.dwconv_skip(x.permute(0, 2, 1).contiguous()).permute(0, 2, 1).contiguous()
+        x = x + map2token(x_map, N, loc_orig, idx_agg, agg_weight)
         return x
 
 
