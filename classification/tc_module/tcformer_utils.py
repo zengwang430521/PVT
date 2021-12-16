@@ -1,7 +1,7 @@
 import sys
 sys.path.insert(0, 'index_process')
 import torch
-from torch_sparse import spmm
+from torch_sparse import spmm, coalesce
 from mmcv.utils import get_logger
 from mmcv.runner import _load_checkpoint, load_state_dict
 import logging
@@ -110,11 +110,126 @@ def index_points(points, idx):
     return new_points
 
 
+# # use torch_sparse
+# def token2map(x, loc, loc_orig, idx_agg, map_size, weight=None):
+#     H, W = map_size
+#     B, N, C = x.shape
+#     N0 = loc_orig.shape[1]
+#     device = x.device
+#     dtype = x.dtype
+#     if N0 == N and N == H * W:
+#         return x.reshape(B, H, W, C).permute(0, 3, 1, 2).contiguous(), None
+#
+#     loc_orig = loc_orig.clamp(-1, 1)
+#     loc_orig = 0.5 * (loc_orig + 1) * torch.FloatTensor([W, H]).to(device)[None, None, :] - 0.5
+#     loc_orig = loc_orig.round().long()
+#     loc_orig[..., 0] = loc_orig[..., 0].clamp(0, W-1)
+#     loc_orig[..., 1] = loc_orig[..., 1].clamp(0, H-1)
+#     idx_HW_orig = loc_orig[..., 0] + loc_orig[..., 1] * W
+#     idx_HW_orig = idx_HW_orig + torch.arange(B)[:, None].to(device) * H * W
+#
+#     idx_tokens = idx_agg + torch.arange(B)[:, None].to(device) * N
+#
+#     coor = torch.stack([idx_HW_orig, idx_tokens], dim=0).reshape(2, B*N0)
+#     if weight is None:
+#         weight = x.new_ones(B, N, 1)
+#     value = index_points(weight, idx_agg).reshape(B*N0)
+#
+#     # print('only for debug!')
+#     value = value.detach()  # to save memory!
+#
+#     all_weight = spmm(coor, value, B*H*W, B*N, x.new_ones(B*N, 1)) + 1e-6
+#     value = value / all_weight[idx_HW_orig.reshape(-1), 0]
+#
+#     x_out = spmm(coor, value, B*H*W, B*N, x.reshape(B*N, C))
+#     x_out = x_out.reshape(B, H, W, C).permute(0, 3, 1, 2).contiguous()
+#     all_weight = all_weight.reshape(B, H, W, 1).permute(0, 3, 1, 2).contiguous()
+#
+#     return x_out, all_weight
+#
+#
+# def map2token(feature_map, N, loc_orig, idx_agg, agg_weight=None):
+#
+#     dtype = feature_map.dtype
+#     B, C, H, W = feature_map.shape
+#     device = feature_map.device
+#     N0 = loc_orig.shape[1]
+#
+#     if N0 == N and N == H * W:
+#         return feature_map.flatten(2).permute(0, 2, 1).contiguous()
+#
+#     loc_orig = 0.5 * (loc_orig + 1) * torch.FloatTensor([W, H]).to(device)[None, None, :] - 0.5
+#     x = loc_orig[:, :, 0]
+#     y = loc_orig[:, :, 1]
+#
+#     h, w = H, W
+#     x_grid = x.round().long().clamp(min=0, max=w - 1)
+#     y_grid = y.round().long().clamp(min=0, max=h - 1)
+#     idx_HW_orig = (y_grid * w + x_grid).detach()
+#     index_batch = torch.arange(B, device=device)[:, None].expand(B, N0)
+#
+#     # use sparse matrix
+#     idx_agg = idx_agg + index_batch * N
+#     idx_HW_orig = idx_HW_orig + index_batch * H * W
+#
+#     indices = torch.stack([idx_agg, idx_HW_orig], dim=0).reshape(2, -1)
+#
+#     if agg_weight is None:
+#         value = feature_map.new_ones(B * N0)
+#     else:
+#         value = agg_weight.reshape(B * N0).type(feature_map.dtype)
+#
+#     # print('only for debug!')
+#     value = value.detach()  # to save memory!
+#
+#     all_weight = spmm(indices, value, B*N, B*H*W, feature_map.new_ones([B*H*W, 1])) + 1e-6
+#     value = value / all_weight[idx_agg.reshape(-1), 0]
+#     out = spmm(indices, value, B*N, B*H*W,
+#                feature_map.permute(0, 2, 3, 1).contiguous().reshape(B * H * W, C))
+#     out = out.reshape(B, N, C)
+#     return out
+#
+#
+# def token_downup(target_dict, source_dict):
+#     x_s = source_dict['x']
+#     x_t = target_dict['x']
+#     idx_agg_s = source_dict['idx_agg']
+#     idx_agg_t = target_dict['idx_agg']
+#     agg_weight_t = target_dict['agg_weight']
+#     B, T, C = x_t.shape
+#     B, S, C = x_s.shape
+#     N0 = idx_agg_s.shape[1]
+#
+#     idx_agg_t = idx_agg_t + torch.arange(B, device=x_s.device)[:, None] * T
+#     idx_agg_s = idx_agg_s + torch.arange(B, device=x_s.device)[:, None] * S
+#
+#     coor = torch.stack([idx_agg_t, idx_agg_s], dim=0).reshape(2, B*N0)
+#     weight = agg_weight_t
+#     if weight is None:
+#         weight = x_s.new_ones(B, N0, 1)
+#     weight = weight.reshape(-1)
+#     # print('only for debug!')
+#     weight = weight.detach()  # to save memory!
+#
+#     all_weight = spmm(coor, weight, B*T, B*S, x_s.new_ones(B*S, 1)) + 1e-6
+#     weight = weight / all_weight[(idx_agg_t).reshape(-1), 0]
+#     x_out = spmm(coor, weight, B*T, B*S, x_s.reshape(B*S, C))
+#     x_out = x_out.reshape(B, T, C)
+#     return x_out
+
+
+# use torch.sparse
+
+
 def token2map(x, loc, loc_orig, idx_agg, map_size, weight=None):
     H, W = map_size
     B, N, C = x.shape
     N0 = loc_orig.shape[1]
     device = x.device
+    dtype = x.dtype
+    if N0 == N and N == H * W:
+        return x.reshape(B, H, W, C).permute(0, 3, 1, 2).contiguous(), None
+
     loc_orig = loc_orig.clamp(-1, 1)
     loc_orig = 0.5 * (loc_orig + 1) * torch.FloatTensor([W, H]).to(device)[None, None, :] - 0.5
     loc_orig = loc_orig.round().long()
@@ -130,16 +245,17 @@ def token2map(x, loc, loc_orig, idx_agg, map_size, weight=None):
         weight = x.new_ones(B, N, 1)
     value = index_points(weight, idx_agg).reshape(B*N0)
 
-    # print('only for debug!')
-    value = value.detach()  # to save memory!
+    with torch.cuda.amp.autocast(enabled=False):
+        value = value.detach().float()
+        A = torch.sparse.FloatTensor(coor, value, torch.Size([B * H * W, B * N]))
+        all_weight = A @ x.new_ones(B*N, 1).type(torch.float32) + 1e-6
+        value = value / all_weight[idx_HW_orig.reshape(-1), 0]
+        A = torch.sparse.FloatTensor(coor, value, torch.Size([B*H*W, B*N]))
+        x_out = A @ x.reshape(B*N, C).type(torch.float32)
 
-    all_weight = spmm(coor, value, B*H*W, B*N, x.new_ones(B*N, 1)) + 1e-6
-    value = value / all_weight[idx_HW_orig.reshape(-1), 0]
-
-    x_out = spmm(coor, value, B*H*W, B*N, x.reshape(B*N, C))
-    x_out = x_out.reshape(B, H, W, C).permute(0, 3, 1, 2).contiguous()
-    all_weight = all_weight.reshape(B, H, W, 1).permute(0, 3, 1, 2).contiguous()
-
+    x_out = x_out.type(x.dtype)
+    x_out = x_out.reshape(B, H, W, C).permute(0, 3,  1, 2).contiguous()
+    all_weight = all_weight.reshape(B, H, W, 1).permute(0, 3,  1, 2).contiguous().type(x.dtype)
     return x_out, all_weight
 
 
@@ -170,18 +286,20 @@ def map2token(feature_map, N, loc_orig, idx_agg, agg_weight=None):
     indices = torch.stack([idx_agg, idx_HW_orig], dim=0).reshape(2, -1)
 
     if agg_weight is None:
-        value = torch.ones(B * N0, device=feature_map.device, dtype=feature_map.dtype)
+        value = feature_map.new_ones(B * N0)
     else:
-        value = agg_weight.reshape(B * N0) #.type(torch.float32)
+        value = agg_weight.reshape(B * N0).type(feature_map.dtype)
 
-    # print('only for debug!')
-    value = value.detach()  # to save memory!
+    with torch.cuda.amp.autocast(enabled=False):
+        value = value.detach().float()  # sparse mm do not support gradient for sparse matrix
+        A = torch.sparse_coo_tensor(indices, value, (B * N, B *H * W))
+        all_weight = A @ torch.ones([B*H*W, 1], device=device, dtype=torch.float32) + 1e-6
+        value = value / all_weight[idx_agg.reshape(-1), 0]
 
-    all_weight = spmm(indices, value, B*N, B*H*W, feature_map.new_ones([B*H*W, 1])) + 1e-6
-    value = value / all_weight[idx_agg.reshape(-1), 0]
-    out = spmm(indices, value, B*N, B*H*W,
-               feature_map.permute(0, 2, 3, 1).contiguous().reshape(B * H * W, C))
-    out = out.reshape(B, N, C)
+        A = torch.sparse_coo_tensor(indices, value, (B * N, B *H * W))
+        out = A @ feature_map.permute(0, 2, 3, 1).contiguous().reshape(B * H * W, C).float()
+        out = out.reshape(B, N, C)
+    out = out.type(feature_map.dtype)
     return out
 
 
@@ -203,13 +321,16 @@ def token_downup(target_dict, source_dict):
     if weight is None:
         weight = x_s.new_ones(B, N0, 1)
     weight = weight.reshape(-1)
-    # print('only for debug!')
-    weight = weight.detach()  # to save memory!
 
-    all_weight = spmm(coor, weight, B*T, B*S, x_s.new_ones(B*S, 1)) + 1e-6
-    weight = weight / all_weight[(idx_agg_t).reshape(-1), 0]
-    x_out = spmm(coor, weight, B*T, B*S, x_s.reshape(B*S, C))
-    x_out = x_out.reshape(B, T, C)
+    with torch.cuda.amp.autocast(enabled=False):
+        weight = weight.float().detach()    # sparse mm do not support grad for sparse mat
+        A = torch.sparse.FloatTensor(coor, weight, torch.Size([B*T, B*S]))
+        all_weight = A.type(torch.float32) @ x_s.new_ones(B*S, 1).type(torch.float32) + 1e-6
+        weight = weight / all_weight[(idx_agg_t).reshape(-1), 0]
+
+        A = torch.sparse.FloatTensor(coor, weight, torch.Size([B*T, B*S]))
+        x_out = A.type(torch.float32) @ x_s.reshape(B*S, C).type(torch.float32)
+        x_out = x_out.reshape(B, T, C).type(x_s.dtype)
     return x_out
 
 

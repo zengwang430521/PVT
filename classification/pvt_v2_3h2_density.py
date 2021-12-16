@@ -16,7 +16,8 @@ from utils_mine import (
 )
 
 from utils_mine import token_cluster_density
-# from utils_mine import token2map_agg_sparse as token2map_agg_mat
+# from utils_mine import token2map_agg_sparse_new as token2map_agg_mat
+# from utils_mine import map2token_agg_sparse_nearest_new as map2token_agg_fast_nearest
 
 vis = False
 
@@ -534,6 +535,7 @@ def mypvt3h2_density0_tiny(pretrained=False, **kwargs):
         **kwargs)
     model.default_cfg = _cfg()
     return model
+
 
 # For test
 if __name__ == '__main__':
