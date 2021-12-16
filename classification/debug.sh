@@ -36,11 +36,16 @@ srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
 
 
 
+
 export NCCL_LL_THRESHOLD=0
 python -m torch.distributed.launch --nproc_per_node=8 --master_port=6333 --use_env \
 train.py --config configs/pvt_v2/debug.py \
-    --batch-size 128 --data-path data/imagenet --input-size 128  \
-    --model=tcformer_ats_small --output_dir=work_dirs/128/tc_ats --resume work_dirs/128/tc_ats/checkpoint.pth
+    --batch-size 128 --data-path data/imagenet --input-size 112  \
+    --model=tcformer_ats_small --output_dir=work_dirs/112/tc_ats --resume work_dirs/112/tc_ats/checkpoint.pth
+
+    --batch-size 128 --data-path data/imagenet --input-size 112 \
+    --model=mypvt3h2_densitya0_small --output_dir=work_dirs/dena0_LR --resume work_dirs/dena0_LR/checkpoint.pth
+
 
 
     --batch-size 128 --data-path data/imagenet --input-size 112  \
@@ -60,8 +65,6 @@ train.py --config configs/pvt_v2/debug.py \
   --batch-size 128 --data-path data/imagenet --input-size 224  \
     --model=mypvt3h2_density0_tiny --output_dir=work_dirs/my3h2_density0_tiny --resume work_dirs/my3h2_density0_tiny/checkpoint.pth
 
-    --batch-size 128 --data-path data/imagenet --input-size 112 \
-    --model=mypvt3h2_densitya0_small --output_dir=work_dirs/dena0_LR --resume work_dirs/dena0_LR/checkpoint.pth
 
     --model=mypvt3h7k3_small --output_dir=work_dirs/my3h7k3_LR --resume work_dirs/my3h7k3_LR/checkpoint.pth
 
