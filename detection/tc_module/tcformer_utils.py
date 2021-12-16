@@ -130,6 +130,9 @@ def token2map(x, loc, loc_orig, idx_agg, map_size, weight=None):
         weight = x.new_ones(B, N, 1)
     value = index_points(weight, idx_agg).reshape(B*N0)
 
+    # print('only for debug!')
+    value = value.detach()  # to save memory!
+
     all_weight = spmm(coor, value, B*H*W, B*N, x.new_ones(B*N, 1)) + 1e-6
     value = value / all_weight[idx_HW_orig.reshape(-1), 0]
 
@@ -170,13 +173,11 @@ def map2token(feature_map, N, loc_orig, idx_agg, agg_weight=None):
         value = torch.ones(B * N0, device=feature_map.device, dtype=feature_map.dtype)
     else:
         value = agg_weight.reshape(B * N0) #.type(torch.float32)
-        # print('only for debug')
-        # value = value.detach()
 
-    # indices, value = coalesce(indices, value, B*N, B*H*W, op="add")
+    # print('only for debug!')
+    value = value.detach()  # to save memory!
+
     all_weight = spmm(indices, value, B*N, B*H*W, feature_map.new_ones([B*H*W, 1])) + 1e-6
-
-    # value = value / all_weight[indices[0], 0]
     value = value / all_weight[idx_agg.reshape(-1), 0]
     out = spmm(indices, value, B*N, B*H*W,
                feature_map.permute(0, 2, 3, 1).contiguous().reshape(B * H * W, C))
@@ -202,12 +203,16 @@ def token_downup(target_dict, source_dict):
     if weight is None:
         weight = x_s.new_ones(B, N0, 1)
     weight = weight.reshape(-1)
+    # print('only for debug!')
+    weight = weight.detach()  # to save memory!
 
     all_weight = spmm(coor, weight, B*T, B*S, x_s.new_ones(B*S, 1)) + 1e-6
     weight = weight / all_weight[(idx_agg_t).reshape(-1), 0]
     x_out = spmm(coor, weight, B*T, B*S, x_s.reshape(B*S, C))
     x_out = x_out.reshape(B, T, C)
     return x_out
+
+
 
 
 def DPC_flops(N, C):
