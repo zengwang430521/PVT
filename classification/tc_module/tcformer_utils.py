@@ -618,7 +618,7 @@ def show_tokens_merge(x, out, count=0):
     # plt.show()
     if save_fig:
         fname = f'vis/{count}.jpg'
-        plt.savefig(fname, dpi=200)
+        plt.savefig(fname, dpi=400)
 
 
     return
@@ -1811,6 +1811,67 @@ def token_cluster_part_follow(input_dict, Ns, weight=None, k=5, nh=1, nw=1):
     if weight is None:
         weight = x.new_ones(B, N, 1)
     idx = idx_agg_t + torch.arange(B, device=x.device)[:, None] * Ns
+    all_weight = weight.new_zeros(B * Ns, 1)
+    all_weight.index_add_(dim=0, index=idx.reshape(B * N), source=weight.reshape(B * N, 1))
+    all_weight = all_weight + 1e-6
+    norm_weight = weight / all_weight[idx]
+
+    # average token features
+    x_out = x.new_zeros(B * Ns, C)
+    source = x * norm_weight
+    x_out.index_add_(dim=0, index=idx.reshape(B * N), source=source.reshape(B * N, C).type(x.dtype))
+    x_out = x_out.reshape(B, Ns, C)
+
+    idx_agg = index_points(idx_agg_t[..., None], idx_agg).squeeze(-1)
+    weight_t = index_points(norm_weight, idx_agg)
+
+    return x_out, idx_agg, weight_t
+
+
+# ATS: Adaptive Token Sampling For Efficient Vision Transformers
+def token_cluster_ats(input_dict, Ns, score, weight=None):
+    x = input_dict['x']
+    idx_agg = input_dict['idx_agg']
+    agg_weight = input_dict['agg_weight']
+    # loc_orig = input_dict['loc_orig']
+    H, W = input_dict['map_size']
+    dtype = x.dtype
+    device = x.device
+    B, N, C = x.shape
+    N0 = idx_agg.shape[1]
+
+    with torch.no_grad():
+        # print('ONLY FOR DEBUG!')
+        # score = score.new_ones([B, N])
+
+        score = score.squeeze(-1)
+        score = score / score.sum(dim=-1, keepdim=True)
+        sum_score = score.cumsum(dim=-1)
+
+        # equal gap leads to very bad cluster performance.
+        sample_score = (torch.arange(Ns, device=device).type(dtype) + 0.5) / Ns
+
+        # idx_tmp = torch.arange(H*W, device=device).float().reshape(H, W)
+        # idx_tmp = F.interpolate(idx_tmp[None, None, :, :], size=[H//2, W//2], mode='nearest')
+        # sample_score = (idx_tmp.reshape(-1) + 0.5) / (H*W)
+        # Ns = sample_score.shape[0]
+
+        tmp_matrix = (sample_score[None, :, None] - sum_score[:, None, :]).abs()   # B, Ns, N
+        index_down = tmp_matrix.argmin(dim=-1)
+
+        x_down = index_points(x, index_down)
+        dist_matrix = torch.cdist(x_down, x)
+        idx_agg_t = dist_matrix.argmin(dim=1)
+
+        # there may be duplicate tokens, so we do NOT need to make sure selected centers merge to itself
+        # idx_batch = torch.arange(B * num_part, device=x.device)[:, None].expand(B * num_part, Ns_p)
+        # idx_tmp = torch.arange(Ns_p, device=x.device)[None, :].expand(B * num_part, Ns_p)
+        # idx_agg_t[idx_batch.reshape(-1), index_down.reshape(-1)] = idx_tmp.reshape(-1)
+
+    idx = idx_agg_t + torch.arange(B, device=x.device)[:, None] * Ns
+    if weight is None:
+        weight = x.new_ones(B, N, 1)
+
     all_weight = weight.new_zeros(B * Ns, 1)
     all_weight.index_add_(dim=0, index=idx.reshape(B * N), source=weight.reshape(B * N, 1))
     all_weight = all_weight + 1e-6

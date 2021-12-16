@@ -6,7 +6,7 @@ from .tcformer_utils import (
     token_cluster_merge, token_cluster_hir, token_cluster_dpc_hir, token_cluster_lsh,
     token_cluster_app, token_cluster_app2, token_cluster_app3, token_cluster_near,
     token_cluster_nms, token_cluster_grid, token_cluster_part, token_cluster_part_pad,
-    token_cluster_part_follow
+    token_cluster_part_follow, token_cluster_ats
     )
 
 # CTM block
@@ -802,6 +802,43 @@ class CTM_partpad(nn.Module):
         agg_weight_down = agg_weight_down / agg_weight_down.max(dim=1, keepdim=True)[0]
 
         _, _, H, W = x_map.shape
+        x_down = self.block(x_down, idx_agg_down, agg_weight_down, loc_orig,
+                            x, idx_agg, agg_weight, H, W, conf_source=conf)
+
+        return x_down, idx_agg_down, agg_weight_down, idx_k_loc_down
+
+
+class CTM_ats(CTM):
+    def forward(self, x, loc_orig, idx_agg, agg_weight, H, W, idx_k_loc):
+        B, N, C = x.shape
+        N0 = idx_agg.shape[1]
+        x_map, _ = token2map(x, None, loc_orig, idx_agg, [H, W])
+
+        x_map = self.conv(x_map)
+        x = map2token(x_map, N, loc_orig, idx_agg, agg_weight) + self.conv_skip(x)
+        x = self.norm(x)
+        conf = self.conf(x)
+        weight = conf.exp()
+
+        B, N, C = x.shape
+        sample_num = max(math.ceil(N * self.sample_ratio), 1)
+        input_dict = {'x': x,
+                      'idx_agg': idx_agg,
+                      'agg_weight': agg_weight,
+                      'loc_orig': loc_orig,
+                      'map_size': [H, W],
+                      'idx_k_loc': idx_k_loc}
+
+        x_down, idx_agg_down, weight_t = token_cluster_ats(
+            input_dict, sample_num, score=weight, weight=weight
+        )
+        idx_k_loc_down = None
+
+        _, _, H, W = x_map.shape
+
+        agg_weight_down = agg_weight * weight_t
+        agg_weight_down = agg_weight_down / agg_weight_down.max(dim=1, keepdim=True)[0]
+
         x_down = self.block(x_down, idx_agg_down, agg_weight_down, loc_orig,
                             x, idx_agg, agg_weight, H, W, conf_source=conf)
 
