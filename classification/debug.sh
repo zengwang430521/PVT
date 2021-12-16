@@ -39,6 +39,10 @@ srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
 export NCCL_LL_THRESHOLD=0
 python -m torch.distributed.launch --nproc_per_node=8 --master_port=6333 --use_env \
 train.py --config configs/pvt_v2/debug.py \
+    --batch-size 128 --data-path data/imagenet --input-size 128  \
+    --model=tcformer_ats_small --output_dir=work_dirs/128/tc_ats --resume work_dirs/128/tc_ats/checkpoint.pth
+
+
     --batch-size 128 --data-path data/imagenet --input-size 112  \
     --model=hrformer_32 --output_dir=work_dirs/hrformer_32_LR --resume work_dirs/hrformer_32_LR/checkpoint.pth
 
