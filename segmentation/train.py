@@ -14,8 +14,9 @@ from mmseg.apis import set_random_seed, train_segmentor
 from mmseg.datasets import build_dataset
 from mmseg.models import build_segmentor
 from mmseg.utils import collect_env, get_root_logger
-import pvt
 from align_resize import AlignResize
+import pvt
+from tc_module import tcformer_partpad, mta_head
 
 
 def parse_args():

@@ -4,19 +4,21 @@ from functools import partial
 import math
 from .tc_layers import Block, TCBlock, OverlapPatchEmbed
 from .tcformer_utils import (
-    get_grid_loc, show_tokens_merge,
+    get_grid_loc, show_tokens_merge, get_initial_loc_neighbor,
     DPC_flops, token2map_flops, map2token_flops, sra_flops,
     load_checkpoint, get_root_logger)
 from .transformer_utils import trunc_normal_
-from .ctm_block import CTM
-from mmdet.models.builder import BACKBONES
-from mmdet.utils import get_root_logger
+# from .ctm_block import CTM as CTM
+from .ctm_block import CTM_partpad as CTM
+from mmseg.models.builder import BACKBONES
+from mmseg.utils import get_root_logger
+# from mmcv.runner import load_checkpoint
+
 
 vis = False
 
-
 '''
-Merge tokens in DPC way
+partwise token merge with padding
 '''
 
 class TCFormer(nn.Module):
@@ -24,11 +26,12 @@ class TCFormer(nn.Module):
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
                  depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1], num_stages=4,
-                 k=5,
-                 pretrained=None
+                 k=5, pretrained=None, nh_list=[4, 2, 1], nw_list=[4, 2, 1],
+                 use_agg_weight=True, agg_weight_detach=False,
+                 **kwargs
                  ):
         super().__init__()
-        self.num_classes = num_classes
+        # self.num_classes = num_classes
         self.depths = depths
         self.num_stages = num_stages
         self.grid_stride = sr_ratios[0]
@@ -37,6 +40,8 @@ class TCFormer(nn.Module):
         self.sample_ratio = 0.25
         self.sr_ratios = sr_ratios
         self.mlp_ratios = mlp_ratios
+        self.nh_list = nh_list
+        self.nw_list = nw_list
 
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
         cur = 0
@@ -63,8 +68,12 @@ class TCFormer(nn.Module):
         # In stage 2~4, use TCBlock for dynamic tokens
         for i in range(1, num_stages):
             ctm = CTM(sample_ratio=0.25, embed_dim=embed_dims[i-1], dim_out=embed_dims[i],
-                        drop_rate=drop_rate, k=k,
-                        down_block=TCBlock(
+                      drop_rate=drop_rate, k=k,
+                      nh=self.nh_list[i-1], nw=self.nw_list[i-1],
+                      nh_list=self.nh_list if i == 1 else None,
+                      nw_list=self.nw_list if i == 1 else None,
+                      use_agg_weight=use_agg_weight, agg_weight_detach=agg_weight_detach,
+                      down_block=TCBlock(
                             dim=embed_dims[i], num_heads=num_heads[i],
                             mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias, qk_scale=qk_scale,
                             drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur],
@@ -85,7 +94,7 @@ class TCFormer(nn.Module):
             setattr(self, f"norm{i + 1}", norm)
 
         # classification head
-        self.head = nn.Linear(embed_dims[3], num_classes) if num_classes > 0 else nn.Identity()
+        # self.head = nn.Linear(embed_dims[3], num_classes) if num_classes > 0 else nn.Identity()
 
         self.apply(self._init_weights)
         self.init_weights(pretrained)
@@ -139,6 +148,7 @@ class TCFormer(nn.Module):
         idx_agg = torch.arange(N)[None, :].repeat(B, 1).to(device)
         agg_weight = x.new_ones(B, N, 1)
         loc_orig = get_grid_loc(B, H, W, x.device)
+        idx_k_loc = get_initial_loc_neighbor(H, W, x.device)
         outs.append({'x': x,
                      'map_size': [H, W],
                      'loc_orig': loc_orig,
@@ -150,7 +160,7 @@ class TCFormer(nn.Module):
             block = getattr(self, f"block{i + 1}")
             norm = getattr(self, f"norm{i + 1}")
 
-            x, idx_agg, agg_weight = ctm(x, loc_orig, idx_agg, agg_weight, H, W)  # down sample
+            x, idx_agg, agg_weight, idx_k_loc = ctm(x, loc_orig, idx_agg, agg_weight, H, W, idx_k_loc)  # down sample
             H, W = H // 2, W // 2
             for j, blk in enumerate(block):
                 x = blk(x, idx_agg, agg_weight, loc_orig, x, idx_agg, agg_weight, H, W, conf_source=None)
@@ -166,12 +176,12 @@ class TCFormer(nn.Module):
             show_tokens_merge(img, outs, self.count)
             self.count += 1
 
-        # return outs
-        return x.mean(dim=1)
+        return outs
+        # return x.mean(dim=1)
 
     def forward(self, x):
         x = self.forward_features(x)
-        x = self.head(x)
+        # x = self.head(x)
         return x
 
     def get_extra_flops(self, H, W):
@@ -202,7 +212,7 @@ class TCFormer(nn.Module):
 
 
 @BACKBONES.register_module()
-class tcformer_light(TCFormer):
+class tcformer_partpad_light(TCFormer):
     def __init__(self, **kwargs):
         super().__init__(
             embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
@@ -210,15 +220,26 @@ class tcformer_light(TCFormer):
             k=5, **kwargs)
 
 @BACKBONES.register_module()
-class tcformer_small(TCFormer):
+class tcformer_partpad_small(TCFormer):
     def __init__(self, **kwargs):
         super().__init__(
             embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
             norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
+            nh_list=[4, 2, 1], nw_list=[4, 2, 1], use_agg_weight=True, agg_weight_detach=True,
             k=5, **kwargs)
 
 @BACKBONES.register_module()
-class tcformer_large(TCFormer):
+class tcformer_partpad_small2(TCFormer):
+    def __init__(self, **kwargs):
+        super().__init__(
+            embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,
+            norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
+            nh_list=[8, 4, 2], nw_list=[8, 4, 2], use_agg_weight=True, agg_weight_detach=True,
+            k=5, **kwargs)
+
+
+@BACKBONES.register_module()
+class tcformer_partpad_large(TCFormer):
     def __init__(self, **kwargs):
         super().__init__(
             embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4], qkv_bias=True,

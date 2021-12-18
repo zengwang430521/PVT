@@ -8,7 +8,6 @@ from .tcformer_utils import (
     DPC_flops, token2map_flops, map2token_flops, sra_flops,
     load_checkpoint, get_root_logger)
 from .transformer_utils import trunc_normal_
-from timm.models.registry import register_model
 # from .ctm_block import CTM as CTM
 from .ctm_block import CTM_part as CTM
 from mmdet.models.builder import BACKBONES

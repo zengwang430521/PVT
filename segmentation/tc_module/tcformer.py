@@ -9,8 +9,8 @@ from .tcformer_utils import (
     load_checkpoint, get_root_logger)
 from .transformer_utils import trunc_normal_
 from .ctm_block import CTM
-from mmdet.models.builder import BACKBONES
-from mmdet.utils import get_root_logger
+from mmseg.models.builder import BACKBONES
+from mmseg.utils import get_root_logger
 
 vis = False
 
