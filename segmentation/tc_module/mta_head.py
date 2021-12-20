@@ -6,8 +6,8 @@ from .transformer_utils import trunc_normal_, DropPath
 from .tc_layers import TCMlp
 from .tcformer_utils import token2map, map2token, token_downup
 from .tcformer_utils import token2map_flops, map2token_flops, downup_flops
-from mmdet.models.builder import NECKS
-from mmdet.utils import get_root_logger
+from mmseg.models.builder import NECKS
+from mmseg.utils import get_root_logger
 import warnings
 import torch.nn.functional as F
 import copy

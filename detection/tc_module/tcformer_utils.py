@@ -1977,6 +1977,23 @@ def token_cluster_part_pad(input_dict, Ns, weight=None, k=5, nh_list=[1, 1], nw_
         score = dist * density
         _, index_down = torch.topk(score, k=Ns_p, dim=-1)
 
+        # just for debug
+        print('only for debug!!')
+        plt.subplot(1, 3, 1)
+        density_f = density.reshape(B, N, 1)
+        density_f = index_points(density_f, idx_back[None, :].expand(B, -1))
+        plt.imshow(density_f.reshape(B, H_pad, W_pad)[0].detach().cpu())
+
+        plt.subplot(1, 3, 2)
+        dist_f = dist.reshape(B, N, 1)
+        dist_f = index_points(dist_f, idx_back[None, :].expand(B, -1))
+        plt.imshow(dist_f.reshape(B, H_pad, W_pad)[0].detach().cpu())
+
+        plt.subplot(1, 3, 3)
+        score_f = score.reshape(B, N, 1)
+        score_f = index_points(score_f, idx_back[None, :].expand(B, -1))
+        plt.imshow(score_f.reshape(B, H_pad, W_pad)[0].detach().cpu())
+
 
         # assign tokens to the nearest center
         dist_matrix = index_points(dist_matrix, index_down)
@@ -2033,7 +2050,9 @@ def token_cluster_part_follow(input_dict, Ns, weight=None, k=5, nh=1, nw=1):
     N0 = idx_agg.shape[1]
 
     with torch.no_grad():
-        if (nh <= 1 and nw <= 1):
+        # if (nh <= 1 and nw <= 1):
+        print('only for debug')
+        if (nh <= 1 and nw <= 1) and False:
             # no part seg
             return token_cluster_merge(x, Ns, idx_agg, weight=weight, return_weight=True, k=k)
         else:
@@ -2062,6 +2081,23 @@ def token_cluster_part_follow(input_dict, Ns, weight=None, k=5, nh=1, nw=1):
             # select clustering center according to score
             score = dist * density
             _, index_down = torch.topk(score, k=Ns_p, dim=-1)
+
+            # just for debug
+            print('only for debug!!')
+            plt.subplot(1, 3, 1)
+            density_f = density.reshape(B, N, 1)
+            density_f = token2map(density_f, None, loc_orig, idx_agg, (H, W))[0]
+            plt.imshow(density_f[0, 0].detach().cpu())
+
+            plt.subplot(1, 3, 2)
+            dist_f = dist.reshape(B, N, 1)
+            dist_f = token2map(dist_f, None, loc_orig, idx_agg, (H, W))[0]
+            plt.imshow(dist_f[0, 0].detach().cpu())
+
+            plt.subplot(1, 3, 3)
+            score_f = score.reshape(B, N, 1)
+            score_f = token2map(score_f, None, loc_orig, idx_agg, (H, W))[0]
+            plt.imshow(score_f[0, 0].detach().cpu())
 
             dist_matrix = index_points(dist_matrix, index_down)
             idx_agg_t = dist_matrix.argmin(dim=1)
