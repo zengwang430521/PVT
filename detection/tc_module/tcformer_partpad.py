@@ -15,7 +15,7 @@ from mmdet.utils import get_root_logger
 # from mmcv.runner import load_checkpoint
 
 
-vis = True
+vis = False
 
 '''
 partwise token merge with padding
