@@ -14,25 +14,57 @@ _base_ = [
 #     neck=dict(in_channels=[64, 128, 320, 512]),
 #     decode_head=dict(num_classes=150))
 
+# norm_cfg = dict(type='BN', requires_grad=True)
+# model = dict(
+#     type='EncoderDecoder',
+#     # pretrained='../detection/models/checkpoint_tcformer.pth',
+#     pretrained=None,
+#     backbone=dict(
+#         type='tcformer_partpad_light',
+#         style='pytorch'),
+#     neck=dict(
+#         type='MTA',
+#         in_channels=[64, 128, 320, 512],
+#         out_channels=256,
+#         start_level=0,
+#         add_extra_convs='on_input',
+#         num_heads=[4, 4, 4, 4],
+#         mlp_ratios=[4, 4, 4, 4],
+#         num_outs=4),
+#     decode_head=dict(num_classes=150)
+# )
+
+
 norm_cfg = dict(type='BN', requires_grad=True)
 model = dict(
     type='EncoderDecoder',
-    # pretrained='../detection/models/checkpoint_tcformer.pth',
-    pretrained=None,
+    pretrained='https://github.com/whai362/PVT/releases/download/v2/pvt_tiny.pth',
     backbone=dict(
-        type='tcformer_partpad_light',
-        style='pytorch'),
+        type='pvt_tiny',
+        style='pytorch',
+        pretrained='https://github.com/whai362/PVT/releases/download/v2/pvt_tiny.pth',
+    ),
     neck=dict(
-        type='MTA',
+        type='FPN',
         in_channels=[64, 128, 320, 512],
         out_channels=256,
-        start_level=0,
-        add_extra_convs='on_input',
-        num_heads=[4, 4, 4, 4],
-        mlp_ratios=[4, 4, 4, 4],
         num_outs=4),
-    decode_head=dict(num_classes=150)
-)
+    decode_head=dict(
+        type='FPNHead',
+        in_channels=[256, 256, 256, 256],
+        in_index=[0, 1, 2, 3],
+        feature_strides=[4, 8, 16, 32],
+        channels=128,
+        dropout_ratio=0.1,
+        num_classes=150,
+        norm_cfg=norm_cfg,
+        align_corners=False,
+        loss_decode=dict(
+            type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0)),
+    # model training and testing settings
+    train_cfg=dict(),
+    test_cfg=dict(mode='whole'))
+
 
 gpu_multiples = 2  # we use 8 gpu instead of 4 in mmsegmentation, so lr*2 and max_iters/2
 # optimizer
