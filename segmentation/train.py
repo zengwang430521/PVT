@@ -15,7 +15,7 @@ from mmseg.datasets import build_dataset
 from mmseg.models import build_segmentor
 from mmseg.utils import collect_env, get_root_logger
 from align_resize import AlignResize
-import pvt
+import pvt, pvt_v2
 from tc_module import tcformer_partpad, mta_head
 
 
