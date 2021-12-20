@@ -4,7 +4,7 @@ from mmcv.cnn import ConvModule
 from mmcv.runner import BaseModule
 from .transformer_utils import trunc_normal_, DropPath
 from .tc_layers import TCMlp
-from .tcformer_utils import token2map, map2token, token_downup
+from .tcformer_utils import token2map, map2token, token_downup, gaussian_filt
 from .tcformer_utils import token2map_flops, map2token_flops, downup_flops
 from mmdet.models.builder import NECKS
 from mmdet.utils import get_root_logger
@@ -147,6 +147,7 @@ class MTA(BaseModule):
                  add_extra_convs=False,
                  extra_convs_on_inputs=True,
                  relu_before_extra_convs=False,
+                 gaussian_kernels=None,
                  ):
         super().__init__(init_cfg)
         assert isinstance(in_channels, list)
@@ -229,6 +230,9 @@ class MTA(BaseModule):
                 self.extra_convs.append(extra_fpn_conv)
 
         self.apply(self._init_weights)
+        self.gaussian_kernels = gaussian_kernels
+        if self.gaussian_kernels is not None:
+            assert len(self.gaussian_kernels) == self.num_outs
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -309,7 +313,15 @@ class MTA(BaseModule):
                         outs.append(self.extra_convs[i](F.relu(outs[-1])))
                     else:
                         outs.append(self.extra_convs[i](outs[-1]))
+
+        # add gaussian filter at the last stage
+        if self.gaussian_kernels is not None:
+            for i in range(len(outs)):
+                outs[i] = gaussian_filt(outs[i], self.gaussian_kernels[i])
+
         return outs
+
+
 
     def get_extra_flops(self, h, w):
         flops = 0

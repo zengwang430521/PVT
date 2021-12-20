@@ -1980,17 +1980,17 @@ def token_cluster_part_pad(input_dict, Ns, weight=None, k=5, nh_list=[1, 1], nw_
         # just for debug
         # print('only for debug!!')
         # plt.subplot(1, 3, 1)
-        # density_f = density.reshape(B, N, 1)
+        # density_f = density.reshape(B, H_pad * W_pad, 1)
         # density_f = index_points(density_f, idx_back[None, :].expand(B, -1))
         # plt.imshow(density_f.reshape(B, H_pad, W_pad)[0].detach().cpu())
         #
         # plt.subplot(1, 3, 2)
-        # dist_f = dist.reshape(B, N, 1)
+        # dist_f = dist.reshape(B, H_pad * W_pad, 1)
         # dist_f = index_points(dist_f, idx_back[None, :].expand(B, -1))
         # plt.imshow(dist_f.reshape(B, H_pad, W_pad)[0].detach().cpu())
         #
         # plt.subplot(1, 3, 3)
-        # score_f = score.reshape(B, N, 1)
+        # score_f = score.reshape(B, H_pad * W_pad, 1)
         # score_f = index_points(score_f, idx_back[None, :].expand(B, -1))
         # plt.imshow(score_f.reshape(B, H_pad, W_pad)[0].detach().cpu())
 
@@ -2099,6 +2099,7 @@ def token_cluster_part_follow(input_dict, Ns, weight=None, k=5, nh=1, nw=1):
             # score_f = token2map(score_f, None, loc_orig, idx_agg, (H, W))[0]
             # plt.imshow(score_f[0, 0].detach().cpu())
 
+
             dist_matrix = index_points(dist_matrix, index_down)
             idx_agg_t = dist_matrix.argmin(dim=1)
 
@@ -2191,3 +2192,48 @@ def token_cluster_ats(input_dict, Ns, score, weight=None):
     weight_t = index_points(norm_weight, idx_agg)
 
     return x_out, idx_agg, weight_t
+
+
+# gaussian filtering
+def gaussian_filt(x, kernel_size=5, sigma=None):
+    if kernel_size < 3:
+        return x
+
+    if sigma is None:
+        sigma = 0.6 * kernel_size
+
+    channels = x.shape[1]
+
+    # Create a x, y coordinate grid of shape (kernel_size, kernel_size, 2)
+    x_coord = torch.arange(kernel_size, device=x.device)
+    x_grid = x_coord.repeat(kernel_size).view(kernel_size, kernel_size).contiguous()
+    y_grid = x_grid.t()
+    xy_grid = torch.stack([x_grid, y_grid], dim=-1).float()
+
+    mean = (kernel_size - 1) / 2.
+    variance = sigma ** 2.
+
+    # Calculate the 2-dimensional gaussian kernel which is
+    # the product of two gaussian distributions for two different
+    # variables (in this case called x and y)
+    gaussian_kernel = (1. / (2. * math.pi * variance)) * torch.exp(-torch.sum((xy_grid - mean) ** 2., dim=-1) / (2 * variance))
+
+    # Make sure sum of values in gaussian kernel equals 1.
+    gaussian_kernel = gaussian_kernel / torch.sum(gaussian_kernel)
+
+    # Reshape to 2d depthwise convolutional weight
+    gaussian_kernel = gaussian_kernel.view(1, 1, kernel_size, kernel_size).contiguous()
+    gaussian_kernel = gaussian_kernel.repeat(channels, 1, 1, 1)
+
+    pad = int((kernel_size - 1) // 2)
+
+    x = F.pad(x, (pad, pad, pad, pad), mode='replicate')
+    y = F.conv2d(
+        input=x,
+        weight=gaussian_kernel,
+        stride=1,
+        padding=0,
+        dilation=1,
+        groups=channels
+    )
+    return y
