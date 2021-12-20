@@ -10,7 +10,6 @@ model = dict(
     backbone=dict(
         type='pvt_tiny',
         style='pytorch',
-        pretrained='https://github.com/whai362/PVT/releases/download/v2/pvt_tiny.pth',
     ),
     neck=dict(in_channels=[64, 128, 320, 512]),
     decode_head=dict(num_classes=150))

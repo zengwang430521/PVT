@@ -38,11 +38,11 @@ _base_ = [
 norm_cfg = dict(type='BN', requires_grad=True)
 model = dict(
     type='EncoderDecoder',
-    pretrained='https://github.com/whai362/PVT/releases/download/v2/pvt_tiny.pth',
+    pretrained='https://github.com/whai362/PVT/releases/download/v2/pvt_v2_b2.pth',
     backbone=dict(
-        type='pvt_tiny',
+        type='pvt_v2_b2',
         style='pytorch',
-        pretrained='https://github.com/whai362/PVT/releases/download/v2/pvt_tiny.pth',
+        pretrained='https://github.com/whai362/PVT/releases/download/v2/pvt_v2_b2.pth',
     ),
     neck=dict(
         type='FPN',
