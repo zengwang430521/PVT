@@ -1910,15 +1910,19 @@ def token_cluster_part_pad(input_dict, Ns, weight=None, k=5, nh_list=[1, 1], nw_
     B, N, C = x.shape
     N0 = idx_agg.shape[1]
 
+    # assert multiple stage seg is compatiable
+    assert len(nh_list) == len(nw_list)
+    for i in range(len(nh_list) - 1):
+        assert nh_list[i] % nh_list[i + 1] == 0 and \
+               nw_list[i] % nw_list[i + 1] == 0
+    nh, nw = nh_list[0], nw_list[0]
+
+    if (nh <= 1 and nw <= 1):
+        # no part seg
+        return token_cluster_merge(x, Ns, idx_agg, weight=weight, return_weight=True, k=k)
+
+
     with torch.no_grad():
-        # assert multiple stage seg is compatiable
-        assert len(nh_list) == len(nw_list)
-        for i in range(len(nh_list) - 1):
-            assert nh_list[i] % nh_list[i+1] == 0 and\
-                   nw_list[i] % nw_list[i+1] == 0
-        nh, nw = nh_list[0], nw_list[0]
-
-
         # reshape to feature map
         x_pad = x.reshape(B, H, W, C).permute(0, 3, 1, 2)
         # pad feature map
@@ -1977,23 +1981,6 @@ def token_cluster_part_pad(input_dict, Ns, weight=None, k=5, nh_list=[1, 1], nw_
         score = dist * density
         _, index_down = torch.topk(score, k=Ns_p, dim=-1)
 
-        # just for debug
-        # print('only for debug!!')
-        # plt.subplot(1, 3, 1)
-        # density_f = density.reshape(B, H_pad * W_pad, 1)
-        # density_f = index_points(density_f, idx_back[None, :].expand(B, -1))
-        # plt.imshow(density_f.reshape(B, H_pad, W_pad)[0].detach().cpu())
-        #
-        # plt.subplot(1, 3, 2)
-        # dist_f = dist.reshape(B, H_pad * W_pad, 1)
-        # dist_f = index_points(dist_f, idx_back[None, :].expand(B, -1))
-        # plt.imshow(dist_f.reshape(B, H_pad, W_pad)[0].detach().cpu())
-        #
-        # plt.subplot(1, 3, 3)
-        # score_f = score.reshape(B, H_pad * W_pad, 1)
-        # score_f = index_points(score_f, idx_back[None, :].expand(B, -1))
-        # plt.imshow(score_f.reshape(B, H_pad, W_pad)[0].detach().cpu())
-
 
         # assign tokens to the nearest center
         dist_matrix = index_points(dist_matrix, index_down)
@@ -2049,69 +2036,48 @@ def token_cluster_part_follow(input_dict, Ns, weight=None, k=5, nh=1, nw=1):
     B, N, C = x.shape
     N0 = idx_agg.shape[1]
 
+    if (nh <= 1 and nw <= 1):
+        # no part seg
+        return token_cluster_merge(x, Ns, idx_agg, weight=weight, return_weight=True, k=k)
+
     with torch.no_grad():
-        if (nh <= 1 and nw <= 1):
-        # print('only for debug')
-        # if (nh <= 1 and nw <= 1) and False:
-            # no part seg
-            return token_cluster_merge(x, Ns, idx_agg, weight=weight, return_weight=True, k=k)
-        else:
-            # can be equally splited
-            num_part = nh * nw
-            N_p = N // num_part
-            assert N % num_part == 0
-            Ns_p = round(Ns // num_part)
-            Ns = Ns_p * num_part
+        # can be equally splited
+        num_part = nh * nw
+        N_p = N // num_part
+        assert N % num_part == 0
+        Ns_p = round(Ns // num_part)
+        Ns = Ns_p * num_part
 
-            x_sort = x
-            x_sort = x_sort.reshape(B * num_part, N_p, C)
+        x_sort = x
+        x_sort = x_sort.reshape(B * num_part, N_p, C)
 
-            dist_matrix = torch.cdist(x_sort, x_sort, p=2) / (C ** 0.5)
+        dist_matrix = torch.cdist(x_sort, x_sort, p=2) / (C ** 0.5)
 
-            # get local density
-            dist_nearest, index_nearest = torch.topk(dist_matrix, k=k, dim=-1, largest=False)
-            density = (-(dist_nearest ** 2).mean(dim=-1)).exp()
+        # get local density
+        dist_nearest, index_nearest = torch.topk(dist_matrix, k=k, dim=-1, largest=False)
+        density = (-(dist_nearest ** 2).mean(dim=-1)).exp()
 
-            # get relative-separation distance
-            mask = density[:, None, :] > density[:, :, None]
-            mask = mask.type(x.dtype)
-            dist, index_parent = (dist_matrix * mask +
-                                  dist_matrix.flatten(1).max(dim=-1)[0][:, None, None] * (1 - mask)).min(dim=-1)
+        # get relative-separation distance
+        mask = density[:, None, :] > density[:, :, None]
+        mask = mask.type(x.dtype)
+        dist, index_parent = (dist_matrix * mask +
+                              dist_matrix.flatten(1).max(dim=-1)[0][:, None, None] * (1 - mask)).min(dim=-1)
 
-            # select clustering center according to score
-            score = dist * density
-            _, index_down = torch.topk(score, k=Ns_p, dim=-1)
+        # select clustering center according to score
+        score = dist * density
+        _, index_down = torch.topk(score, k=Ns_p, dim=-1)
 
-            # # just for debug
-            # print('only for debug!!')
-            # plt.subplot(1, 3, 1)
-            # density_f = density.reshape(B, N, 1)
-            # density_f = token2map(density_f, None, loc_orig, idx_agg, (H, W))[0]
-            # plt.imshow(density_f[0, 0].detach().cpu())
-            #
-            # plt.subplot(1, 3, 2)
-            # dist_f = dist.reshape(B, N, 1)
-            # dist_f = token2map(dist_f, None, loc_orig, idx_agg, (H, W))[0]
-            # plt.imshow(dist_f[0, 0].detach().cpu())
-            #
-            # plt.subplot(1, 3, 3)
-            # score_f = score.reshape(B, N, 1)
-            # score_f = token2map(score_f, None, loc_orig, idx_agg, (H, W))[0]
-            # plt.imshow(score_f[0, 0].detach().cpu())
+        dist_matrix = index_points(dist_matrix, index_down)
+        idx_agg_t = dist_matrix.argmin(dim=1)
 
+        # make sure selected centers merge to itself
+        idx_batch = torch.arange(B * num_part, device=x.device)[:, None].expand(B * num_part, Ns_p)
+        idx_tmp = torch.arange(Ns_p, device=x.device)[None, :].expand(B * num_part, Ns_p)
+        idx_agg_t[idx_batch.reshape(-1), index_down.reshape(-1)] = idx_tmp.reshape(-1)
 
-            dist_matrix = index_points(dist_matrix, index_down)
-            idx_agg_t = dist_matrix.argmin(dim=1)
-
-            # make sure selected centers merge to itself
-            idx_batch = torch.arange(B * num_part, device=x.device)[:, None].expand(B * num_part, Ns_p)
-            idx_tmp = torch.arange(Ns_p, device=x.device)[None, :].expand(B * num_part, Ns_p)
-            idx_agg_t[idx_batch.reshape(-1), index_down.reshape(-1)] = idx_tmp.reshape(-1)
-
-            # tansfer index_down and idx_agg_t to the original sort
-            idx_agg_t = idx_agg_t.reshape(B, num_part, N_p) + torch.arange(num_part, device=device)[None, :, None] * Ns_p
-            idx_agg_t = idx_agg_t.reshape(B, num_part*N_p)
-
+        # tansfer index_down and idx_agg_t to the original sort
+        idx_agg_t = idx_agg_t.reshape(B, num_part, N_p) + torch.arange(num_part, device=device)[None, :, None] * Ns_p
+        idx_agg_t = idx_agg_t.reshape(B, num_part*N_p)
 
     if weight is None:
         weight = x.new_ones(B, N, 1)
@@ -2192,48 +2158,3 @@ def token_cluster_ats(input_dict, Ns, score, weight=None):
     weight_t = index_points(norm_weight, idx_agg)
 
     return x_out, idx_agg, weight_t
-
-
-# gaussian filtering
-def gaussian_filt(x, kernel_size=5, sigma=None):
-    if kernel_size < 3:
-        return x
-
-    if sigma is None:
-        sigma = 0.6 * kernel_size
-
-    channels = x.shape[1]
-
-    # Create a x, y coordinate grid of shape (kernel_size, kernel_size, 2)
-    x_coord = torch.arange(kernel_size, device=x.device)
-    x_grid = x_coord.repeat(kernel_size).view(kernel_size, kernel_size).contiguous()
-    y_grid = x_grid.t()
-    xy_grid = torch.stack([x_grid, y_grid], dim=-1).float()
-
-    mean = (kernel_size - 1) / 2.
-    variance = sigma ** 2.
-
-    # Calculate the 2-dimensional gaussian kernel which is
-    # the product of two gaussian distributions for two different
-    # variables (in this case called x and y)
-    gaussian_kernel = (1. / (2. * math.pi * variance)) * torch.exp(-torch.sum((xy_grid - mean) ** 2., dim=-1) / (2 * variance))
-
-    # Make sure sum of values in gaussian kernel equals 1.
-    gaussian_kernel = gaussian_kernel / torch.sum(gaussian_kernel)
-
-    # Reshape to 2d depthwise convolutional weight
-    gaussian_kernel = gaussian_kernel.view(1, 1, kernel_size, kernel_size).contiguous()
-    gaussian_kernel = gaussian_kernel.repeat(channels, 1, 1, 1)
-
-    pad = int((kernel_size - 1) // 2)
-
-    x = F.pad(x, (pad, pad, pad, pad), mode='replicate')
-    y = F.conv2d(
-        input=x,
-        weight=gaussian_kernel,
-        stride=1,
-        padding=0,
-        dilation=1,
-        groups=channels
-    )
-    return y

@@ -786,7 +786,7 @@ def show_tokens_merge(x, out, count=0):
     IMAGENET_DEFAULT_STD = torch.tensor([0.229, 0.224, 0.225], device=x.device)[None, :, None, None]
     x = x * IMAGENET_DEFAULT_STD + IMAGENET_DEFAULT_MEAN
     save_x = False
-    save_img = False
+    save_img = True
     save_fig = True
 
     if save_x:
@@ -1910,15 +1910,19 @@ def token_cluster_part_pad(input_dict, Ns, weight=None, k=5, nh_list=[1, 1], nw_
     B, N, C = x.shape
     N0 = idx_agg.shape[1]
 
+    # assert multiple stage seg is compatiable
+    assert len(nh_list) == len(nw_list)
+    for i in range(len(nh_list) - 1):
+        assert nh_list[i] % nh_list[i + 1] == 0 and \
+               nw_list[i] % nw_list[i + 1] == 0
+    nh, nw = nh_list[0], nw_list[0]
+
+    if (nh <= 1 and nw <= 1):
+        # no part seg
+        return token_cluster_merge(x, Ns, idx_agg, weight=weight, return_weight=True, k=k)
+
+
     with torch.no_grad():
-        # assert multiple stage seg is compatiable
-        assert len(nh_list) == len(nw_list)
-        for i in range(len(nh_list) - 1):
-            assert nh_list[i] % nh_list[i+1] == 0 and\
-                   nw_list[i] % nw_list[i+1] == 0
-        nh, nw = nh_list[0], nw_list[0]
-
-
         # reshape to feature map
         x_pad = x.reshape(B, H, W, C).permute(0, 3, 1, 2)
         # pad feature map
@@ -2032,49 +2036,48 @@ def token_cluster_part_follow(input_dict, Ns, weight=None, k=5, nh=1, nw=1):
     B, N, C = x.shape
     N0 = idx_agg.shape[1]
 
+    if (nh <= 1 and nw <= 1):
+        # no part seg
+        return token_cluster_merge(x, Ns, idx_agg, weight=weight, return_weight=True, k=k)
+
     with torch.no_grad():
-        if (nh <= 1 and nw <= 1):
-            # no part seg
-            return token_cluster_merge(x, Ns, idx_agg, weight=weight, return_weight=True, k=k)
-        else:
-            # can be equally splited
-            num_part = nh * nw
-            N_p = N // num_part
-            assert N % num_part == 0
-            Ns_p = round(Ns // num_part)
-            Ns = Ns_p * num_part
+        # can be equally splited
+        num_part = nh * nw
+        N_p = N // num_part
+        assert N % num_part == 0
+        Ns_p = round(Ns // num_part)
+        Ns = Ns_p * num_part
 
-            x_sort = x
-            x_sort = x_sort.reshape(B * num_part, N_p, C)
+        x_sort = x
+        x_sort = x_sort.reshape(B * num_part, N_p, C)
 
-            dist_matrix = torch.cdist(x_sort, x_sort, p=2) / (C ** 0.5)
+        dist_matrix = torch.cdist(x_sort, x_sort, p=2) / (C ** 0.5)
 
-            # get local density
-            dist_nearest, index_nearest = torch.topk(dist_matrix, k=k, dim=-1, largest=False)
-            density = (-(dist_nearest ** 2).mean(dim=-1)).exp()
+        # get local density
+        dist_nearest, index_nearest = torch.topk(dist_matrix, k=k, dim=-1, largest=False)
+        density = (-(dist_nearest ** 2).mean(dim=-1)).exp()
 
-            # get relative-separation distance
-            mask = density[:, None, :] > density[:, :, None]
-            mask = mask.type(x.dtype)
-            dist, index_parent = (dist_matrix * mask +
-                                  dist_matrix.flatten(1).max(dim=-1)[0][:, None, None] * (1 - mask)).min(dim=-1)
+        # get relative-separation distance
+        mask = density[:, None, :] > density[:, :, None]
+        mask = mask.type(x.dtype)
+        dist, index_parent = (dist_matrix * mask +
+                              dist_matrix.flatten(1).max(dim=-1)[0][:, None, None] * (1 - mask)).min(dim=-1)
 
-            # select clustering center according to score
-            score = dist * density
-            _, index_down = torch.topk(score, k=Ns_p, dim=-1)
+        # select clustering center according to score
+        score = dist * density
+        _, index_down = torch.topk(score, k=Ns_p, dim=-1)
 
-            dist_matrix = index_points(dist_matrix, index_down)
-            idx_agg_t = dist_matrix.argmin(dim=1)
+        dist_matrix = index_points(dist_matrix, index_down)
+        idx_agg_t = dist_matrix.argmin(dim=1)
 
-            # make sure selected centers merge to itself
-            idx_batch = torch.arange(B * num_part, device=x.device)[:, None].expand(B * num_part, Ns_p)
-            idx_tmp = torch.arange(Ns_p, device=x.device)[None, :].expand(B * num_part, Ns_p)
-            idx_agg_t[idx_batch.reshape(-1), index_down.reshape(-1)] = idx_tmp.reshape(-1)
+        # make sure selected centers merge to itself
+        idx_batch = torch.arange(B * num_part, device=x.device)[:, None].expand(B * num_part, Ns_p)
+        idx_tmp = torch.arange(Ns_p, device=x.device)[None, :].expand(B * num_part, Ns_p)
+        idx_agg_t[idx_batch.reshape(-1), index_down.reshape(-1)] = idx_tmp.reshape(-1)
 
-            # tansfer index_down and idx_agg_t to the original sort
-            idx_agg_t = idx_agg_t.reshape(B, num_part, N_p) + torch.arange(num_part, device=device)[None, :, None] * Ns_p
-            idx_agg_t = idx_agg_t.reshape(B, num_part*N_p)
-
+        # tansfer index_down and idx_agg_t to the original sort
+        idx_agg_t = idx_agg_t.reshape(B, num_part, N_p) + torch.arange(num_part, device=device)[None, :, None] * Ns_p
+        idx_agg_t = idx_agg_t.reshape(B, num_part*N_p)
 
     if weight is None:
         weight = x.new_ones(B, N, 1)

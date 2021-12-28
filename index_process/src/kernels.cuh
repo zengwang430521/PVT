@@ -273,3 +273,238 @@ void f_mydist(
             batch, Nquery, Nkey, kernel, channels,
             y);
 }
+
+
+
+
+// forward from query, key to attn
+template<typename dt, typename dtc>
+__global__ void qk2attn(
+        const dt *query,
+        const dt *key,
+        const int *idx,
+        const int batch,
+        const int Nquery,
+        const int Nkey,
+        const int kernel,
+        const int channels,
+        dt *y) {
+    // query: {batch, Nquery, channels}
+    // key: {batch, Nkey, channels}
+    // idx: {batch, Nquery, kernel}
+    // y: {batch, Nquery, kernel}
+
+    int idx_begin = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+    int idx_end = batch * Nquery * kernel;
+
+    for (int idx_all=idx_begin; idx_all < idx_end; idx_all += stride)
+    {
+        int tmp = idx_all;
+        int idx_K = tmp % kernel;
+        tmp = tmp / kernel;
+        int idx_N = tmp % Nquery;
+        tmp = tmp / Nquery;
+        int idx_B = tmp;
+
+        const int idx_M = __ldg(&idx[idx_all]);
+        dtc val = dtc(0);
+        const dt *p_query = query + idx_B * Nquery * channels + idx_N * channels;
+        const dt *p_key = key + idx_B * Nkey * channels + idx_M * channels;
+        for (int c = 0; c < channels; ++c) {
+            dtc mul = static_cast<dtc> (__ldg(p_query) * __ldg(p_key));
+            val += mul;
+            p_query += 1;
+            p_key += 1;
+        }
+        y[idx_all] = static_cast<dt> (val);
+    }
+}
+
+
+
+template<typename dt, typename dtc>
+void f_qk2attn(
+        cudaStream_t stream,
+        const dt *query,
+        const dt *key,
+        const int *idx,
+        const int batch,
+        const int Nquery,
+        const int Nkey,
+        const int kernel,
+        const int channels,
+        dt *y) {
+
+        dim3 blockSize(CUDA_NUM_THREADS);
+        dim3 gridSize( min( (batch*Nquery*kernel+blockSize.x-1)/blockSize.x, MAX_PIXELS_2d) );
+
+        qk2attn<dt, dtc> <<< gridSize, blockSize, 0, stream >>> (
+            query, key, idx,
+            batch, Nquery, Nkey, kernel, channels,
+            y);
+}
+
+
+
+// backward from attn, key to query
+// FLOPs: B * N * K * C
+// parallel in channels B, N, C, loop in channels K
+template<typename dt, typename dtc>
+__global__ void attn_key2query(
+        const dt *attn,
+        const dt *key,
+        const int *idx,
+        const int batch,
+        const int Nquery,
+        const int Nkey,
+        const int kernel,
+        const int channels,
+        dt *query) {
+    // attn: {batch, Nquery, kernel}
+    // key: {batch, Nkey, channels}
+    // idx: {batch, Nquery, kernel}
+    // query: {batch, Nquery, channels}
+
+    int idx_begin = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+    int idx_end = batch * Nquery * channels;
+
+    for (int idx_all=idx_begin; idx_all < idx_end; idx_all += stride)
+    {
+        int tmp = idx_all;
+        int idx_C = tmp % channels;
+        tmp = tmp / channels;
+        int idx_N = tmp % Nquery;
+        tmp = tmp / Nquery;
+        int idx_B = tmp;
+
+        const dt *p_attn = attn + idx_B * Nquery * kernel + idx_N * kernel + 0;
+        const int *p_idx_M = idx + idx_B * Nquery * kernel + idx_N * kernel + 0;
+
+        dtc val = dtc(0);
+        for (int idx_K = 0; idx_K < kernel; ++idx_K) {
+            const dt *p_key = key + idx_B * Nkey * channels + __ldg(p_idx_M) * channels + idx_C;
+            val += static_cast<dtc> (__ldg(p_attn) * __ldg(p_key));
+            p_attn += 1;
+            p_idx_M += 1;
+        }
+        query[idx_B * Nquery * channels + idx_N * channels + idx_C] = static_cast<dt> (val);
+    }
+}
+
+
+
+template<typename dt, typename dtc>
+void f_attn_key2query(
+        cudaStream_t stream,
+        const dt *attn,
+        const dt *key,
+        const int *idx,
+        const int batch,
+        const int Nquery,
+        const int Nkey,
+        const int kernel,
+        const int channels,
+        dt *query) {
+
+        dim3 blockSize(CUDA_NUM_THREADS);
+        dim3 gridSize( min( (batch*Nquery*channels+blockSize.x-1)/blockSize.x, MAX_PIXELS_2d) );
+
+        attn_key2query<dt, dtc> <<< gridSize, blockSize, 0, stream >>> (
+            attn, key, idx,
+            batch, Nquery, Nkey, kernel, channels,
+            query);
+}
+
+
+// backward from attn (query) to key
+// FLOPs: B * N * K * C
+// in thery, can only be paralleled in B, C dims
+// in practice: parallel in dims B, N, C, loop in channels K, use atomicAdd
+template<typename dt, typename dtc>
+__global__ void attn_query2key(
+        const dt *attn,
+        const dt *query,
+        const int *idx,
+        const int batch,
+        const int Nquery,
+        const int Nkey,
+        const int kernel,
+        const int channels,
+        dt *key) {
+    // attn: {batch, Nquery, kernel}
+    // query: {batch, Nquery, channels}
+    // idx: {batch, Nquery, kernel}
+    // key: {batch, Nkey, channels}
+
+    int idx_begin = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+    int idx_end = batch * Nquery * channels;
+
+    for (int idx_all=idx_begin; idx_all < idx_end; idx_all += stride)
+    {
+        // idx_all(B, N, C): idx_B * Nquery * channels + idx_N * channels + idx_C
+        int tmp = idx_all;
+        int idx_C = tmp % channels;
+        tmp = tmp / channels;
+        int idx_N = tmp % Nquery;
+        tmp = tmp / Nquery;
+        int idx_B = tmp;
+
+        // const dt *p_query = query + idx_all;
+        const dt q = __ldg(query + idx_all);
+        const dt *p_attn = attn + idx_B * Nquery * kernel + idx_N * kernel + 0;
+        const int *p_idx_M = idx + idx_B * Nquery * kernel + idx_N * kernel + 0;
+
+        for (int idx_K = 0; idx_K < kernel; ++idx_K) {
+            // dtc val = static_cast<dtc> (__ldg(p_attn) * __ldg(p_query));
+            dtc val = static_cast<dtc> (__ldg(p_attn) * q);
+
+            dt *p_key = key + idx_B * Nkey * channels + __ldg(p_idx_M) * channels + idx_C;
+
+            atomicAdd(p_key, val);
+
+            p_attn += 1;
+            p_idx_M += 1;
+
+        }
+    }
+}
+
+
+
+template<typename dt, typename dtc>
+void f_attn_query2key(
+        cudaStream_t stream,
+        const dt *attn,
+        const dt *query,
+        const int *idx,
+        const int batch,
+        const int Nquery,
+        const int Nkey,
+        const int kernel,
+        const int channels,
+        dt *key) {
+
+        dim3 blockSize(CUDA_NUM_THREADS);
+        dim3 gridSize( min( (batch*Nquery*channels+blockSize.x-1)/blockSize.x, MAX_PIXELS_2d) );
+
+        attn_query2key<dt, dtc> <<< gridSize, blockSize, 0, stream >>> (
+            attn, query, idx,
+            batch, Nquery, Nkey, kernel, channels,
+            key);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////
+
+// realization of weighted sum
+
+// Forward: can use f_attn_key2query, the process is totally the same.
+
+// Backward from out to attn_weight: can use f_qk2attn, the process is totally the same.
+
+// Backward from out to value: can use f_attn_query2key
+
