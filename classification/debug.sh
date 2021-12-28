@@ -89,9 +89,11 @@ srun -p pat_earth  --job-name=pvt --ntasks=1 --gres=gpu:1 --ntasks-per-node=1 --
 srun -p pat_earth -x SH-IDC1-10-198-4-[90-91,100-103,116-119] \
 srun -p pat_earth \
 srun -p mm_human \
+srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
     --job-name=eval --ntasks=8 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
     --batch-size 64 --data-path data/imagenet --input-size 224 --use-mcloader \
+
     --model=tcformer_partpad_small --output_dir=work_dirs/debug --resume work_dirs/224/tc_part/checkpoint.pth --eval
 
     --model=tcformer_partpad_small --output_dir=work_dirs/debug --resume work_dirs/my3h2_density0/checkpoint_tcformer.pth --eval
@@ -104,11 +106,14 @@ srun -p mm_human \
 srun -p mm_human \
 srun -p pat_earth  \
 srun -p mm_human \
-srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
 srun -p pat_earth -x SH-IDC1-10-198-4-[90-91,100-103,116-119] \
+srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
     --job-name=pvt --ntasks=16 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
     python -u train.py --config configs/pvt_v2/debug.py \
     --batch-size 64 --data-path data/imagenet --input-size 224 --use-mcloader \
+    --model=hrtcformer_w32 --output_dir=work_dirs/224/hrtc_32 --resume work_dirs/224/hrtc_32/checkpoint.pth
+
+
     --model=tcformer_part_small --output_dir=work_dirs/224/tc_part --resume work_dirs/224/tc_part/checkpoint.pth
 
 
