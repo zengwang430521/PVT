@@ -1,8 +1,6 @@
 import argparse
 import torch
 from timm.models import create_model
-import pvt
-import pvt_v2
 import math
 import train
 
@@ -63,6 +61,10 @@ def token2map_flops(N0, C):
 
 def get_flops(model, input_shape):
     flops, params = get_model_complexity_info(model, input_shape, as_strings=False)
+    if hasattr(model, 'get_extra_flops'):
+        flops += model.get_extra_flops(input_shape[1], input_shape[2])
+        return flops_to_string(flops), params_to_string(params)
+
     if 'den' in model.name:
         tmp = get_cluster_flops(model, input_shape)
         flops += tmp

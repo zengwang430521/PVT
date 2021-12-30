@@ -194,7 +194,7 @@ class TCFormer(nn.Module):
 
             if stage > 0:
                 # cluster flops
-                flops += DPC_flops(N, dim)
+                flops += DPC_flops(N, dim) / (self.nh_list[stage-1] * self.nw_list[stage-1])
                 flops += map2token_flops(N0, dim_up) + token2map_flops(N0, dim)
                 N = N * self.sample_ratio
                 h, w = h // 2, w // 2
