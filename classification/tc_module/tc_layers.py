@@ -524,6 +524,9 @@ class TCWindowAttention(nn.Module):
 
         # add a fake token at the end.
         x_source = torch.cat([x_source, x_source.new_zeros(B, 1, C)], dim=1)
+
+        # print('no conf mask')
+        # conf_source = torch.cat([conf_source, conf_source.new_ones(B, 1, 1) * 0], dim=1)
         conf_source = torch.cat([conf_source, conf_source.new_ones(B, 1, 1) * (-float('Inf'))], dim=1)
 
         # calculate

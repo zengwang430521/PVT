@@ -15,7 +15,8 @@ from torch.nn import functional as F
 from .tc_layers import TCWinBlock
 from .tcformer_utils import (
     map2token, token2map, token_downup, get_grid_loc,
-    token_cluster_part_pad, token_cluster_part_follow)
+    token_cluster_part_pad, token_cluster_part_follow,
+    show_tokens_merge, token_cluster_grid)
 import math
 from timm.models.registry import register_model
 
@@ -825,8 +826,10 @@ class HRNet(nn.Module):
 
 
 
+vis = False
+
 # part wise merge with padding with dict as input and output
-# no block in this layer.
+# no block in this layer, use BN layer.
 class CTM_partpad_dict(nn.Module):
     def __init__(self, sample_ratio, embed_dim, dim_out, drop_rate,
                  k=5, nh=1, nw=None, nh_list=None, nw_list=None,
@@ -886,6 +889,10 @@ class CTM_partpad_dict(nn.Module):
         num_part = nh * nw
         sample_num = round(sample_num // num_part) * num_part
 
+        # print('ONLY FOR DEBUG')
+        # Ns = x_map.shape[1] * x_map.shape[2]
+        # x_down, idx_agg_down, weight_t, _ = token_cluster_grid(input_dict, Ns, conf, weight=None, k=5)
+
         if self.nh_list is not None and self.nw_list is not None:
             x_down, idx_agg_down, weight_t = token_cluster_part_pad(
                 input_dict, sample_num, weight=weight, k=self.k,
@@ -915,6 +922,115 @@ class CTM_partpad_dict(nn.Module):
             'loc_orig': loc_orig,
             'map_size': [H, W]
         }
+
+        if self.with_act:
+            out_dict['x'] = self.act(out_dict['x'])
+            input_dict['x'] = self.act(input_dict['x'])
+
+        return out_dict, input_dict
+
+
+# part wise merge with padding with dict as input and output
+# no block in this layer, use BN layer.
+class CTM_partpad_dict_BN(nn.Module):
+    def __init__(self, sample_ratio, embed_dim, dim_out, drop_rate,
+                 k=5, nh=1, nw=None, nh_list=None, nw_list=None,
+                 use_agg_weight=True, agg_weight_detach=False, with_act=True,
+                 norm_cfg=None,
+                 ):
+        super().__init__()
+        # self.sample_num = sample_num
+        self.sample_ratio = sample_ratio
+        self.dim_out = dim_out
+        self.norm_cfg = norm_cfg
+
+        self.conv = nn.Conv2d(embed_dim, dim_out, kernel_size=3, stride=2, padding=1)
+        self.conv_skip = nn.Linear(embed_dim, dim_out, bias=False)
+        self.norm_name, self.norm = build_norm_layer(self.norm_cfg, self.dim_out)
+        self.conf = nn.Linear(self.dim_out, 1)
+
+        # for density clustering
+        self.k = k
+
+        # for partwise
+        self.nh = nh
+        self.nw = nw or nh
+        self.nh_list = nh_list
+        self.nw_list = nw_list or nh_list
+        self.use_agg_weight = use_agg_weight
+        self.agg_weight_detach = agg_weight_detach
+        self.with_act = with_act
+        if self.with_act:
+            self.act = nn.ReLU(inplace=False)
+
+    def forward(self, input_dict):
+        input_dict = input_dict.copy()
+        x = input_dict['x']
+        loc_orig = input_dict['loc_orig']
+        idx_agg = input_dict['idx_agg']
+        agg_weight = input_dict['agg_weight']
+        H, W = input_dict['map_size']
+
+        if not self.use_agg_weight:
+            agg_weight = None
+
+        if agg_weight is not None and self.agg_weight_detach:
+            agg_weight = agg_weight.detach()
+
+        B, N, C = x.shape
+        x_map, _ = token2map(x, None, loc_orig, idx_agg, [H, W])
+
+        x_map = self.conv(x_map)
+        x = map2token(x_map, N, loc_orig, idx_agg, agg_weight) + self.conv_skip(x)
+        x = token_norm(self.norm, self.norm_name, x)
+
+        conf = self.conf(x)
+        weight = conf.exp()
+        input_dict['x'] = x
+
+        B, N, C = x.shape
+        sample_num = max(math.ceil(N * self.sample_ratio), 1)
+        nh, nw = self.nh, self.nw
+        num_part = nh * nw
+        sample_num = round(sample_num // num_part) * num_part
+
+        # print('ONLY FOR DEBUG')
+        # Ns = x_map.shape[1] * x_map.shape[2]
+        # x_down, idx_agg_down, weight_t, _ = token_cluster_grid(input_dict, Ns, conf, weight=None, k=5)
+
+        if self.nh_list is not None and self.nw_list is not None:
+            x_down, idx_agg_down, weight_t = token_cluster_part_pad(
+                input_dict, sample_num, weight=weight, k=self.k,
+                nh_list=self.nh_list, nw_list=self.nw_list
+            )
+        else:
+            x_down, idx_agg_down, weight_t = token_cluster_part_follow(
+                input_dict, sample_num, weight=weight, k=self.k, nh=nh, nw=nw
+            )
+
+        if agg_weight is not None:
+            agg_weight_down = agg_weight * weight_t
+            agg_weight_down = agg_weight_down / agg_weight_down.max(dim=1, keepdim=True)[0]
+            if self.agg_weight_detach:
+                agg_weight_down = agg_weight_down.detach()
+        else:
+            agg_weight_down = None
+
+        _, _, H, W = x_map.shape
+        input_dict['conf'] = conf
+        input_dict['map_size'] = [H, W]
+
+        out_dict = {
+            'x': x_down,
+            'idx_agg': idx_agg_down,
+            'agg_weight': agg_weight_down,
+            'loc_orig': loc_orig,
+            'map_size': [H, W]
+        }
+
+        # print('ONLY FOR DEBUG.')
+        # xt = x_down.permute(0, 2, 1).reshape(x_map.shape)
+        # xt = token2map(x, None, loc_orig, idx_agg, [H, W])[0]
 
         if self.with_act:
             out_dict['x'] = self.act(out_dict['x'])
@@ -966,6 +1082,14 @@ class TokenConv(nn.Conv2d):
         return x
 
 
+def token_norm(norm_layer, norm_name, x):
+    if 'ln' in norm_name:
+        x = norm_layer(x)
+    else:
+        x = norm_layer(x.permute(0, 2, 1).unsqueeze(-1)).flatten(2).permute(0, 2, 1)
+    return x
+
+
 class TokenNorm(nn.Module):
     def __init__(self, norm):
         super().__init__()
@@ -985,7 +1109,9 @@ class TokenDownLayer(nn.Module):
                  in_channels,
                  out_channels,
                  conv_cfg,
-                 norm_cfg):
+                 norm_cfg,
+                 with_act=True,
+                 ):
         super().__init__()
         self.conv_cfg = conv_cfg
         self.norm_cfg = norm_cfg
@@ -1018,6 +1144,9 @@ class TokenDownLayer(nn.Module):
             stride=1,
             bias=False)
         self.norm2 = build_norm_layer(self.norm_cfg, out_channels)[1]
+        self.with_act = with_act
+        if self.with_act:
+            self.act = nn.ReLU(inplace=True)
 
     def forward(self, input_dict, tar_dict):
         x = input_dict['x']
@@ -1045,6 +1174,9 @@ class TokenDownLayer(nn.Module):
         x = self.conv(x)
         x = self.norm2(x)
         x = x.squeeze(-1).permute(0, 2, 1)
+
+        if self.with_act:
+            x = self.act(x)
 
         out_dict = tar_dict.copy()
         out_dict['x'] = x
@@ -1081,7 +1213,7 @@ class TokenFuseLayer(nn.Module):
                         output_cap=True,
                     )
                 elif j == i:
-                    # sample stage
+                    # same stage
                     fuse_link = None
                 else:
                     # down sample
@@ -1091,7 +1223,9 @@ class TokenFuseLayer(nn.Module):
                             TokenDownLayer(
                                 in_channels=in_channels[j],
                                 out_channels=in_channels[i] if k == i - j - 1 else in_channels[j],
-                                conv_cfg=conv_cfg, norm_cfg=norm_cfg),
+                                conv_cfg=conv_cfg,
+                                norm_cfg=norm_cfg,
+                                with_act=(k != i - j - 1)),
                         )
                     fuse_link = nn.ModuleList(fuse_link)
 
@@ -1141,7 +1275,7 @@ class TokenFuseLayer(nn.Module):
                         src_dict = fuse_link[k](src_dict, tar_dict)
                     out_dict['x'] = out_dict['x'] + src_dict['x']
 
-            out_dict['x'] = self.relu(x)
+            out_dict['x'] = self.relu(out_dict['x'])
             out_lists.append(out_dict)
         return out_lists
 
@@ -1281,10 +1415,6 @@ class HRTCModule(HRModule):
         return x_fuse
 
 
-
-
-
-
 class HRTCFormer(HRNet):
     """HRFormer backbone.
 
@@ -1337,7 +1467,8 @@ class HRTCFormer(HRNet):
         self.nw_list = extra.get('nw_list', [1, 1, 1])
 
         self.ctm_with_act = extra.get('ctm_with_act', True)
-
+        if vis:
+            self.count = 0
         super().__init__(extra, in_channels, conv_cfg, norm_cfg, norm_eval,
                          with_cp, zero_init_residual)
 
@@ -1414,7 +1545,7 @@ class HRTCFormer(HRNet):
                     transition_layers.append(None)
             else:
                 # down layers
-                down_layers = CTM_partpad_dict(
+                down_layers = CTM_partpad_dict_BN(
                     embed_dim=num_channels_pre_layer[-1],
                     dim_out=num_channels_cur_layer[i],
                     drop_rate=0,
@@ -1423,7 +1554,8 @@ class HRTCFormer(HRNet):
                     nw_list=self.nw_list if pre_stage == 0 else None,
                     nh=self.nh_list[pre_stage],
                     nw=self.nw_list[pre_stage],
-                    with_act=self.ctm_with_act
+                    with_act=self.ctm_with_act,
+                    norm_cfg=self.norm_cfg
                 )
                 transition_layers.append(down_layers)
 
@@ -1459,6 +1591,9 @@ class HRTCFormer(HRNet):
 
     def forward(self, x):
         """Forward function."""
+        if vis:
+            img = x.clone()
+
         x = self.conv1(x)
         x = self.norm1(x)
         x = self.relu(x)
@@ -1494,6 +1629,10 @@ class HRTCFormer(HRNet):
 
         if self.return_map:
             y_list = self.tran2map(y_list)
+
+        if vis:
+            show_tokens_merge(img, x_list, self.count)
+            self.count += 1
 
         return y_list
 
