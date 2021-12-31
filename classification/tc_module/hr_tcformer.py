@@ -5,7 +5,7 @@ import copy
 import torch
 import torch.nn as nn
 from mmcv.cnn import build_activation_layer, build_conv_layer, build_norm_layer
-from mmcv.cnn.bricks.transformer import build_dropout
+# from mmcv.cnn.bricks.transformer import build_dropout
 from mmcv.runner import BaseModule
 from timm.models.layers import to_2tuple, trunc_normal_
 from torch.nn import functional as F
