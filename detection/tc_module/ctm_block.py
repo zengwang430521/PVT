@@ -820,4 +820,4 @@ class CTM_partpad(nn.Module):
         x_down = self.block(x_down, idx_agg_down, agg_weight_down, loc_orig,
                             x, idx_agg, agg_weight, H, W, conf_source=conf)
 
-        return x_down, idx_agg_down, agg_weight_down, idx_k_loc_down
+        return x_down, idx_agg_down, agg_weight_down, idx_k_loc_down, H, W

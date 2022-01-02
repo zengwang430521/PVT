@@ -160,8 +160,8 @@ class TCFormer(nn.Module):
             block = getattr(self, f"block{i + 1}")
             norm = getattr(self, f"norm{i + 1}")
 
-            x, idx_agg, agg_weight, idx_k_loc = ctm(x, loc_orig, idx_agg, agg_weight, H, W, idx_k_loc)  # down sample
-            H, W = H // 2, W // 2
+            x, idx_agg, agg_weight, idx_k_loc, H, W = ctm(x, loc_orig, idx_agg, agg_weight, H, W, idx_k_loc)  # down sample
+            # H, W = H // 2, W // 2
             for j, blk in enumerate(block):
                 x = blk(x, idx_agg, agg_weight, loc_orig, x, idx_agg, agg_weight, H, W, conf_source=None)
 
