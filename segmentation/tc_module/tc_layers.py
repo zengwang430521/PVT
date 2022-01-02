@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from .transformer_utils import DropPath, to_2tuple, trunc_normal_
 from .tcformer_utils import token2map, map2token, index_points
 try:
-    from index_process.function import f_attn, f_weighted_sum
+    from function import f_attn, f_weighted_sum
 except:
     print('index attention is not supported')
 from mmcv.cnn import build_activation_layer, build_conv_layer, build_norm_layer
