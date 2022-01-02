@@ -1,5 +1,5 @@
 import sys
-sys.path.insert(0, 'index_process')
+sys.path.insert(0, '../index_process')
 import math
 import torch
 import torch.nn as nn
