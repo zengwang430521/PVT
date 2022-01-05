@@ -554,7 +554,7 @@ def token_cluster_merge(x, Ns, idx_agg, weight=None, return_weight=False, k=5):
 
     # # only for debug
     # print('for debug only!')
-    # loc_orig = get_grid_loc(x.shape[0], 64, 64, x.device)
+    # loc_orig = get_grid_loc(x.shape[0], 56, 56, x.device)
     # show_conf_merge(density[:, :, None], None, loc_orig, idx_agg, n=1, vmin=None)
     # show_conf_merge(dist[:, :, None], None, loc_orig, idx_agg, n=2, vmin=None)
     # show_conf_merge(score[:, :, None], None, loc_orig, idx_agg, n=3, vmin=None)
@@ -786,7 +786,7 @@ def show_tokens_merge(x, out, count=0):
     IMAGENET_DEFAULT_STD = torch.tensor([0.229, 0.224, 0.225], device=x.device)[None, :, None, None]
     x = x * IMAGENET_DEFAULT_STD + IMAGENET_DEFAULT_MEAN
     save_x = False
-    save_img = True
+    save_img = False
     save_fig = True
 
     if save_x:
@@ -823,7 +823,8 @@ def show_tokens_merge(x, out, count=0):
 
         B, N, _ = x.shape
 
-        tmp = torch.arange(N, device=x.device)[None, :, None].expand(B, N, 1).float()
+        # tmp = torch.arange(N, device=x.device)[None, :, None].expand(B, N, 1).float()
+        tmp = torch.rand([N, 3], device=x.device)[None, :, :].expand(B, N, 3).float()
         H, W, _ = img.shape
         idx_map, _ = token2map(tmp, loc_orig, loc_orig, idx_agg, [H // 4, W // 4])
         idx_map = F.interpolate(idx_map, [H, W], mode='nearest')
@@ -839,7 +840,9 @@ def show_tokens_merge(x, out, count=0):
             agg_weight = out[lv]['agg_weight']
             B, N, _ = x.shape
 
-            token_c = map2token(color_map, N, loc_orig, idx_agg, agg_weight)
+            # token_c = map2token(color_map, N, loc_orig, idx_agg, agg_weight)
+            token_c = torch.rand([N, 3], device=x.device)[None, :, :].expand(B, N, 3).float()
+
             idx_map, _ = token2map(token_c, loc_orig, loc_orig, idx_agg, [H // 4, W // 4])
             idx_map_grid = F.avg_pool2d(color_map, kernel_size=2**lv)
 

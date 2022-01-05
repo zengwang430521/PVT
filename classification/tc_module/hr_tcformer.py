@@ -20,6 +20,7 @@ from .tcformer_utils import (
 import math
 from timm.models.registry import register_model
 
+vis = False
 
 
 # from ...builder import BACKBONES
@@ -826,7 +827,6 @@ class HRNet(nn.Module):
 
 
 
-vis = False
 
 # part wise merge with padding with dict as input and output
 # no block in this layer, use BN layer.
@@ -1741,8 +1741,8 @@ class hrtcformer_w32(HRTCFormer):
             norm_cfg=norm_cfg,
             return_map=False,
             extra=dict(
-                nh_list=[1, 1, 1],
-                nw_list=[1, 1, 1],
+                nh_list=[4, 2, 1],
+                nw_list=[4, 2, 1],
                 drop_path_rate=0.0,
                 stage1=dict(
                     num_modules=1,
