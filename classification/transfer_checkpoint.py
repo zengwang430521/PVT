@@ -1,8 +1,12 @@
 import torch
 import copy
 from tc_module.tcformer import tcformer_small
-src_file = 'work_dirs/my3h2_density0/checkpoint.pth'
-out_file = 'work_dirs/my3h2_density0/checkpoint_tcformer.pth'
+# src_file = 'work_dirs/my3h2_density0/checkpoint.pth'
+# out_file = 'work_dirs/my3h2_density0/checkpoint_tcformer.pth'
+src_file = 'work_dirs/my3h2_density0f_tiny_16/checkpoint.pth'
+out_file = 'work_dirs/my3h2_density0f_tiny_16/checkpoint_tcformer.pth'
+
+
 model = tcformer_small()
 model_dict = model.state_dict()
 src_dict = torch.load(src_file)
