@@ -21,7 +21,8 @@ import pvt
 import pvt_v2
 import mmcv_custom.runner.epoch_based_runner
 import mmcv_custom.runner.optimizer
-from tc_module import tcformer_partpad, mta_head
+from tc_module import tcformer_partpad, mta_head, hr_neck
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a detector')

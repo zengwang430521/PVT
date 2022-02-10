@@ -5,11 +5,13 @@ from mmcv import Config
 import pvt_v2
 import tc_module.tcformer_partpad
 import tc_module.mta_head
+import tc_module.hr_neck
 
 # cfg_file = 'configs/mask_rcnn_pvt_v2_b2_fpn_1x_coco.py'
 # cfg_file = 'configs/mask_rcnn_tc_partpad2_mta_1x_coco.py'
 # cfg_file = 'configs/mask_rcnn_tc_partpad_mta_1x_coco.py'
-cfg_file = 'configs/mask_rcnn_tc_partpad_bimta_1x_coco.py'
+# cfg_file = 'configs/mask_rcnn_tc_partpad_bimta_1x_coco.py'
+cfg_file = 'configs/mask_rcnn_tc_partpad_hr_1x_coco.py'
 
 device = torch.device('cuda')
 img_scale = (667, 400)
@@ -17,6 +19,7 @@ img_scale = (667, 400)
 cfg = Config.fromfile(cfg_file)
 model = cfg.model
 model = build_detector(model).to(device)
+model.eval()
 # model_dict = model.state_dict()
 x = torch.zeros([1, 3, img_scale[1], img_scale[0]]).to(device)
 
