@@ -194,6 +194,7 @@ class MTA(BaseModule):
         # add extra conv layers (e.g., RetinaNet)
         self.relu_before_extra_convs = relu_before_extra_convs
         assert isinstance(add_extra_convs, (str, bool))
+        self.add_extra_convs = add_extra_convs
         if isinstance(add_extra_convs, str):
             # Extra_convs_source choices: 'on_input', 'on_lateral', 'on_output'
             assert add_extra_convs in ('on_input', 'on_lateral', 'on_output')
