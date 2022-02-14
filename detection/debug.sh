@@ -25,6 +25,8 @@ srun -p pat_earth -x SH-IDC1-10-198-4-[100-103,116-119] \
 srun -p pat_earth  \
   --ntasks=8 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --kill-on-bad-exit=1 \
    --job-name=det python -u train.py --launcher="slurm" \
+   configs/mask_rcnn_tc_partpad_hr2_1x_coco.py --work-dir=work_dirs/mask_partpad_hr2
+
     configs/mask_rcnn_tc_partpad_mta_1x_coco_2.py  --work-dir=work_dirs/mask_partpad_2
 
    configs/mask_rcnn_tc_partpad_hr_1x_coco.py --work-dir=work_dirs/mask_partpad_hr
