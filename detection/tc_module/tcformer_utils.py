@@ -2202,3 +2202,18 @@ def gaussian_filt(x, kernel_size=5, sigma=None):
         groups=channels
     )
     return y
+
+
+def pca_feature(x):
+    with torch.cuda.amp.autocast(enabled=False):
+        U, S, V = torch.pca_lowrank(x[0].float(), q=3)
+        tmp = x @ V
+        tmp = tmp - tmp.min(dim=1, keepdim=True)[0]
+        tmp = tmp / tmp.max(dim=1, keepdim=True)[0]
+        # tmp = tmp / tmp.max()
+    return tmp
+
+
+def pca_map(x):
+    B, C, H, W = x.shape
+    return pca_feature(x.flatten(2).permute(0, 2, 1)).reshape(B, H, W, -1)

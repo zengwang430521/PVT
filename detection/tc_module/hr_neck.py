@@ -50,7 +50,7 @@ class HRNeck(nn.Module):
                             in_channels[j],
                             out_channels[i],
                             kernel_size=3,
-                            stride=2,
+                            stride=1,
                             padding=1,
                             bias=False),
                         build_norm_layer(self.norm_cfg, out_channels[i])[1],
@@ -112,6 +112,28 @@ class HRNeck(nn.Module):
                 x_t = token2map(src_dict['x'], None, src_dict['loc_orig'], src_dict['idx_agg'], map_size)[0]
                 x_t = self.fuse_layers[i][j](x_t)
                 out_map = out_map + x_t
+                #
+                # print('debug')
+                # print(j)
+                # from tc_module.tcformer_utils import pca_feature, pca_map
+                # import matplotlib.pyplot as plt
+                # tmp = pca_map(x_t)
+                # plt.subplot(3, 4, j+1)
+                # plt.imshow(tmp[0].detach().cpu().float())
+                # print(x_t.norm(dim=1).mean())
+                #
+                # x_t = self.fuse_layers[i][j](x_t)
+                # tmp = pca_map(x_t)
+                # plt.subplot(3, 4, j+5)
+                # plt.imshow(tmp[0].detach().cpu().float())
+                # print(x_t.norm(dim=1).mean())
+                #
+                # out_map = out_map + x_t
+                # tmp = pca_map(out_map)
+                # plt.subplot(3, 4, j+9)
+                # plt.imshow(tmp[0].detach().cpu().float())
+                # print(out_map.norm(dim=1).mean())
+
             out_lists.append(out_map)
 
         # part 2: add extra levels
@@ -175,7 +197,7 @@ class HRNeck2(nn.Module):
                             in_channels[j],
                             out_channels[i],
                             kernel_size=3,
-                            stride=2,
+                            stride=1,
                             padding=1,
                             bias=False),
                         # build_norm_layer(self.norm_cfg, out_channels[i])[1],
@@ -237,6 +259,29 @@ class HRNeck2(nn.Module):
                 x_t = token2map(src_dict['x'], None, src_dict['loc_orig'], src_dict['idx_agg'], map_size)[0]
                 x_t = self.fuse_layers[i][j](x_t)
                 out_map = out_map + x_t
+
+                # print('debug')
+                # print(j)
+                # from tc_module.tcformer_utils import pca_feature, pca_map
+                # import matplotlib.pyplot as plt
+                # tmp = pca_map(x_t)
+                # plt.subplot(3, 4, j+1)
+                # plt.imshow(tmp[0].detach().cpu().float())
+                # print(x_t.norm(dim=1).mean())
+                #
+                # x_t = self.fuse_layers[i][j](x_t)
+                # tmp = pca_map(x_t)
+                # plt.subplot(3, 4, j+5)
+                # plt.imshow(tmp[0].detach().cpu().float())
+                # print(x_t.norm(dim=1).mean())
+                #
+                # out_map = out_map + x_t
+                # tmp = pca_map(out_map)
+                # plt.subplot(3, 4, j+9)
+                # plt.imshow(tmp[0].detach().cpu().float())
+                # print(out_map.norm(dim=1).mean())
+
+
             out_lists.append(out_map)
 
         # part 2: add extra levels
