@@ -512,6 +512,7 @@ def gumble_top_k(x, k, dim, T=1, p_value=1e-6):
 
 
 # DPC-KNN based token clustering and token feature averaging
+# baseline
 def token_cluster_merge(x, Ns, idx_agg, weight=None, return_weight=False, k=5):
     dtype = x.dtype
     device = x.device
@@ -578,6 +579,12 @@ def token_cluster_merge(x, Ns, idx_agg, weight=None, return_weight=False, k=5):
     return x_out, idx_agg
 
 
+# select center based on conf with sampling
+# assign group based on:
+#   1.rough seg centers with selected top-(Ns**0.5) center (with overlap)
+#   2.determine the nearest seg based on the distance to the center for everty token
+#   3.calculate the distance between the centers in that seg
+#   4.determine the final group based on the distance
 def token_cluster_hir(x, Ns, idx_agg, conf, weight=None, return_weight=False, **kwargs):
     dtype = x.dtype
     device = x.device
